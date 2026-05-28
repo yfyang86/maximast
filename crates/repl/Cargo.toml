@@ -1,0 +1,12 @@
+[package]
+name = "maxima-repl"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "REPL binary for Maxima kernel"
+
+[dependencies]
+maxima-core = { path = "../core" }
+maxima-parser = { path = "../parser" }
+maxima-eval = { path = "../eval" }
+rustyline = { version = "15", features = ["derive"] }

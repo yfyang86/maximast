@@ -1,0 +1,43 @@
+/* Walkthrough 02: Algebra and Polynomial Manipulation
+ *
+ * Run: maxima-repl -b walkthrough/02_algebra.mac
+ *
+ * Covers: expand, factor, ratsimp, partfrac, gcd, subst
+ */
+
+/* --- Expansion --- */
+expand((x + 1)^2);
+expand((x + y)^3);
+expand((a + b) * (a - b));
+expand((x + 1)^6);
+
+/* --- Factoring --- */
+factor(x^2 - 1);
+factor(x^3 - 1);
+factor(x^4 - 1);
+factor(x^6 - 1);
+factor(x^4 + x^2 + 1);
+
+/* --- Rational simplification --- */
+ratsimp((x^2 - 1) / (x - 1));
+ratsimp((x^3 - 8) / (x - 2));
+ratsimp(1/x + 1/(x+1));
+
+/* --- Partial fractions --- */
+partfrac(1 / (x^2 - 1), x);
+partfrac(1 / (x * (x + 1)^2), x);
+partfrac((x^2 + 1) / (x^3 - x), x);
+
+/* --- Polynomial GCD --- */
+gcd(x^4 - 1, x^6 - 1);
+gcd(x^2 - 1, x^2 + 2*x + 1);
+
+/* --- Substitution --- */
+subst(3, x, x^3 + 2*x + 1);
+subst(a + b, x, x^2 - x);
+subst(%pi/4, x, sin(x) + cos(x));
+
+/* --- Trigonometric identities --- */
+trigexpand(sin(a + b));
+trigexpand(cos(2*x));
+trigsimp(sin(x)^2 + cos(x)^2);

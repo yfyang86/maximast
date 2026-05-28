@@ -1,0 +1,39 @@
+/* Walkthrough 21: Ordinary Differential Equations
+ *
+ * Run: maxima-repl -b walkthrough/21_ode.mac
+ *
+ * Covers: ode2 for first and second order ODEs
+ */
+
+/* --- First-order: separable --- */
+/* dy/dx = x → y = x^2/2 + C */
+ode2('diff(y,x) = x, y, x);
+
+/* dy/dx = x*y → y = C*exp(x^2/2) */
+ode2('diff(y,x) = x*y, y, x);
+
+/* --- First-order: linear --- */
+/* dy/dx + y = 0 → y = C*exp(-x) */
+ode2('diff(y,x) + y = 0, y, x);
+
+/* --- Second-order: distinct real roots --- */
+/* y'' - y = 0 → y = k1*exp(x) + k2*exp(-x) */
+ode2('diff(y,x,2) - y = 0, y, x);
+
+/* y'' - 3y' + 2y = 0 → roots 1, 2 */
+ode2('diff(y,x,2) - 3*'diff(y,x) + 2*y = 0, y, x);
+
+/* --- Second-order: complex roots --- */
+/* y'' + y = 0 → y = k1*cos(x) + k2*sin(x) */
+ode2('diff(y,x,2) + y = 0, y, x);
+
+/* y'' + 4y = 0 → y = k1*cos(2x) + k2*sin(2x) */
+ode2('diff(y,x,2) + 4*y = 0, y, x);
+
+/* --- Second-order: repeated root --- */
+/* y'' + 4y' + 4y = 0 → y = (k1 + k2*x)*exp(-2x) */
+ode2('diff(y,x,2) + 4*'diff(y,x) + 4*y = 0, y, x);
+
+/* --- Second-order: damped oscillation --- */
+/* y'' + 2y' + 5y = 0 → exp(-x)*(k1*cos(2x) + k2*sin(2x)) */
+ode2('diff(y,x,2) + 2*'diff(y,x) + 5*y = 0, y, x);

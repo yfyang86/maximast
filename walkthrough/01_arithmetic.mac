@@ -1,0 +1,51 @@
+/* Walkthrough 01: Arithmetic and Numbers
+ *
+ * Run: maxima-repl -b walkthrough/01_arithmetic.mac
+ *
+ * Covers: integers, rationals, floats, big integers, number theory
+ */
+
+/* --- Basic arithmetic --- */
+2 + 3;
+17 * 23;
+100 - 37;
+2^10;
+
+/* --- Rational arithmetic (exact) --- */
+1/3 + 1/6;
+7/12 - 1/4;
+(3/7) * (14/9);
+2^(-3);
+
+/* --- Integer exponents --- */
+(-3)^2;
+(-3)^(-2);
+(-2)^(-3);
+
+/* --- Big integers --- */
+100!;
+2^100;
+binomial(20, 10);
+
+/* --- GCD and number theory --- */
+gcd(12345678, 87654321);
+gcd(factorial(10), factorial(7));
+mod(17, 5);
+mod(100, 7);
+primep(127);
+primep(128);
+
+/* --- Float conversion --- */
+float(%pi);
+float(%e);
+float(sqrt(2));
+float(1/7);
+float(sin(%pi/6));
+
+/* --- Mixed arithmetic --- */
+3 + 1/2;
+(1/2)^2;
+abs(-42);
+abs(3/7);
+min(3, 7, 1, 5);
+max(3, 7, 1, 5);

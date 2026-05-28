@@ -1,0 +1,60 @@
+/* Walkthrough 16: Number Theory and Floor/Ceiling
+ *
+ * Run: maxima-repl -b walkthrough/16_number_theory.mac
+ *
+ * Covers: floor, ceiling, truncate, round, mod, gcd, primep, binomial
+ */
+
+/* --- Floor and ceiling --- */
+floor(7/2);
+floor(3.7);
+floor(-3.7);
+ceiling(7/2);
+ceiling(3.7);
+ceiling(-3.7);
+
+/* --- Truncate (toward zero) --- */
+truncate(7/2);
+truncate(-7/2);
+
+/* --- Round (banker's rounding: half to even) --- */
+round(1/2);
+round(3/2);
+round(5/2);
+round(7/2);
+round(2.5);
+round(3.5);
+
+/* --- Modular arithmetic --- */
+mod(17, 5);
+mod(100, 7);
+mod(-7, 3);
+
+/* --- GCD --- */
+gcd(12, 18);
+gcd(100, 75);
+gcd(12345678, 87654321);
+
+/* --- Primality testing --- */
+primep(2);
+primep(17);
+primep(100);
+primep(127);
+primep(128);
+
+/* --- Binomial coefficients --- */
+binomial(10, 3);
+binomial(20, 10);
+binomial(52, 5);
+
+/* --- Factorial --- */
+5!;
+10!;
+20!;
+
+/* --- Combinatorial identity check --- */
+/* C(n,k) = C(n, n-k) */
+binomial(10, 3) - binomial(10, 7);
+
+/* Pascal's rule: C(n,k) = C(n-1,k-1) + C(n-1,k) */
+binomial(10, 4) - (binomial(9, 3) + binomial(9, 4));

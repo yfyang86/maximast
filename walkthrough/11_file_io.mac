@@ -1,0 +1,50 @@
+/* Walkthrough 11: File I/O and Package Loading
+ *
+ * Run: maxima-repl -b walkthrough/11_file_io.mac
+ *
+ * Covers: load, require, save, stringout, printfile, file_search,
+ *         setup_autoload, loaded_files, search paths
+ */
+
+/* --- Saving expressions to a file --- */
+myvar : (x + 1)^3;
+myfunc(x) := x^2 + 1;
+
+/* save writes variable bindings */
+save("/tmp/walkthrough_save.mac", myvar);
+
+/* stringout writes expressions as Maxima source */
+stringout("/tmp/walkthrough_out.mac", expand(myvar));
+
+/* printfile displays file contents */
+printfile("/tmp/walkthrough_out.mac");
+
+/* --- Loading files --- */
+/* load("filename") reads and evaluates a .mac file */
+load("/tmp/walkthrough_save.mac");
+
+/* require("filename") only loads if not already loaded */
+require("/tmp/walkthrough_save.mac");
+require("/tmp/walkthrough_save.mac");
+
+/* loaded_files() lists what has been loaded */
+loaded_files();
+
+/* --- File search --- */
+/* file_search looks through configured search paths */
+file_search_maxima();
+
+/* --- Autoload (lazy loading) --- */
+/* setup_autoload("file", f1, f2, ...) registers functions.
+ * When f1 or f2 is first called, "file" is loaded automatically.
+ *
+ * Example (not executed here since we'd need a separate file):
+ *   setup_autoload("mylib", special_fn);
+ *   special_fn(x);    <-- triggers load of "mylib"
+ */
+
+/* --- Querying load state --- */
+load_pathname();
+
+/* --- Cleanup --- */
+kill(myvar, myfunc);

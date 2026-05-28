@@ -1,0 +1,35 @@
+/* Walkthrough 28: Floating-Point Evaluation (bfloat)
+ *
+ * Run: maxima-repl -b walkthrough/28_bfloat.mac
+ *
+ * Covers: bfloat for numeric evaluation of symbolic expressions
+ */
+
+/* --- Constants --- */
+bfloat(%pi);
+bfloat(%e);
+bfloat(%phi);
+
+/* --- Arithmetic --- */
+bfloat(1/7);
+bfloat(sqrt(2));
+bfloat(2^(1/2));
+
+/* --- Trigonometric --- */
+bfloat(sin(%pi/6));
+bfloat(cos(%pi/4));
+bfloat(tan(%pi/3));
+
+/* --- Exponential and logarithmic --- */
+bfloat(exp(1));
+bfloat(log(2));
+bfloat(log(10));
+
+/* --- Compound expressions --- */
+bfloat(%pi^2/6);
+bfloat(sqrt(3)/2);
+bfloat(exp(%pi) - %pi);
+
+/* --- Verify against float --- */
+float(%pi);
+bfloat(%pi);

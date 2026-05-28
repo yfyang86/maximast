@@ -1,0 +1,43 @@
+/* Walkthrough 24: Matrix Arithmetic
+ *
+ * Run: maxima-repl -b walkthrough/24_matrix_arithmetic.mac
+ *
+ * Covers: matrix +/-, scalar*matrix, matrix.matrix, matrix^^n
+ */
+
+/* --- Construction --- */
+A : matrix([1, 2], [3, 4]);
+B : matrix([5, 6], [7, 8]);
+
+/* --- Element-wise addition --- */
+A + B;
+
+/* --- Element-wise subtraction --- */
+A - B;
+
+/* --- Scalar multiplication --- */
+3 * A;
+A * 2;
+
+/* --- Negation --- */
+-A;
+
+/* --- Matrix dot product --- */
+A . B;
+
+/* --- Matrix power --- */
+A ^^ 2;
+A ^^ 3;
+
+/* --- Identity check: A + (-A) = zero --- */
+A + (-1) * A;
+
+/* --- Larger matrices --- */
+C : matrix([1, 0, 0], [0, 2, 0], [0, 0, 3]);
+D : matrix([1, 1, 1], [1, 1, 1], [1, 1, 1]);
+C + D;
+2 * C;
+
+/* --- Element access --- */
+A[1, 2];
+A[2, 1];

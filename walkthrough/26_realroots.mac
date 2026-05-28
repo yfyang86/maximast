@@ -1,0 +1,29 @@
+/* Walkthrough 26: Real Root Isolation (Sturm Chains)
+ *
+ * Run: maxima-repl -b walkthrough/26_realroots.mac
+ *
+ * Covers: nroots (count roots), realroots (find roots)
+ */
+
+/* --- Count roots in an interval --- */
+nroots(x^2 - 1, -10, 10);
+nroots(x^3 - x, -10, 10);
+nroots(x^2 + 1, -10, 10);
+nroots(x^4 - 5*x^2 + 4, -10, 10);
+
+/* --- Find all real roots --- */
+realroots(x^2 - 4);
+realroots(x^3 - x);
+realroots(x^4 - 5*x^2 + 4);
+
+/* --- Count roots in a subinterval --- */
+nroots(x^3 - x, 0, 10);
+nroots(x^3 - x, -10, 0);
+
+/* --- Higher degree --- */
+nroots(x^5 - x, -10, 10);
+realroots(x^5 - x);
+
+/* --- Polynomial with no real roots --- */
+nroots(x^2 + x + 1, -100, 100);
+realroots(x^2 + x + 1);

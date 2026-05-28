@@ -1,0 +1,45 @@
+/* Walkthrough 18: String Functions
+ *
+ * Run: maxima-repl -b walkthrough/18_strings.mac
+ *
+ * Covers: slength, charat, substring, ssearch, ssubst, split,
+ *         supcase, sdowncase, strim, sequal, parse_string, sconcat
+ */
+
+/* --- String construction --- */
+sconcat("hello", " ", "world");
+sconcat("x=", 42);
+
+/* --- Length and access --- */
+slength("hello world");
+charat("maxima", 1);
+charat("maxima", 4);
+
+/* --- Substrings --- */
+substring("hello world", 7);
+substring("hello world", 1, 5);
+
+/* --- Search and replace --- */
+ssearch("world", "hello world");
+ssearch("xyz", "hello world");
+ssubst("WORLD", "world", "hello world");
+
+/* --- Split --- */
+split("one two three");
+split("a,b,c,d", ",");
+split("x::y::z", "::");
+
+/* --- Case conversion --- */
+supcase("hello");
+sdowncase("HELLO");
+
+/* --- Trim --- */
+strim("  hello  ");
+
+/* --- Comparison --- */
+sequal("abc", "abc");
+sequal("abc", "ABC");
+
+/* --- Parse --- */
+parse_string("x^2 + 1");
+diff(parse_string("sin(x)"), x);

@@ -1,0 +1,37 @@
+/* Walkthrough 07: Summation and Discrete Math
+ *
+ * Run: maxima-repl -b walkthrough/07_summation.mac
+ *
+ * Covers: sum, product, binomial, Gosper algorithm, closed forms
+ */
+
+/* --- Numeric sums --- */
+sum(k, k, 1, 100);
+sum(k^2, k, 1, 10);
+sum(1/k, k, 1, 5);
+
+/* --- Closed-form sums (Gosper algorithm) --- */
+sum(k, k, 1, n);
+sum(k^2, k, 1, n);
+sum(k^3, k, 1, n);
+
+/* --- Geometric series --- */
+sum(2^k, k, 0, n);
+sum(r^k, k, 0, n);
+
+/* --- Telescoping --- */
+sum(1/(k*(k+1)), k, 1, n);
+
+/* --- Binomial theorem --- */
+sum(binomial(n, k), k, 0, n);
+
+/* --- Binomial coefficients --- */
+binomial(10, 3);
+binomial(20, 10);
+binomial(n, 0);
+binomial(n, 1);
+binomial(n, n);
+
+/* --- Products --- */
+product(k, k, 1, 5);
+product(k, k, 1, n);

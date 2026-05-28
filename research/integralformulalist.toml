@@ -1,0 +1,745 @@
+[formula.1]
+input="integrate(x^n, x)"
+output="x^(n+1)/(n+1)"
+
+[formula.2]
+input="integrate(1/x, x)"
+output="log(abs(x))"
+
+[formula.3]
+input="integrate(%e^x, x)"
+output="%e^x"
+
+[formula.4]
+input="integrate(a^x, x)"
+output="a^x / log(a)"
+
+[formula.5]
+input="integrate(sin(x), x)"
+output="-cos(x)"
+
+[formula.6]
+input="integrate(cos(x), x)"
+output="sin(x)"
+
+[formula.7]
+input="integrate(sec(x)^2, x)"
+output="tan(x)"
+
+[formula.8]
+input="integrate(csc(x)^2, x)"
+output="-cot(x)"
+
+[formula.9]
+input="integrate(sec(x)*tan(x), x)"
+output="sec(x)"
+
+[formula.10]
+input="integrate(csc(x)*cot(x), x)"
+output="-csc(x)"
+
+[formula.11]
+input="integrate(tan(x), x)"
+output="log(abs(sec(x)))"
+
+[formula.12]
+input="integrate(cot(x), x)"
+output="log(abs(sin(x)))"
+
+[formula.13]
+input="integrate(sec(x), x)"
+output="log(abs(sec(x) + tan(x)))"
+
+[formula.14]
+input="integrate(csc(x), x)"
+output="log(abs(csc(x) - cot(x)))"
+
+[formula.15]
+input="integrate(1/sqrt(a^2 - x^2), x)"
+output="asin(x/a)"
+
+[formula.16]
+input="integrate(1/(a^2 + x^2), x)"
+output="(1/a)*atan(x/a)"
+
+[formula.17]
+input="integrate(1/(x*sqrt(x^2 - a^2)), x)"
+output="(1/a)*asec(abs(x)/a)"
+
+[formula.18]
+input="integrate(sin(x)^2, x)"
+output="x/2 - sin(2*x)/4"
+
+[formula.19]
+input="integrate(cos(x)^2, x)"
+output="x/2 + sin(2*x)/4"
+
+[formula.20]
+input="integrate(tan(x)^2, x)"
+output="tan(x) - x"
+
+[formula.21]
+input="integrate(cot(x)^2, x)"
+output="-cot(x) - x"
+
+[formula.22]
+input="integrate(sin(x)^3, x)"
+output="-(3/4)*cos(x) + cos(3*x)/12"
+
+[formula.23]
+input="integrate(cos(x)^3, x)"
+output="(3/4)*sin(x) + sin(3*x)/12"
+
+[formula.24]
+input="integrate(tan(x)^3, x)"
+output="(1/2)*tan(x)^2 + log(abs(cos(x)))"
+
+[formula.25]
+input="integrate(cot(x)^3, x)"
+output="-(1/2)*cot(x)^2 - log(abs(sin(x)))"
+
+[formula.26]
+input="integrate(sec(x)^3, x)"
+output="(1/2)*sec(x)*tan(x) + (1/2)*log(abs(sec(x) + tan(x)))"
+
+[formula.27]
+input="integrate(csc(x)^3, x)"
+output="-(1/2)*csc(x)*cot(x) + (1/2)*log(abs(csc(x) - cot(x)))"
+
+[formula.28]
+input="integrate(sin(x)^n, x)"
+output="(-1/n)*sin(x)^(n-1)*cos(x) + ((n-1)/n)*integrate(sin(x)^(n-2), x)"
+
+[formula.29]
+input="integrate(cos(x)^n, x)"
+output="(1/n)*cos(x)^(n-1)*sin(x) + ((n-1)/n)*integrate(cos(x)^(n-2), x)"
+
+[formula.30]
+input="integrate(tan(x)^n, x)"
+output="(1/(n-1))*tan(x)^(n-1) - integrate(tan(x)^(n-2), x)"
+
+[formula.31]
+input="integrate(cot(x)^n, x)"
+output="(-1/(n-1))*cot(x)^(n-1) - integrate(cot(x)^(n-2), x)"
+
+[formula.32]
+input="integrate(sec(x)^n, x)"
+output="(1/(n-1))*tan(x)*sec(x)^(n-2) + ((n-2)/(n-1))*integrate(sec(x)^(n-2), x)"
+
+[formula.33]
+input="integrate(csc(x)^n, x)"
+output="(-1/(n-1))*cot(x)*csc(x)^(n-2) + ((n-2)/(n-1))*integrate(csc(x)^(n-2), x)"
+
+[formula.34]
+input="integrate(sin(a*x)*sin(b*x), x)"
+output="sin((a-b)*x)/(2*(a-b)) - sin((a+b)*x)/(2*(a+b))"
+
+[formula.35]
+input="integrate(cos(a*x)*cos(b*x), x)"
+output="sin((a-b)*x)/(2*(a-b)) + sin((a+b)*x)/(2*(a+b))"
+
+[formula.36]
+input="integrate(sin(a*x)*cos(b*x), x)"
+output="-cos((a-b)*x)/(2*(a-b)) - cos((a+b)*x)/(2*(a+b))"
+
+[formula.37]
+input="integrate(x*sin(x), x)"
+output="sin(x) - x*cos(x)"
+
+[formula.38]
+input="integrate(x*cos(x), x)"
+output="cos(x) + x*sin(x)"
+
+[formula.39]
+input="integrate(x^n*sin(x), x)"
+output="-x^n*cos(x) + n*integrate(x^(n-1)*cos(x), x)"
+
+[formula.40]
+input="integrate(x^n*cos(x), x)"
+output="x^n*sin(x) - n*integrate(x^(n-1)*sin(x), x)"
+
+[formula.41]
+input="integrate(x*%e^(a*x), x)"
+output="(1/a^2)*(a*x-1)*%e^(a*x)"
+
+[formula.42]
+input="integrate(x^n*%e^(a*x), x)"
+output="(1/a)*x^n*%e^(a*x) - (n/a)*integrate(x^(n-1)*%e^(a*x), x)"
+
+[formula.43]
+input="integrate(%e^(a*x)*sin(b*x), x)"
+output="(%e^(a*x)/(a^2+b^2))*(a*sin(b*x) - b*cos(b*x))"
+
+[formula.44]
+input="integrate(%e^(a*x)*cos(b*x), x)"
+output="(%e^(a*x)/(a^2+b^2))*(a*cos(b*x) + b*sin(b*x))"
+
+[formula.45]
+input="integrate(log(x), x)"
+output="x*log(x) - x"
+
+[formula.46]
+input="integrate(x^n*log(x), x)"
+output="(x^(n+1)/((n+1)^2))*((n+1)*log(x) - 1)"
+
+[formula.47]
+input="integrate(1/(x*log(x)), x)"
+output="log(abs(log(x)))"
+
+[formula.48]
+input="integrate(sinh(x), x)"
+output="cosh(x)"
+
+[formula.49]
+input="integrate(cosh(x), x)"
+output="sinh(x)"
+
+[formula.50]
+input="integrate(tanh(x), x)"
+output="log(cosh(x))"
+
+[formula.51]
+input="integrate(coth(x), x)"
+output="log(abs(sinh(x)))"
+
+[formula.52]
+input="integrate(1/cosh(x), x)"
+output="atan(sinh(x))"
+
+[formula.53]
+input="integrate(1/sinh(x), x)"
+output="log(abs(tanh(x/2)))"
+
+[formula.54]
+input="integrate(1/cosh(x)^2, x)"
+output="tanh(x)"
+
+[formula.55]
+input="integrate(1/sinh(x)^2, x)"
+output="-coth(x)"
+
+[formula.56]
+input="integrate(1/cosh(x)*tanh(x), x)"
+output="-1/cosh(x)"
+
+[formula.57]
+input="integrate(1/sinh(x)*coth(x), x)"
+output="-1/sinh(x)"
+
+[formula.58]
+input="integrate(asin(x), x)"
+output="x*asin(x) + sqrt(1-x^2)"
+
+[formula.59]
+input="integrate(acos(x), x)"
+output="x*acos(x) - sqrt(1-x^2)"
+
+[formula.60]
+input="integrate(atan(x), x)"
+output="x*atan(x) - (1/2)*log(1+x^2)"
+
+[formula.61]
+input="integrate(x*asin(x), x)"
+output="((2*x^2-1)/4)*asin(x) + (x*sqrt(1-x^2))/4"
+
+[formula.62]
+input="integrate(x*acos(x), x)"
+output="((2*x^2-1)/4)*acos(x) - (x*sqrt(1-x^2))/4"
+
+[formula.63]
+input="integrate(x*atan(x), x)"
+output="((x^2+1)/2)*atan(x) - x/2"
+
+[formula.64]
+input="integrate(x^n*asin(x), x)"
+output="(1/(n+1))*(x^(n+1)*asin(x) - integrate(x^(n+1)/sqrt(1-x^2), x))"
+note="n is not equal to -1"
+
+[formula.65]
+input="integrate(x^n*acos(x), x)"
+output="(1/(n+1))*(x^(n+1)*acos(x) + integrate(x^(n+1)/sqrt(1-x^2), x))"
+note="n is not equal to -1"
+
+[formula.66]
+input="integrate(x^n*atan(x), x)"
+output="(1/(n+1))*(x^(n+1)*atan(x) - integrate(x^(n+1)/(1+x^2), x))"
+note="n is not equal to -1"
+
+[formula.67]
+input="integrate(sqrt(a^2+x^2), x)"
+output="(x/2)*sqrt(a^2+x^2) + (a^2/2)*log(x + sqrt(a^2+x^2))"
+
+[formula.68]
+input="integrate(x^2*sqrt(a^2+x^2), x)"
+output="(x/8)*(a^2+2*x^2)*sqrt(a^2+x^2) - (a^4/8)*log(x + sqrt(a^2+x^2))"
+
+[formula.69]
+input="integrate(sqrt(a^2+x^2)/x, x)"
+output="sqrt(a^2+x^2) - a*log(abs((a + sqrt(a^2+x^2))/x))"
+
+[formula.70]
+input="integrate(sqrt(a^2+x^2)/x^2, x)"
+output="-sqrt(a^2+x^2)/x + log(x + sqrt(a^2+x^2))"
+
+[formula.71]
+input="integrate(1/sqrt(a^2+x^2), x)"
+output="log(x + sqrt(a^2+x^2))"
+
+[formula.72]
+input="integrate(x^2/sqrt(a^2+x^2), x)"
+output="(x/2)*sqrt(a^2+x^2) - (a^2/2)*log(x + sqrt(a^2+x^2))"
+
+[formula.73]
+input="integrate(1/(x*sqrt(a^2+x^2)), x)"
+output="(-1/a)*log(abs((sqrt(a^2+x^2) + a)/x))"
+
+[formula.74]
+input="integrate(1/(x^2*sqrt(a^2+x^2)), x)"
+output="-sqrt(a^2+x^2)/(a^2*x)"
+
+[formula.75]
+input="integrate(1/(a^2+x^2)^(3/2), x)"
+output="x/(a^2*sqrt(a^2+x^2))"
+
+[formula.76]
+input="integrate(sqrt(x^2-a^2), x)"
+output="(x/2)*sqrt(x^2-a^2) - (a^2/2)*log(abs(x + sqrt(x^2-a^2)))"
+
+[formula.77]
+input="integrate(x^2*sqrt(x^2-a^2), x)"
+output="(x/8)*(2*x^2-a^2)*sqrt(x^2-a^2) - (a^4/8)*log(abs(x + sqrt(x^2-a^2)))"
+
+[formula.78]
+input="integrate(sqrt(x^2-a^2)/x, x)"
+output="sqrt(x^2-a^2) - a*acos(a/abs(x))"
+
+[formula.79]
+input="integrate(sqrt(x^2-a^2)/x^2, x)"
+output="-sqrt(x^2-a^2)/x + log(abs(x + sqrt(x^2-a^2)))"
+
+[formula.80]
+input="integrate(1/sqrt(x^2-a^2), x)"
+output="log(abs(x + sqrt(x^2-a^2)))"
+
+[formula.81]
+input="integrate(x^2/sqrt(x^2-a^2), x)"
+output="(x/2)*sqrt(x^2-a^2) + (a^2/2)*log(abs(x + sqrt(x^2-a^2)))"
+
+[formula.82]
+input="integrate(1/(x^2*sqrt(x^2-a^2)), x)"
+output="sqrt(x^2-a^2)/(a^2*x)"
+
+[formula.83]
+input="integrate(1/(x^2-a^2)^(3/2), x)"
+output="-x/(a^2*sqrt(x^2-a^2))"
+
+[formula.84]
+input="integrate(sqrt(a^2-x^2), x)"
+output="(x/2)*sqrt(a^2-x^2) + (a^2/2)*asin(x/a)"
+
+[formula.85]
+input="integrate(x^2*sqrt(a^2-x^2), x)"
+output="(x/8)*(2*x^2-a^2)*sqrt(a^2-x^2) + (a^4/8)*asin(x/a)"
+
+[formula.86]
+input="integrate(sqrt(a^2-x^2)/x, x)"
+output="sqrt(a^2-x^2) - a*log(abs((a + sqrt(a^2-x^2))/x))"
+
+[formula.87]
+input="integrate(sqrt(a^2-x^2)/x^2, x)"
+output="-sqrt(a^2-x^2)/x - asin(x/a)"
+
+[formula.88]
+input="integrate(x^2/sqrt(a^2-x^2), x)"
+output="(1/2)*(-x*sqrt(a^2-x^2) + a^2*asin(x/a))"
+
+[formula.89]
+input="integrate(1/(x*sqrt(a^2-x^2)), x)"
+output="(-1/a)*log(abs((a + sqrt(a^2-x^2))/x))"
+
+[formula.90]
+input="integrate(1/(x^2*sqrt(a^2-x^2)), x)"
+output="-sqrt(a^2-x^2)/(a^2*x)"
+
+[formula.91]
+input="integrate((a^2-x^2)^(3/2), x)"
+output="-(x/8)*(2*x^2-5*a^2)*sqrt(a^2-x^2) + (3*a^4/8)*asin(x/a)"
+
+[formula.92]
+input="integrate(1/(a^2-x^2)^(3/2), x)"
+output="-x/(a^2*sqrt(a^2-x^2))"
+
+[formula.93]
+input="integrate(sqrt(2*a*x - x^2), x)"
+output="((x-a)/2)*sqrt(2*a*x - x^2) + (a^2/2)*acos((a-x)/a)"
+
+[formula.94]
+input="integrate(1/sqrt(2*a*x - x^2), x)"
+output="acos((a-x)/a)"
+
+[formula.95]
+input="integrate(x*sqrt(2*a*x - x^2), x)"
+output="((2*x^2 - a*x - 3*a^2)/6)*sqrt(2*a*x - x^2) + (a^3/2)*acos((a-x)/a)"
+
+[formula.96]
+input="integrate(1/(x*sqrt(2*a*x - x^2)), x)"
+output="-sqrt(2*a*x - x^2)/(a*x)"
+
+[formula.97]
+input="integrate(x/(a+b*x), x)"
+output="(1/b^2)*(a + b*x - a*log(abs(a+b*x)))"
+
+[formula.98]
+input="integrate(x^2/(a+b*x), x)"
+output="(1/(2*b^3))*((a+b*x)^2 - 4*a*(a+b*x) + 2*a^2*log(abs(a+b*x)))"
+
+[formula.99]
+input="integrate(1/(x*(a+b*x)), x)"
+output="(1/a)*log(abs(x/(a+b*x)))"
+
+[formula.100]
+input="integrate(1/(x^2*(a+b*x)), x)"
+output="-1/(a*x) + (b/a^2)*log(abs((a+b*x)/x))"
+
+[formula.101]
+input="integrate(x/(a+b*x)^2, x)"
+output="a/(b^2*(a+b*x)) + (1/b^2)*log(abs(a+b*x))"
+
+[formula.102]
+input="integrate(1/(x*(a+b*x)^2), x)"
+output="1/(a*(a+b*x)) - (1/a^2)*log(abs((a+b*x)/x))"
+
+[formula.103]
+input="integrate(x^2/(a+b*x)^2, x)"
+output="(1/b^3)*(a + b*x - a^2/(a+b*x) - 2*a*log(abs(a+b*x)))"
+
+[formula.104]
+input="integrate(x*sqrt(a+b*x), x)"
+output="(2/(15*b^2))*(3*b*x - 2*a)*(a+b*x)^(3/2)"
+
+[formula.105]
+input="integrate(x/sqrt(a+b*x), x)"
+output="(2/(3*b^2))*(b*x - 2*a)*sqrt(a+b*x)"
+
+[formula.106]
+input="integrate(x^2/sqrt(a+b*x), x)"
+output="(2/(15*b^3))*(8*a^2 + 3*b^2*x^2 - 4*a*b*x)*sqrt(a+b*x)"
+
+[formula.107]
+input="integrate(1/(x*sqrt(a+b*x)), x)"
+output="if a > 0 then (1/sqrt(a))*log(abs((sqrt(a+b*x)-sqrt(a))/(sqrt(a+b*x)+sqrt(a)))) else (sqrt(2)/sqrt(-a))*atan(sqrt((a+b*x)/(-a)))"
+
+[formula.108]
+input="integrate(sqrt(a+b*x)/x, x)"
+output="2*sqrt(a+b*x) + a*integrate(1/(x*sqrt(a+b*x)), x)"
+
+[formula.109]
+input="integrate(sqrt(a+b*x)/x^2, x)"
+output="-sqrt(a+b*x)/x + (b/2)*integrate(1/(x*sqrt(a+b*x)), x)"
+
+[formula.110]
+input="integrate(x^n*sqrt(a+b*x), x)"
+output="(2/(b*(2*n+3)))*(x^n*(a+b*x)^(3/2) - n*a*integrate(x^(n-1)*sqrt(a+b*x), x))"
+
+[formula.111]
+input="integrate(x^n/sqrt(a+b*x), x)"
+output="(2*x^n*sqrt(a+b*x))/(b*(2*n+1)) - (2*n*a)/(b*(2*n+1))*integrate(x^(n-1)/sqrt(a+b*x), x)"
+
+[formula.112]
+input="integrate(1/(x^n*sqrt(a+b*x)), x)"
+output="-sqrt(a+b*x)/(a*(n-1)*x^(n-1)) - (b*(2*n-3))/(2*a*(n-1))*integrate(1/(x^(n-1)*sqrt(a+b*x)), x)"
+
+[formula.113]
+input="integrate(u, 'diff(v, x), x)"
+output="u*v - integrate(v, 'diff(u, x), x)"
+
+[formula.114]
+input="integrate(u(x)*diff(v(x), x), x)"
+output="u(x)*v(x) - integrate(v(x)*diff(u(x), x), x)"
+
+[formula.115]
+input="integrate(1/(a*x+b), x)"
+output="(1/a)*log(abs(a*x+b))"
+
+[formula.116]
+input="integrate(1/(x+a)^2, x)"
+output="-1/(x+a)"
+
+[formula.117]
+input="integrate((x+a)^n, x)"
+output="(x+a)^(n+1)/(n+1)"
+
+[formula.118]
+input="integrate(x*(x+a)^n, x)"
+output="((x+a)^(n+1)*(n*x + x - a))/((n+2)*(n+1))"
+
+[formula.119]
+input="integrate(1/(1+x^2), x)"
+output="atan(x)"
+
+[formula.120]
+input="integrate(x/(a^2+x^2), x)"
+output="(1/2)*log(a^2+x^2)"
+
+[formula.121]
+input="integrate(x^2/(a^2+x^2), x)"
+output="x - a*atan(x/a)"
+
+[formula.122]
+input="integrate(x^3/(a^2+x^2), x)"
+output="(1/2)*x^2 - (1/2)*a^2*log(a^2+x^2)"
+
+[formula.123]
+input="integrate(1/(a*x^2+b*x+c), x)"
+output="(2/sqrt(4*a*c - b^2))*atan((2*a*x+b)/sqrt(4*a*c-b^2))"
+
+[formula.124]
+input="integrate(1/((x+a)*(x+b)), x)"
+output="(1/(b-a))*(log(abs(x+a)) - log(abs(x+b)))"
+
+[formula.125]
+input="integrate(x/(x+a)^2, x)"
+output="a/(a+x) + log(abs(a+x))"
+
+[formula.126]
+input="integrate(x/(a*x^2+b*x+c), x)"
+output="log(a*x^2+b*x+c)/(2*a) - (b/(a*sqrt(4*a*c-b^2)))*atan((2*a*x+b)/sqrt(4*a*c-b^2))"
+
+[formula.127]
+input="integrate(sqrt(x-a), x)"
+output="(2/3)*(x-a)^(3/2)"
+
+[formula.128]
+input="integrate(1/sqrt(x+a), x)"
+output="2*sqrt(x+a)"
+note="Works for both 1/sqrt(x+a) and 1/sqrt(x-a)"
+
+[formula.129]
+input="integrate(1/sqrt(a-x), x)"
+output="2*sqrt(a-x)"
+
+[formula.130]
+input="integrate(x*sqrt(x-a), x)"
+output="(2/3)*a*(x-a)^(3/2) + (2/5)*(x-a)^(5/2)"
+
+[formula.131]
+input="integrate(sqrt(a*x+b), x)"
+output="(2/(3*a))*(a*x+b)^(3/2)"
+
+[formula.132]
+input="integrate((a*x+b)^(3/2), x)"
+output="(2/(5*a))*(a*x+b)^(5/2)"
+
+[formula.133]
+input="integrate(x/sqrt(x+a), x)"
+output="(2/3)*(x-2*a)*sqrt(x+a)"
+
+[formula.134]
+input="integrate(sqrt(x/(a-x)), x)"
+output="-sqrt(x)*sqrt(a-x) - a*atan(sqrt(x)*sqrt(a-x)/(x-a))"
+
+[formula.135]
+input="integrate(sqrt(x/(x+a)), x)"
+output="sqrt(x)*sqrt(x+a) - a*log(sqrt(x) + sqrt(x+a))"
+
+[formula.136]
+input="integrate(sqrt(x)*sqrt(a*x+b), x)"
+output="((b*sqrt(x))/(4*a) + (x^(3/2))/2)*sqrt(a*x+b) - (b^2/(4*a^(3/2)))*log(2*sqrt(a)*sqrt(x) + 2*sqrt(a*x+b))"
+
+[formula.137]
+input="integrate(x^(3/2)*sqrt(a*x+b), x)"
+output="((-b^2*sqrt(x))/(8*a^2) + (b*x^(3/2))/(12*a) + (x^(5/2))/3)*sqrt(a*x+b) - (b^3/(8*a^(5/2)))*log(2*sqrt(a)*sqrt(x) + 2*sqrt(a*x+b))"
+
+[formula.138]
+input="integrate(x*sqrt(x^2+a^2), x)"
+output="(1/3)*(x^2+a^2)^(3/2)"
+note="Works for x^2-a^2 as well"
+
+[formula.139]
+input="integrate(x/sqrt(x^2+a^2), x)"
+output="sqrt(x^2+a^2)"
+note="Works for x^2-a^2 as well"
+
+[formula.140]
+input="integrate(x/sqrt(a^2-x^2), x)"
+output="-sqrt(a^2-x^2)"
+
+[formula.141]
+input="integrate(sqrt(a*x^2+b*x+c), x)"
+output="((2*a*x+b)/(4*a))*sqrt(a*x^2+b*x+c) + ((4*a*c-b^2)/(8*a^(3/2)))*log((2*a*x+b)/(sqrt(a)) + 2*sqrt(a*x^2+b*x+c))"
+
+[formula.142]
+input="integrate(x*sqrt(a*x^2+b*x+c), x)"
+output="((x^2)/(3) + (b*x)/(12*a) + (8*a*c - 3*b^2)/(24*a^2))*sqrt(a*x^2+b*x+c) - (b*(4*a*c-b^2))/(16*a^(5/2))*log((2*a*x+b)/(sqrt(a)) + 2*sqrt(a*x^2+b*x+c))"
+
+[formula.143]
+input="integrate(1/sqrt(a*x^2+b*x+c), x)"
+output="(1/sqrt(a))*log((2*a*x+b)/(sqrt(a)) + 2*sqrt(a*x^2+b*x+c))"
+
+[formula.144]
+input="integrate(x/sqrt(a*x^2+b*x+c), x)"
+output="(1/a)*sqrt(a*x^2+b*x+c) - (b/(2*a^(3/2)))*log((2*a*x+b)/(sqrt(a)) + 2*sqrt(a*x^2+b*x+c))"
+
+[formula.145]
+input="integrate(log(a*x)/x, x)"
+output="(1/2)*(log(a*x))^2"
+
+[formula.146]
+input="integrate(log(a*x+b), x)"
+output="(a*x+b)/a * log(a*x+b) - x"
+
+[formula.147]
+input="integrate(log(a^2*x^2+b^2), x)"
+output="x*log(a^2*x^2+b^2) + (2*b/a)*atan(a*x/b) - 2*x"
+
+[formula.148]
+input="integrate(log(a^2-b^2*x^2), x)"
+output="x*log(a^2-b^2*x^2) + (2*a/b)*atan(b*x/a) - 2*x"
+
+[formula.149]
+input="integrate(log(a*x^2+b*x+c), x)"
+output="(1/a)*sqrt(4*a*c-b^2)*atan((2*a*x+b)/sqrt(4*a*c-b^2)) - 2*x + (x + b/(2*a))*log(a*x^2+b*x+c)"
+
+[formula.150]
+input="integrate(x*log(a*x+b), x)"
+output="(b/(2*a))*x - (1/4)*x^2 + (1/2)*(x^2 - b^2/a^2)*log(a*x+b)"
+
+[formula.151]
+input="integrate(x*log(a^2 - b^2*x^2), x)"
+output="-(1/2)*x^2 + (1/2)*(x^2 - a^2/b^2)*log(a^2 - b^2*x^2)"
+
+[formula.152]
+input="integrate(%e^(a*x), x)"
+output="(1/a)*%e^(a*x)"
+
+[formula.153]
+input="integrate(sqrt(x)*%e^(a*x), x)"
+output="(1/a)*sqrt(x)*%e^(a*x) + (%i*sqrt(%pi))/(2*a^(3/2))*erf(%i*sqrt(a*x))"
+
+[formula.154]
+input="integrate(x*%e^x, x)"
+output="(x-1)*%e^x"
+
+[formula.155]
+input="integrate(x^2*%e^x, x)"
+output="(x^2-2*x+2)*%e^x"
+
+[formula.156]
+input="integrate(x^2*%e^(a*x), x)"
+output="(x^2/a - (2*x)/a^2 + 2/a^3)*%e^(a*x)"
+
+[formula.157]
+input="integrate(x^3*%e^x, x)"
+output="(x^3 - 3*x^2 + 6*x - 6)*%e^x"
+
+[formula.158]
+input="integrate(x^n*%e^(a*x), x)"
+output="(-1)^n * (1/a) * gamma_incomplete(1+n, -a*x)"
+
+[formula.159]
+input="integrate(%e^(a*x^2), x)"
+output="(-%i*sqrt(%pi)/(2*sqrt(a)))*erf(%i*x*sqrt(a))"
+
+[formula.160]
+input="integrate(sin(x)*cos(x), x)"
+output="-(1/2)*cos(x)^2"
+
+[formula.161]
+input="integrate(sin(x)^2*cos(x), x)"
+output="(1/4)*sin(x) - sin(3*x)/12"
+
+[formula.162]
+input="integrate(sin(x)*cos(x)^2, x)"
+output="-(1/4)*cos(x) - cos(3*x)/12"
+
+[formula.163]
+input="integrate(sin(x)^2*cos(x)^2, x)"
+output="x/8 - sin(4*x)/32"
+
+[formula.164]
+input="integrate(sec(x)^2*tan(x), x)"
+output="(1/2)*sec(x)^2"
+
+[formula.165]
+input="integrate(sec(x)^n*tan(x), x)"
+output="(1/n)*sec(x)^n"
+
+[formula.166]
+input="integrate(csc(x)^n*cot(x), x)"
+output="-(1/n)*csc(x)^n"
+
+[formula.167]
+input="integrate(sec(x)*csc(x), x)"
+output="log(abs(tan(x)))"
+
+[formula.168]
+input="integrate(x*cos(a*x), x)"
+output="cos(a*x)/a^2 + x*sin(a*x)/a"
+
+[formula.169]
+input="integrate(x^2*cos(x), x)"
+output="2*x*cos(x) + (x^2-2)*sin(x)"
+
+[formula.170]
+input="integrate(x^2*cos(a*x), x)"
+output="(2*x*cos(a*x))/a^2 + ((a^2*x^2-2)*sin(a*x))/a^3"
+
+[formula.171]
+input="integrate(x^n*cos(x), x)"
+output="-(1/2)*(%i)^(1+n)*(gamma_incomplete(1+n, -%i*x) + (-1)^n * gamma_incomplete(1+n, %i*x))"
+
+[formula.172]
+input="integrate(x^n*cos(a*x), x)"
+output="(1/2)*(%i*a)^(1-n)*((-1)^n * gamma_incomplete(1+n, -%i*a*x) - gamma_incomplete(1+n, %i*a*x))"
+
+[formula.173]
+input="integrate(x*sin(a*x), x)"
+output="-(x*cos(a*x))/a + sin(a*x)/a^2"
+
+[formula.174]
+input="integrate(x^2*sin(x), x)"
+output="(2-x^2)*cos(x) + 2*x*sin(x)"
+
+[formula.175]
+input="integrate(x^3*sin(a*x), x)"
+output="((2-a^2*x^2)*cos(a*x))/a^3 + (2*x*sin(a*x))/a^2"
+
+[formula.176]
+input="integrate(x^n*sin(x), x)"
+output="-(1/2)*(%i)^n*(gamma_incomplete(n+1, -%i*x) - (-1)^n * gamma_incomplete(n+1, %i*x))"
+
+[formula.177]
+input="integrate(%e^x*sin(x), x)"
+output="(1/2)*%e^x*(sin(x) - cos(x))"
+
+[formula.178]
+input="integrate(%e^x*cos(x), x)"
+output="(1/2)*%e^x*(sin(x) + cos(x))"
+
+[formula.179]
+input="integrate(x*%e^x*sin(x), x)"
+output="(1/2)*%e^x*(cos(x) - x*cos(x) + x*sin(x))"
+
+[formula.180]
+input="integrate(x*%e^x*cos(x), x)"
+output="(1/2)*%e^x*(x*cos(x) - sin(x) + x*sin(x))"
+
+[formula.181]
+input="integrate(%e^(a*x)*cosh(b*x), x)"
+output="(%e^(a*x)/(a^2-b^2))*(a*cosh(b*x) - b*sinh(b*x))"
+
+[formula.182]
+input="integrate(%e^(a*x)*sinh(b*x), x)"
+output="(%e^(a*x)/(a^2-b^2))*(-b*cosh(b*x) + a*sinh(b*x))"
+
+[formula.183]
+input="integrate(%e^x*tanh(x), x)"
+output="%e^x - 2*atan(%e^x)"
+
+[formula.184]
+input="integrate(tanh(a*x), x)"
+output="(1/a)*log(cosh(a*x))"
+
+[formula.185]
+input="integrate(cos(a*x)*cosh(b*x), x)"
+output="1/(a^2+b^2)*(a*sin(a*x)*cosh(b*x) + b*cos(a*x)*sinh(b*x))"

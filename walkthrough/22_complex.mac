@@ -1,0 +1,41 @@
+/* Walkthrough 22: Complex Numbers
+ *
+ * Run: maxima-repl -b walkthrough/22_complex.mac
+ *
+ * Covers: %i, %i^n, realpart, imagpart, conjugate, rectform, cabs
+ */
+
+/* --- Imaginary unit --- */
+%i^2;
+%i^3;
+%i^4;
+%i^(-1);
+
+/* --- Complex arithmetic --- */
+(1+%i) + (2+3*%i);
+(1+%i) * (2+3*%i);
+expand((1+%i)^2);
+expand((2+3*%i)*(2-3*%i));
+
+/* --- Decomposition --- */
+realpart(3+4*%i);
+imagpart(3+4*%i);
+realpart(a+b*%i);
+imagpart(a+b*%i);
+
+/* --- Conjugate --- */
+conjugate(3+4*%i);
+conjugate(a+b*%i);
+
+/* --- Rectangular form --- */
+rectform((1+%i)^2);
+rectform((1+%i)^4);
+
+/* --- Complex absolute value --- */
+cabs(3+4*%i);
+cabs(1+%i);
+
+/* --- Verify: z * conjugate(z) = |z|^2 --- */
+z : 3+4*%i;
+expand(z * conjugate(z));
+cabs(z)^2;

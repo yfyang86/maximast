@@ -1,0 +1,47 @@
+/* Walkthrough 09: Assumptions and Simplification
+ *
+ * Run: maxima-repl -b walkthrough/09_assumptions.mac
+ *
+ * Covers: assume, forget, is, asksign, abs simplification
+ */
+
+/* --- Making assumptions --- */
+assume(x > 0);
+is(x > 0);
+is(x > -1);
+
+/* abs simplifies under assumptions */
+abs(x);
+
+/* --- Multiple assumptions --- */
+assume(y < 0);
+is(y < 0);
+abs(y);
+
+/* --- Querying sign --- */
+is(x * y < 0);
+
+/* --- Forgetting assumptions --- */
+forget(x > 0);
+is(x > 0);
+
+forget(y < 0);
+
+/* --- Assumption-dependent integration --- */
+assume(a > 0);
+integrate(exp(-a*x), x, 0, inf);
+forget(a > 0);
+
+/* --- Properties --- */
+assume(n > 0, integer(n));
+is(n > 0);
+
+/* --- Boolean logic --- */
+not(true);
+true and false;
+true or false;
+not(a and b);
+not(x < 5);
+
+/* --- Facts --- */
+facts();

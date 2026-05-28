@@ -1,0 +1,45 @@
+/* Walkthrough 23: Trigonometric Special Values
+ *
+ * Run: maxima-repl -b walkthrough/23_trig_special.mac
+ *
+ * Covers: exact trig values at multiples of %pi/6 and %pi/4
+ */
+
+/* --- sin at standard angles --- */
+sin(0);
+sin(%pi/6);
+sin(%pi/4);
+sin(%pi/3);
+sin(%pi/2);
+sin(%pi);
+
+/* --- cos at standard angles --- */
+cos(0);
+cos(%pi/6);
+cos(%pi/4);
+cos(%pi/3);
+cos(%pi/2);
+cos(%pi);
+
+/* --- tan at standard angles --- */
+tan(0);
+tan(%pi/6);
+tan(%pi/4);
+tan(%pi/3);
+
+/* --- Inverse trig --- */
+atan(0);
+atan(1);
+asin(1);
+acos(0);
+acos(1);
+
+/* --- Second and third quadrants --- */
+sin(2*%pi/3);
+cos(3*%pi/4);
+sin(5*%pi/6);
+cos(%pi);
+
+/* --- Fourth quadrant --- */
+sin(7*%pi/4);
+cos(11*%pi/6);

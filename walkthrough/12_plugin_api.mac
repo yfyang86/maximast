@@ -1,0 +1,63 @@
+/* Walkthrough 12: Plugin API (for Rust developers)
+ *
+ * This walkthrough documents the NativeFn plugin interface.
+ * It cannot be run as a .mac script — it is a reference for
+ * writing Rust plugins that extend the Maxima kernel.
+ *
+ * The plugin API is designed to support future dynamic loading
+ * of .so/.dylib plugins at runtime.
+ */
+
+/* === Rust Plugin Interface ===
+ *
+ * 1. Define a native function in Rust:
+ *
+ *    use maxima_eval::{Environment, NativeFn};
+ *    use maxima_core::Expr;
+ *
+ *    fn my_function(args: &[Expr], env: &mut Environment) -> Expr {
+ *        match &args[0] {
+ *            Expr::Integer(n) => Expr::Integer(n * 2),
+ *            other => Expr::call("my_function", vec![other.clone()]),
+ *        }
+ *    }
+ *
+ * 2. Register it on the environment:
+ *
+ *    env.register_native(
+ *        "my_function",      // name callable from Maxima
+ *        my_function,        // function pointer
+ *        1,                  // minimum args
+ *        Some(1),            // maximum args (None = variadic)
+ *    );
+ *
+ * 3. Use from Maxima:
+ *
+ *    (%i1) my_function(21);
+ *    (%o1) 42
+ *
+ * === Dispatch Order ===
+ *
+ * When Maxima evaluates f(x):
+ *   1. Native functions (registered via register_native)
+ *   2. User-defined Maxima functions (from f(x):=...)
+ *   3. Lambda values
+ *   4. Autoload registry (loads file, retries once)
+ *   5. Returns noun form f(x)
+ *
+ * Native functions take highest priority, so a plugin can
+ * override any user-defined function. They also survive
+ * kill(all), making them behave like built-in functions.
+ *
+ * === Future: Dynamic Plugin Loading ===
+ *
+ * The architecture supports a future load_plugin("path.so")
+ * command that would:
+ *   1. dlopen the shared library
+ *   2. Call a registration entry point
+ *   3. The entry point calls env.register_native() for each function
+ *
+ * Plugin authors will compile Rust code as cdylib crates.
+ */
+
+"Plugin API walkthrough — see comments for Rust examples";

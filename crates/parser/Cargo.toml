@@ -1,0 +1,9 @@
+[package]
+name = "maxima-parser"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Tokenizer and parser for Maxima syntax"
+
+[dependencies]
+maxima-core = { path = "../core" }

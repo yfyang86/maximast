@@ -1,0 +1,41 @@
+/* Walkthrough 20: Laplace Transforms
+ *
+ * Run: maxima-repl -b walkthrough/20_laplace.mac
+ *
+ * Covers: laplace, ilt (inverse), linearity, shift theorem
+ */
+
+/* --- Basic transforms --- */
+laplace(1, t, s);
+laplace(t, t, s);
+laplace(t^3, t, s);
+laplace(t^5, t, s);
+
+/* --- Exponential --- */
+laplace(exp(a*t), t, s);
+laplace(exp(-3*t), t, s);
+
+/* --- Trigonometric --- */
+laplace(sin(w*t), t, s);
+laplace(cos(w*t), t, s);
+laplace(sin(2*t), t, s);
+laplace(cos(3*t), t, s);
+
+/* --- Linearity --- */
+laplace(3*t^2 + 2*t + 1, t, s);
+laplace(5*exp(t) + 3*sin(t), t, s);
+
+/* --- Shift theorem: L{exp(at)*f(t)} = F(s-a) --- */
+laplace(exp(a*t)*sin(w*t), t, s);
+laplace(exp(-2*t)*t^3, t, s);
+
+/* --- Inverse Laplace --- */
+ilt(1/s, s, t);
+ilt(1/s^3, s, t);
+ilt(1/(s-a), s, t);
+ilt(s/(s^2+4), s, t);
+ilt(3/(s^2+9), s, t);
+
+/* --- Round-trip verification --- */
+laplace(exp(3*t), t, s);
+ilt((-3+s)^(-1), s, t);

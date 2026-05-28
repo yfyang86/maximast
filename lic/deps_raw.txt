@@ -1,0 +1,6 @@
+
+maxima-core v0.1.0 (/home/user/maxima/maxima-kernel/crates/core) | GPL-2.0-only
+maxima-eval v0.1.0 (/home/user/maxima/maxima-kernel/crates/eval) | GPL-2.0-only
+maxima-parser v0.1.0 (/home/user/maxima/maxima-kernel/crates/parser) | GPL-2.0-only (*)
+maxima-poly v0.1.0 (/home/user/maxima/maxima-kernel/crates/poly) | GPL-2.0-only (*)
+maxima-repl v0.1.0 (/home/user/maxima/maxima-kernel/crates/repl) | GPL-2.0-only

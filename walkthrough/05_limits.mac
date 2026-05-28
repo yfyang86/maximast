@@ -1,0 +1,27 @@
+/* Walkthrough 05: Limits
+ *
+ * Run: maxima-repl -b walkthrough/05_limits.mac
+ *
+ * Covers: limit at a point, at infinity, indeterminate forms
+ */
+
+/* --- Basic limits --- */
+limit(sin(x)/x, x, 0);
+limit((x^2 - 1)/(x - 1), x, 1);
+
+/* --- Limits at infinity --- */
+limit((1 + 1/x)^x, x, inf);
+limit(exp(x)/x^100, x, inf);
+limit(log(x)/x, x, inf);
+limit(x * sin(1/x), x, inf);
+
+/* --- L'Hopital-type (0/0 and inf/inf) --- */
+limit((exp(x) - 1)/x, x, 0);
+limit((exp(x) - 1 - x)/x^2, x, 0);
+
+/* --- Limits at minus infinity --- */
+limit(exp(x), x, minf);
+
+/* --- Subtle limits --- */
+limit(exp(x + exp(-x)) - exp(x), x, inf);
+limit(sqrt(x^2 + 1) - x, x, inf);

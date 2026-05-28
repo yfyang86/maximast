@@ -1,0 +1,49 @@
+/* Walkthrough 19: Number Theory
+ *
+ * Run: maxima-repl -b walkthrough/19_number_theory.mac
+ *
+ * Covers: ifactors, totient, divisors, next_prime, prev_prime,
+ *         power_mod, inv_mod, jacobi, chinese, fibonacci
+ */
+
+/* --- Integer factorization --- */
+ifactors(360);
+ifactors(2^10 - 1);
+ifactors(17);
+
+/* --- Euler totient --- */
+totient(12);
+totient(100);
+
+/* --- Divisors --- */
+divisors(12);
+divisors(100);
+
+/* --- Primes --- */
+primep(127);
+next_prime(100);
+prev_prime(100);
+next_prime(1000000);
+
+/* --- Modular arithmetic --- */
+power_mod(2, 100, 1000000007);
+power_mod(3, -1, 7);
+inv_mod(3, 7);
+
+/* --- Jacobi symbol --- */
+jacobi(2, 7);
+jacobi(3, 11);
+
+/* --- Chinese Remainder Theorem --- */
+chinese([2, 3, 2], [3, 5, 7]);
+
+/* --- Fibonacci --- */
+fibonacci(0);
+fibonacci(1);
+fibonacci(10);
+fibonacci(20);
+fibonacci(50);
+
+/* --- Verify Fibonacci identity: F(n)^2 + F(n+1)^2 = F(2n+1) --- */
+fibonacci(10)^2 + fibonacci(11)^2;
+fibonacci(21);

@@ -1,0 +1,33 @@
+/* Walkthrough 27: Pattern Matching and Rewrite Rules
+ *
+ * Run: maxima-repl -b walkthrough/27_pattern_matching.mac
+ *
+ * Covers: matchdeclare, defrule, apply1, applyb1
+ */
+
+/* --- Declare pattern variables --- */
+matchdeclare(a, true)$
+matchdeclare(n, integerp)$
+
+/* --- Define rewrite rules --- */
+/* Pythagorean identity */
+defrule(pyth, sin(a)^2, 1 - cos(a)^2)$
+
+/* Double angle */
+defrule(dbl, sin(2*a), 2*sin(a)*cos(a))$
+
+/* --- Apply rules --- */
+apply1(sin(x)^2, pyth);
+apply1(sin(y)^2, pyth);
+apply1(sin(2*t), dbl);
+
+/* --- Bottom-up application --- */
+defrule(sq_expand, (a)^2, a*a)$
+applyb1(f(x^2, y^2), sq_expand);
+
+/* --- Numerical pattern with predicate --- */
+defrule(neg_elim, (-1)*a, -a)$
+apply1((-1)*x, neg_elim);
+
+/* --- Multiple rules in sequence --- */
+apply1(sin(x)^2 + cos(x)^2, pyth);

@@ -1,0 +1,65 @@
+/* Walkthrough 03: Calculus — Differentiation and Integration
+ *
+ * Run: maxima-repl -b walkthrough/03_calculus.mac
+ *
+ * Covers: diff, integrate (indefinite and definite), Taylor series
+ */
+
+/* --- Differentiation --- */
+diff(x^3, x);
+diff(sin(x^2), x);
+diff(exp(x) * log(x), x);
+diff(atan(x), x);
+diff(x^x, x);
+
+/* Higher-order derivatives */
+diff(sin(x), x, 2);
+diff(x^5, x, 3);
+
+/* --- Indefinite integration --- */
+integrate(x^3, x);
+integrate(sin(x), x);
+integrate(exp(x), x);
+integrate(1/x, x);
+integrate(1/(1 + x^2), x);
+
+/* Integration by parts (automatic) */
+integrate(x * exp(x), x);
+integrate(x * sin(x), x);
+integrate(x^2 * exp(x), x);
+
+/* Partial fractions */
+integrate(1 / (x * (x + 1)), x);
+integrate(1 / (x * (x + 1)^2), x);
+integrate((x^2 + 1) / (x^3 - x), x);
+
+/* Trig integrals */
+integrate(sin(x)^2, x);
+integrate(sin(x) * cos(x), x);
+
+/* Exp-trig combination */
+integrate(exp(x) * sin(x), x);
+
+/* Substitution (automatic) */
+integrate(x * exp(x^2), x);
+integrate(log(x)^3 / x, x);
+integrate(1 / (x * log(x)), x);
+
+/* Square-root integrals */
+integrate(sqrt(1 - x^2), x);
+
+/* --- Definite integration --- */
+integrate(x^2, x, 0, 1);
+integrate(sin(x), x, 0, %pi);
+integrate(exp(-x), x, 0, inf);
+integrate(1 / (x^2 + 1), x, minf, inf);
+
+/* Gamma-type integrals */
+integrate(x^3 * exp(-x), x, 0, inf);
+integrate(x^n * exp(-x), x, 0, inf);
+
+/* --- Taylor series --- */
+taylor(sin(x), x, 0, 7);
+taylor(exp(x), x, 0, 5);
+taylor(1/(1-x), x, 0, 5);
+taylor(log(1+x), x, 0, 5);

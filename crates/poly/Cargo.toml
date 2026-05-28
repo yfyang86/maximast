@@ -1,0 +1,10 @@
+[package]
+name = "maxima-poly"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Sparse polynomial arithmetic for Maxima kernel"
+
+[dependencies]
+maxima-core = { path = "../core" }
+num = "0.4"

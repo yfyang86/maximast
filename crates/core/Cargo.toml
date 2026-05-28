@@ -1,0 +1,9 @@
+[package]
+name = "maxima-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Core expression types for Maxima kernel"
+
+[dependencies]
+num = "0.4"

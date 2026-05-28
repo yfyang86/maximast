@@ -1,0 +1,56 @@
+
+unicode-ident v1.0.24 | (MIT OR Apache-2.0) AND Unicode-3.0
+autocfg v1.5.1 | Apache-2.0 OR MIT
+fastrand v2.4.1 | Apache-2.0 OR MIT
+utf8parse v0.2.2 | Apache-2.0 OR MIT
+linux-raw-sys v0.12.1 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT
+rustix v1.1.4 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT
+rustix v1.1.4 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT (*)
+maxima-core v0.1.0 (/home/user/maxima/maxima-kernel/crates/core) | GPL-2.0-only
+maxima-eval v0.1.0 (/home/user/maxima/maxima-kernel/crates/eval) | GPL-2.0-only
+maxima-parser v0.1.0 (/home/user/maxima/maxima-kernel/crates/parser) | GPL-2.0-only
+maxima-poly v0.1.0 (/home/user/maxima/maxima-kernel/crates/poly) | GPL-2.0-only
+maxima-repl v0.1.0 (/home/user/maxima/maxima-kernel/crates/repl) | GPL-2.0-only
+maxima-core v0.1.0 (/home/user/maxima/maxima-kernel/crates/core) | GPL-2.0-only (*)
+maxima-eval v0.1.0 (/home/user/maxima/maxima-kernel/crates/eval) | GPL-2.0-only (*)
+maxima-parser v0.1.0 (/home/user/maxima/maxima-kernel/crates/parser) | GPL-2.0-only (*)
+maxima-poly v0.1.0 (/home/user/maxima/maxima-kernel/crates/poly) | GPL-2.0-only (*)
+cfg_aliases v0.2.1 | MIT
+endian-type v0.1.2 | MIT
+nibble_vec v0.1.0 | MIT
+nix v0.29.0 | MIT
+plotters v0.3.7 | MIT
+plotters-backend v0.3.7 | MIT
+plotters-svg v0.3.7 | MIT
+radix_trie v0.2.1 | MIT
+rustyline v15.0.0 | MIT
+rustyline-derive v0.11.1 (proc-macro) | MIT
+bitflags v2.11.1 | MIT OR Apache-2.0
+cfg-if v1.0.4 | MIT OR Apache-2.0
+fd-lock v4.0.4 | MIT OR Apache-2.0
+getrandom v0.4.2 | MIT OR Apache-2.0
+home v0.5.12 | MIT OR Apache-2.0
+libc v0.2.186 | MIT OR Apache-2.0
+log v0.4.29 | MIT OR Apache-2.0
+num v0.4.3 | MIT OR Apache-2.0
+num-bigint v0.4.6 | MIT OR Apache-2.0
+num-complex v0.4.6 | MIT OR Apache-2.0
+num-integer v0.1.46 | MIT OR Apache-2.0
+num-iter v0.1.45 | MIT OR Apache-2.0
+num-rational v0.4.2 | MIT OR Apache-2.0
+num-traits v0.2.19 | MIT OR Apache-2.0
+once_cell v1.21.4 | MIT OR Apache-2.0
+proc-macro2 v1.0.106 | MIT OR Apache-2.0
+quote v1.0.45 | MIT OR Apache-2.0
+smallvec v1.15.1 | MIT OR Apache-2.0
+syn v2.0.117 | MIT OR Apache-2.0
+tempfile v3.27.0 | MIT OR Apache-2.0
+unicode-segmentation v1.13.2 | MIT OR Apache-2.0
+unicode-width v0.2.2 | MIT OR Apache-2.0
+num v0.4.3 | MIT OR Apache-2.0 (*)
+num-bigint v0.4.6 | MIT OR Apache-2.0 (*)
+num-integer v0.1.46 | MIT OR Apache-2.0 (*)
+num-traits v0.2.19 | MIT OR Apache-2.0 (*)
+proc-macro2 v1.0.106 | MIT OR Apache-2.0 (*)
+quote v1.0.45 | MIT OR Apache-2.0 (*)
+memchr v2.8.0 | Unlicense OR MIT

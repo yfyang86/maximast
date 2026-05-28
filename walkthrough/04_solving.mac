@@ -1,0 +1,30 @@
+/* Walkthrough 04: Equation Solving
+ *
+ * Run: maxima-repl -b walkthrough/04_solving.mac
+ *
+ * Covers: solve, linsolve, quadratic formula, polynomial roots
+ */
+
+/* --- Linear equations --- */
+solve(2*x + 3 = 7, x);
+solve(a*x + b = 0, x);
+
+/* --- Quadratic equations --- */
+solve(x^2 - 5*x + 6, x);
+solve(x^2 + 3*x + 2 = 0, x);
+
+/* Symbolic quadratic formula */
+solve(a*x^2 + b*x + c = 0, x);
+
+/* --- Higher degree --- */
+solve(x^3 - 6*x^2 + 11*x - 6, x);
+solve(x^4 - 5*x^2 + 4, x);
+
+/* --- Systems of linear equations --- */
+linsolve([x + y = 3, 2*x - y = 0], [x, y]);
+linsolve([x + y + z = 6, x - y = 2, 2*y + z = 5], [x, y, z]);
+linsolve([a*x + b*y = 1, c*x + d*y = 0], [x, y]);
+
+/* --- Verify solutions --- */
+subst(2, x, x^2 - 5*x + 6);
+subst(3, x, x^2 - 5*x + 6);

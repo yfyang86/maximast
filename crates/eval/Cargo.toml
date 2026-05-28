@@ -1,0 +1,16 @@
+[package]
+name = "maxima-eval"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Evaluator for Maxima expressions"
+
+[dependencies]
+maxima-core = { path = "../core" }
+maxima-parser = { path = "../parser" }
+maxima-poly = { path = "../poly" }
+num = "0.4"
+plotters = { version = "0.3", default-features = false, features = ["svg_backend", "line_series"] }
+
+[dev-dependencies]
+tempfile = "3"

@@ -1,0 +1,48 @@
+/* Walkthrough 17: Sets and Set Algebra
+ *
+ * Run: maxima-repl -b walkthrough/17_sets.mac
+ *
+ * Covers: set literals {}, union, intersection, setdifference,
+ *         symdifference, elementp, subsetp, cardinality, powerset
+ */
+
+/* --- Set literals --- */
+{1, 2, 3};
+{3, 1, 2, 1};
+
+/* --- Set construction --- */
+setify([1, 2, 3, 2, 1]);
+listify({a, b, c});
+
+/* --- Union --- */
+union({1, 2, 3}, {3, 4, 5});
+union({a, b}, {b, c}, {c, d});
+
+/* --- Intersection --- */
+intersection({1, 2, 3}, {2, 3, 4});
+intersection({a, b, c}, {b, c, d}, {c, d, e});
+
+/* --- Difference --- */
+setdifference({1, 2, 3, 4}, {2, 4});
+symdifference({1, 2, 3}, {2, 3, 4});
+
+/* --- Membership --- */
+elementp(2, {1, 2, 3});
+elementp(5, {1, 2, 3});
+member(b, {a, b, c});
+
+/* --- Subset --- */
+subsetp({1, 2}, {1, 2, 3});
+subsetp({1, 4}, {1, 2, 3});
+
+/* --- Disjoint --- */
+disjointp({1, 2}, {3, 4});
+disjointp({1, 2}, {2, 3});
+
+/* --- Cardinality --- */
+cardinality({a, b, c, d});
+cardinality({});
+
+/* --- Power set --- */
+powerset({1, 2});
+powerset({a, b, c});

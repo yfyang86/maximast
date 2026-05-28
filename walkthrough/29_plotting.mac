@@ -1,0 +1,27 @@
+/* Walkthrough 29: Plotting
+ *
+ * Run: maxima-repl -b walkthrough/29_plotting.mac
+ *
+ * Covers: plot2d (SVG output), gnuplot_script
+ *
+ * Note: plot2d generates maxima_plot.svg in the current directory.
+ *       gnuplot_script generates a .gnuplot file for external use.
+ */
+
+/* --- Single function plot --- */
+plot2d(sin(x), [x, -%pi, %pi]);
+
+/* --- Multiple functions --- */
+plot2d([sin(x), cos(x)], [x, -4, 4]);
+
+/* --- Polynomial --- */
+plot2d(x^3 - 3*x, [x, -3, 3]);
+
+/* --- Rational function --- */
+plot2d(1/(1+x^2), [x, -5, 5]);
+
+/* --- Exponential --- */
+plot2d([exp(x), exp(-x)], [x, -2, 2]);
+
+/* --- Generate gnuplot script --- */
+gnuplot_script(x^2, [x, -3, 3]);

@@ -1,0 +1,51 @@
+/* Walkthrough 08: Advanced Integration Techniques
+ *
+ * Run: maxima-repl -b walkthrough/08_advanced_integration.mac
+ *
+ * Covers: algebraic integrands, radical integrals, Euler substitution,
+ *         Laplace transforms, Gaussian integrals
+ */
+
+/* --- Algebraic factoring integration (Trager/norm method) --- */
+/* These require factoring over algebraic number fields */
+integrate(1/(x^4 + 1), x);
+integrate(x^2/(x^4 + 1), x);
+
+/* --- Radical integrals --- */
+
+/* Completing-the-square for quadratics under sqrt */
+integrate(1/sqrt(x^2 + 4), x);
+integrate(1/sqrt(x^2 - 9), x);
+
+/* sqrt(1 - x^2): trig substitution */
+integrate(sqrt(1 - x^2), x);
+
+/* Euler substitution for 1/((x+a)*sqrt(x^2+c)) — future work */
+
+/* --- Product forms --- */
+
+/* sqrt(x^2+c)/x^2 via integration table */
+integrate(sqrt(x^2 + 4)/x^2, x);
+
+/* sqrt(x)*log(x) via integration by parts */
+integrate(sqrt(x)*log(x), x);
+
+/* --- Definite integrals with special values --- */
+
+/* Gamma function: integral of x^n*exp(-x) */
+integrate(x^3*exp(-x), x, 0, inf);
+integrate(x^5*exp(-x), x, 0, inf);
+integrate(x^n*exp(-x), x, 0, inf);
+
+/* Gaussian integrals: x^(2n)*exp(-x^2) */
+integrate(exp(-x^2), x, 0, inf);
+integrate(x^2*exp(-x^2), x, 0, inf);
+integrate(x^4*exp(-x^2), x, 0, inf);
+
+/* --- Laplace transform table --- */
+/* integral_0^inf exp(-s*x)*cos(b*x) dx = s/(s^2+b^2) */
+integrate(exp(-s*x)*cos(3*x), x, 0, inf);
+integrate(exp(-s*x)*sin(2*x), x, 0, inf);
+
+/* Gaussian-cosine: integral_0^inf exp(-a*x^2)*cos(b*x) */
+integrate(exp(-2*x^2)*cos(3*x), x, 0, inf);

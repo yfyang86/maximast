@@ -1,0 +1,65 @@
+/* Walkthrough 14: Matrix Applications
+ *
+ * Run: maxima-repl -b walkthrough/14_matrix_applications.mac
+ *
+ * Covers: matrix power (^^), matrix indexing M[i,j], identity matrix,
+ *         Fibonacci via matrix exponentiation
+ */
+
+/* --- Matrix exponentiation --- */
+M : matrix([1, 1], [1, 0]);
+
+/* M^^0 is the identity matrix */
+M^^0;
+
+/* M^^1 is M itself */
+M^^1;
+
+/* M^^2 = M . M */
+M^^2;
+
+/* Higher powers via repeated squaring */
+M^^5;
+M^^10;
+
+/* --- Fibonacci numbers via matrix power --- */
+/* [[F(n+1), F(n)], [F(n), F(n-1)]] = [[1,1],[1,0]]^n */
+
+/* F(10) = 55 */
+R : M^^10;
+R[1,2];
+
+/* F(20) = 6765 */
+R : M^^20;
+R[1,2];
+
+/* F(30) = 832040 */
+R : M^^30;
+R[1,2];
+
+/* F(50) is a large number */
+R : M^^50;
+R[1,2];
+
+/* --- Matrix element access --- */
+A : matrix([10, 20, 30], [40, 50, 60]);
+
+/* Single element */
+A[1,2];
+A[2,3];
+
+/* Entire row */
+A[1];
+A[2];
+
+/* --- Determinant and inverse --- */
+B : matrix([2, 1], [5, 3]);
+determinant(B);
+invert(B);
+
+/* Verify B . B^(-1) conceptually */
+B^^2;
+
+/* --- Symbolic matrix power --- */
+I2 : matrix([1, 0], [0, 1]);
+I2^^100;

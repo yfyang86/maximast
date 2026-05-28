@@ -1,0 +1,90 @@
+/* Walkthrough 15: 24-Game Solver
+ *
+ * Run: maxima-repl -b walkthrough/15_game_solver.mac
+ *
+ * Demonstrates: recursive programming, list manipulation, string building,
+ *               endcons, part, first, second, setify/listify
+ *
+ * The 24 game: given 4 numbers, combine them using +, -, *, / to make 24.
+ */
+
+/* Remove the ith element from a list */
+remove_nth(L, n) := block(
+    [i, R : []],
+    for i : 1 thru length(L) do
+        if i # n then R : endcons(part(L, i), R),
+    R
+)$
+
+/* Recursive solver: try all pairs with all operations */
+solve24_list(items) := block(
+    [n : length(items), i, j, xi, xj, rest, res : [], tmp],
+
+    if n = 1 then (
+        if first(first(items)) = 24 then
+            return([second(first(items))])
+        else
+            return([])
+    ),
+
+    for i : 1 thru n do
+        for j : i+1 thru n do (
+            xi : part(items, i),
+            xj : part(items, j),
+            rest : remove_nth(remove_nth(items, j), i),
+
+            tmp : solve24_list(endcons([first(xi)+first(xj),
+                sconcat("(",second(xi),"+",second(xj),")")], rest)),
+            res : append(res, tmp),
+
+            tmp : solve24_list(endcons([first(xi)-first(xj),
+                sconcat("(",second(xi),"-",second(xj),")")], rest)),
+            res : append(res, tmp),
+
+            tmp : solve24_list(endcons([first(xj)-first(xi),
+                sconcat("(",second(xj),"-",second(xi),")")], rest)),
+            res : append(res, tmp),
+
+            tmp : solve24_list(endcons([first(xi)*first(xj),
+                sconcat("(",second(xi),"*",second(xj),")")], rest)),
+            res : append(res, tmp),
+
+            if first(xj) # 0 then (
+                tmp : solve24_list(endcons([first(xi)/first(xj),
+                    sconcat("(",second(xi),"/",second(xj),")")], rest)),
+                res : append(res, tmp)
+            ),
+
+            if first(xi) # 0 then (
+                tmp : solve24_list(endcons([first(xj)/first(xi),
+                    sconcat("(",second(xj),"/",second(xi),")")], rest)),
+                res : append(res, tmp)
+            )
+        ),
+
+    res
+)$
+
+/* Public entry: solve and deduplicate */
+solve24(a, b, c, d) := block(
+    [raw],
+    raw : solve24_list([
+        [a, sconcat(a)], [b, sconcat(b)],
+        [c, sconcat(c)], [d, sconcat(d)]
+    ]),
+    listify(setify(raw))
+)$
+
+/* --- Test with classic inputs --- */
+print("24 game: [1, 2, 3, 4]")$
+r : solve24(1, 2, 3, 4)$
+print(sconcat(length(r), " solutions found"))$
+print("Examples:")$
+print(first(r))$
+print(second(r))$
+print(third(r))$
+
+print("")$
+print("24 game: [2, 3, 4, 5]")$
+r2 : solve24(2, 3, 4, 5)$
+print(sconcat(length(r2), " solutions found"))$

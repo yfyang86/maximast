@@ -1,0 +1,26 @@
+/* Walkthrough 25: Advanced Partial Fractions
+ *
+ * Run: maxima-repl -b walkthrough/25_partfrac_advanced.mac
+ *
+ * Covers: partfrac with irreducible quadratic factors
+ */
+
+/* --- Linear factors (basic) --- */
+partfrac(1/(x*(x+1)), x);
+partfrac(1/((x-1)*(x+1)), x);
+partfrac((x+2)/(x*(x-1)*(x+1)), x);
+
+/* --- Irreducible quadratic factors --- */
+/* 1/((x^2+1)(x^2+4)) → A/(x^2+1) + B/(x^2+4) */
+partfrac(1/((x^2+1)*(x^2+4)), x);
+
+/* 1/((x^2+4)(x^2+9)) → ... */
+partfrac(1/((x^2+4)*(x^2+9)), x);
+
+/* --- Mixed linear + quadratic --- */
+partfrac(x/((x+1)*(x^2+1)), x);
+partfrac(1/((x-1)*(x^2+1)), x);
+
+/* --- Verify by expanding back --- */
+r : partfrac(1/((x^2+1)*(x^2+4)), x);
+ratsimp(r);
