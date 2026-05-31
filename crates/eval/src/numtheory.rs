@@ -110,7 +110,7 @@ pub(crate) fn eval_numtheory_func(name: &str, args: &[Expr]) -> Option<Expr> {
         "fibonacci" => {
             let n = if let Expr::Integer(i) = args.first()? { *i } else { return None };
             if n < 0 { return None; }
-            Some(Expr::int(fib_fast(n as u64)))
+            Some(fib_expr(n as u64))
         }
         _ => None,
     }
@@ -203,13 +203,20 @@ fn chinese_remainder(residues: &[i64], moduli: &[i64]) -> Option<i64> {
     Some((((result % n) + n) % n) as i64)
 }
 
-fn fib_fast(n: u64) -> i64 {
-    if n <= 1 { return n as i64; }
-    let (mut a, mut b): (i128, i128) = (0, 1);
+/// Compute the nth Fibonacci number, using BigInt to avoid overflow.
+/// Returns Expr::Integer when it fits in i64, else Expr::BigInt.
+fn fib_expr(n: u64) -> Expr {
+    use num::BigInt;
+    use num::ToPrimitive;
+    if n <= 1 { return Expr::int(n as i64); }
+    let (mut a, mut b) = (BigInt::from(0), BigInt::from(1));
     for _ in 2..=n {
-        let c = a + b;
+        let c = &a + &b;
         a = b;
         b = c;
     }
-    b as i64
+    match b.to_i64() {
+        Some(v) => Expr::int(v),
+        None => Expr::BigInt(Box::new(b)),
+    }
 }

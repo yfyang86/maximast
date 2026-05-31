@@ -44,9 +44,8 @@ fn list_functions(env: &Environment) -> Expr {
         let params: Vec<Expr> = def.params.iter().map(|p| Expr::Symbol(*p)).collect();
         items.push(Expr::call(&name, params));
     }
-    for (name_id, _) in &env.native_functions {
-        let name = resolve(*name_id);
-        items.push(Expr::sym(&name));
+    for name in env.native_functions.keys() {
+        items.push(Expr::sym(name));
     }
     items.sort_by(|a, b| a.to_string().cmp(&b.to_string()));
     Expr::list(items)
@@ -111,7 +110,10 @@ fn eval_list(op: &Operator, args: &[Expr], env: &mut Environment) -> Expr {
             items.dedup();
             Expr::set(items)
         }
-        Operator::Named(id) => eval_funcall(*id, args, env),
+        Operator::Named(id) => {
+            let result = eval_funcall(*id, args, env);
+            crate::pattern::apply_tellsimp(result, env)
+        }
         _ => {
             let evaled_args: Vec<Expr> = args.iter().map(|a| meval(a, env)).collect();
             expr_from(op, &evaled_args)
@@ -150,7 +152,8 @@ fn eval_plus(args: &[Expr], env: &mut Environment) -> Expr {
             }
         }
     }
-    simplify(&Expr::List { op: Operator::MPlus, simplified: false, args: evaled })
+    let result = simplify(&Expr::List { op: Operator::MPlus, simplified: false, args: evaled });
+    crate::pattern::apply_tellsimp(result, env)
 }
 
 fn eval_times(args: &[Expr], env: &mut Environment) -> Expr {
@@ -173,7 +176,8 @@ fn eval_times(args: &[Expr], env: &mut Environment) -> Expr {
             }
         }
     }
-    simplify(&Expr::List { op: Operator::MTimes, simplified: false, args: evaled })
+    let result = simplify(&Expr::List { op: Operator::MTimes, simplified: false, args: evaled });
+    crate::pattern::apply_tellsimp(result, env)
 }
 
 fn eval_power(args: &[Expr], env: &mut Environment) -> Expr {
@@ -940,6 +944,12 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
             }
             Expr::call(&func_name, evaled_args)
         }
+        "residue" => {
+            if let Some(result) = crate::residue::eval_residue(&func_name, &evaled_args, env) {
+                return result;
+            }
+            Expr::call(&func_name, evaled_args)
+        }
         "logcontract" | "logexpand" => {
             if let Some(result) = crate::log_trig::eval_log_trig(&func_name, &evaled_args) {
                 return result;
@@ -965,7 +975,7 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
             }
             Expr::call(&func_name, evaled_args)
         }
-        "ode2" | "ic1" | "ic2" => {
+        "ode2" | "ic1" | "ic2" | "bc2" => {
             if let Some(result) = crate::ode::eval_ode(&func_name, &evaled_args, env) {
                 return result;
             }
@@ -2228,6 +2238,18 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
             }
             Expr::call("trigreduce", evaled_args)
         }
+        "trigrat" => {
+            if let Some(arg) = evaled_args.first() {
+                return trig_rat(arg);
+            }
+            Expr::call("trigrat", evaled_args)
+        }
+        "halfangles" => {
+            if let Some(arg) = evaled_args.first() {
+                return half_angles(arg);
+            }
+            Expr::call("halfangles", evaled_args)
+        }
         "trigsimp" => {
             if let Some(arg) = evaled_args.first() {
                 return trig_simp(arg);
@@ -2317,6 +2339,28 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
                 return eval_require(&filename, env);
             }
             Expr::call("require", evaled_args)
+        }
+        "load_plugin" => {
+            if let Some(arg) = evaled_args.first() {
+                let name = match arg {
+                    Expr::String(s) => s.to_string(),
+                    Expr::Symbol(id) => resolve(*id),
+                    _ => return Expr::call("load_plugin", evaled_args),
+                };
+                return match crate::plugin::load_plugin(&name, env) {
+                    Ok(_) => Expr::sym("true"),
+                    Err(msg) => {
+                        eprintln!("load_plugin: {}", msg);
+                        Expr::sym("false")
+                    }
+                };
+            }
+            Expr::call("load_plugin", evaled_args)
+        }
+        "loaded_plugins" => {
+            Expr::list(env.loaded_plugin_paths.iter()
+                .map(|s| Expr::String(s.clone().into()))
+                .collect())
         }
         "setup_autoload" => {
             if evaled_args.len() >= 2 {
@@ -2778,13 +2822,25 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
         "makelist" => eval_makelist(args, env),
         "create_list" => eval_makelist(args, env),
         _ => {
-            // 1. Native (Rust plugin) functions — highest priority
-            if let Some(ndef) = env.native_functions.get(&name).cloned() {
+            // 1. Native (Rust plugin) functions — highest priority.
+            if let Some(ndef) = env.native_functions.get(&func_name).cloned() {
                 let n = evaled_args.len();
                 if n < ndef.min_args || ndef.max_args.map_or(false, |m| n > m) {
                     return Expr::call(&func_name, evaled_args);
                 }
-                return (ndef.func)(&evaled_args, env);
+                // Safety net for statically-linked native fns (same panic
+                // runtime). Dynamically loaded plugins MUST catch their own
+                // panics via `plugin::guard` — a panic unwinding out of a
+                // separately-compiled .so is a "foreign exception" the host
+                // cannot catch and would abort the process.
+                let call = std::panic::AssertUnwindSafe(|| (ndef.func)(&evaled_args, env));
+                return match std::panic::catch_unwind(call) {
+                    Ok(result) => result,
+                    Err(_) => {
+                        eprintln!("warning: native function `{}` panicked; returning noun form", func_name);
+                        Expr::call(&func_name, evaled_args)
+                    }
+                };
             }
             // 2. User-defined Maxima functions
             if let Some(def) = env.functions.get(&name).cloned() {
@@ -2813,7 +2869,7 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
                 // 4. Autoload: if registered, load the file and retry once
                 if let Some(file) = env.autoload_registry.remove(&name) {
                     eval_load(&file, env);
-                    if env.functions.contains_key(&name) || env.native_functions.contains_key(&name) {
+                    if env.functions.contains_key(&name) || env.native_functions.contains_key(&func_name) {
                         let retry = Expr::List {
                             op: Operator::Named(name),
                             simplified: false,
@@ -4973,47 +5029,32 @@ fn trig_expand(expr: &Expr) -> Expr {
 fn trig_reduce(expr: &Expr) -> Expr {
     match expr {
         Expr::List { op: Operator::MTimes, args, .. } => {
-            // sin(x)*cos(x) → sin(2x)/2
-            if args.len() == 2 {
-                if let (Some(n1), Some(n2)) = (get_trig_name(&args[0]), get_trig_name(&args[1])) {
-                    let a1 = get_trig_arg(&args[0]);
-                    let a2 = get_trig_arg(&args[1]);
-                    if let (Some(a1), Some(a2)) = (a1, a2) {
-                        if a1 == a2 {
-                            match (n1.as_str(), n2.as_str()) {
-                                ("sin", "cos") | ("cos", "sin") => {
-                                    return simplify(&Expr::div(
-                                        Expr::call("sin", vec![Expr::mul(Expr::int(2), a1)]),
-                                        Expr::int(2),
-                                    ));
-                                }
-                                _ => {}
-                            }
-                        }
+            // Reduce factors first, then look for a pair of trig factors to
+            // combine via product-to-sum (handles numeric coefficients and
+            // products of different angles, e.g. 2*sin(x)*cos(x) -> sin(2x)).
+            let factors: Vec<Expr> = args.iter().map(trig_reduce).collect();
+            for i in 0..factors.len() {
+                for j in (i + 1)..factors.len() {
+                    if let Some(combined) = product_to_sum(&factors[i], &factors[j]) {
+                        let mut rest: Vec<Expr> = factors.iter().enumerate()
+                            .filter(|(k, _)| *k != i && *k != j)
+                            .map(|(_, e)| e.clone())
+                            .collect();
+                        rest.push(combined);
+                        let prod = simplify(&Expr::List {
+                            op: Operator::MTimes, simplified: false, args: rest,
+                        });
+                        return trig_reduce(&prod);
                     }
                 }
             }
-            let new_args: Vec<Expr> = args.iter().map(|a| trig_reduce(a)).collect();
-            simplify(&Expr::List { op: Operator::MTimes, simplified: false, args: new_args })
+            simplify(&Expr::List { op: Operator::MTimes, simplified: false, args: factors })
         }
         Expr::List { op: Operator::MExpt, args, .. } if args.len() == 2 => {
-            if args[1] == Expr::int(2) {
-                if let Some(name) = get_trig_name(&args[0]) {
-                    if let Some(x) = get_trig_arg(&args[0]) {
-                        let two_x = Expr::mul(Expr::int(2), x);
-                        match name.as_str() {
-                            // sin²(x) → (1-cos(2x))/2
-                            "sin" => return simplify(&Expr::div(
-                                Expr::sub(Expr::int(1), Expr::call("cos", vec![two_x])),
-                                Expr::int(2),
-                            )),
-                            // cos²(x) → (1+cos(2x))/2
-                            "cos" => return simplify(&Expr::div(
-                                Expr::add(Expr::int(1), Expr::call("cos", vec![two_x])),
-                                Expr::int(2),
-                            )),
-                            _ => {}
-                        }
+            if let (Some(name), Some(x)) = (get_trig_name(&args[0]), get_trig_arg(&args[0])) {
+                if let Some(n) = to_i64(&args[1]) {
+                    if let Some(reduced) = power_reduce_trig(&name, &x, n) {
+                        return reduced;
                     }
                 }
             }
@@ -5027,6 +5068,163 @@ fn trig_reduce(expr: &Expr) -> Expr {
         _ => expr.clone(),
     }
 }
+
+/// Product-to-sum for two trig factors with the same or different arguments:
+///   sin(a)sin(b) = (cos(a-b) - cos(a+b))/2
+///   cos(a)cos(b) = (cos(a-b) + cos(a+b))/2
+///   sin(a)cos(b) = (sin(a+b) + sin(a-b))/2
+fn product_to_sum(f: &Expr, g: &Expr) -> Option<Expr> {
+    let (nf, ng) = (get_trig_name(f)?, get_trig_name(g)?);
+    let (a, b) = (get_trig_arg(f)?, get_trig_arg(g)?);
+    let sum = simplify(&Expr::add(a.clone(), b.clone()));
+    let diff = simplify(&Expr::sub(a.clone(), b.clone()));
+    let two = Expr::int(2);
+    let result = match (nf.as_str(), ng.as_str()) {
+        ("sin", "sin") => Expr::div(
+            Expr::sub(trig_call("cos", diff), trig_call("cos", sum)), two),
+        ("cos", "cos") => Expr::div(
+            Expr::add(trig_call("cos", diff), trig_call("cos", sum)), two),
+        ("sin", "cos") => Expr::div(
+            Expr::add(trig_call("sin", sum), trig_call("sin", diff)), two),
+        ("cos", "sin") => Expr::div(
+            Expr::add(trig_call("sin", sum),
+                      trig_call("sin", simplify(&Expr::sub(b, a)))), two),
+        _ => return None,
+    };
+    Some(simplify(&result))
+}
+
+/// Build a trig call, folding the zero-argument special values that the
+/// pure simplifier (which does not evaluate functions) would otherwise leave.
+fn trig_call(name: &str, arg: Expr) -> Expr {
+    if arg == Expr::int(0) {
+        return match name {
+            "sin" | "tan" => Expr::int(0),
+            "cos" => Expr::int(1),
+            _ => Expr::call(name, vec![arg]),
+        };
+    }
+    Expr::call(name, vec![arg])
+}
+
+/// Power reduction of sin^n / cos^n to a linear combination of multiple angles.
+fn power_reduce_trig(name: &str, x: &Expr, n: i64) -> Option<Expr> {
+    let cos = |k: i64| Expr::call("cos", vec![simplify(&Expr::mul(Expr::int(k), x.clone()))]);
+    let sin = |k: i64| Expr::call("sin", vec![simplify(&Expr::mul(Expr::int(k), x.clone()))]);
+    let r = match (name, n) {
+        // sin^2 = (1 - cos2x)/2 ; cos^2 = (1 + cos2x)/2
+        ("sin", 2) => Expr::div(Expr::sub(Expr::int(1), cos(2)), Expr::int(2)),
+        ("cos", 2) => Expr::div(Expr::add(Expr::int(1), cos(2)), Expr::int(2)),
+        // sin^3 = (3 sin x - sin 3x)/4 ; cos^3 = (3 cos x + cos 3x)/4
+        ("sin", 3) => Expr::div(
+            Expr::sub(Expr::mul(Expr::int(3), sin(1)), sin(3)), Expr::int(4)),
+        ("cos", 3) => Expr::div(
+            Expr::add(Expr::mul(Expr::int(3), cos(1)), cos(3)), Expr::int(4)),
+        // sin^4 = (3 - 4 cos2x + cos4x)/8 ; cos^4 = (3 + 4 cos2x + cos4x)/8
+        ("sin", 4) => Expr::div(
+            Expr::add(Expr::sub(Expr::int(3), Expr::mul(Expr::int(4), cos(2))), cos(4)),
+            Expr::int(8)),
+        ("cos", 4) => Expr::div(
+            Expr::add(Expr::add(Expr::int(3), Expr::mul(Expr::int(4), cos(2))), cos(4)),
+            Expr::int(8)),
+        _ => return None,
+    };
+    Some(simplify(&r))
+}
+
+/// trigrat: canonical multiple-angle linear form (trigreduce then ratsimp,
+/// with numeric factors merged so e.g. 2*(sin(2x)/2) collapses to sin(2x)).
+fn trig_rat(expr: &Expr) -> Expr {
+    ratsimp(&combine_numeric_factors(&trig_reduce(expr)))
+}
+
+/// Merge multiple numeric factors of a product into one rational coefficient,
+/// e.g. 2 * X * 2^(-1) -> X. Only fires when there are >= 2 numeric factors,
+/// so a lone 2^(-1) (i.e. X/2) keeps its fraction display.
+fn combine_numeric_factors(expr: &Expr) -> Expr {
+    match expr {
+        Expr::List { op: Operator::MTimes, args, .. } => {
+            let factors: Vec<Expr> = args.iter().map(combine_numeric_factors).collect();
+            // Multiply all integer / integer^integer factors into a rational.
+            let (mut num, mut den): (i64, i64) = (1, 1);
+            let mut numeric_count = 0usize;
+            let mut rest: Vec<Expr> = Vec::new();
+            for f in &factors {
+                match f {
+                    Expr::Integer(n) => { num *= n; numeric_count += 1; }
+                    Expr::Rational { num: n, den: d } => { num *= n; den *= d; numeric_count += 1; }
+                    Expr::List { op: Operator::MExpt, args: pa, .. }
+                        if pa.len() == 2 => {
+                        if let (Expr::Integer(b), Expr::Integer(e)) = (&pa[0], &pa[1]) {
+                            if *e < 0 && *b != 0 {
+                                if let Some(p) = b.checked_pow((-*e) as u32) {
+                                    den *= p; numeric_count += 1; continue;
+                                }
+                            } else if *e >= 0 {
+                                if let Some(p) = b.checked_pow(*e as u32) {
+                                    num *= p; numeric_count += 1; continue;
+                                }
+                            }
+                        }
+                        rest.push(f.clone());
+                    }
+                    _ => rest.push(f.clone()),
+                }
+            }
+            if numeric_count < 2 {
+                return simplify(&Expr::List { op: Operator::MTimes, simplified: false, args: factors });
+            }
+            // Reduce the rational coefficient.
+            let sign = if (num < 0) ^ (den < 0) { -1 } else { 1 };
+            let (mut a, mut b) = (num.unsigned_abs(), den.unsigned_abs());
+            while b != 0 { let t = b; b = a % b; a = t; }
+            let g = a.max(1);
+            let (cn, cd) = ((num.unsigned_abs() / g) as i64 * sign, (den.unsigned_abs() / g) as i64);
+            let coeff = if cd == 1 { Expr::int(cn) } else { Expr::Rational { num: cn, den: cd } };
+            let mut all = vec![coeff];
+            all.extend(rest);
+            simplify(&Expr::List { op: Operator::MTimes, simplified: false, args: all })
+        }
+        Expr::List { op, args, simplified } => {
+            let new_args: Vec<Expr> = args.iter().map(combine_numeric_factors).collect();
+            Expr::List { op: *op, simplified: *simplified, args: new_args }
+        }
+        _ => expr.clone(),
+    }
+}
+
+/// halfangles: rewrite sin/cos/tan(a) via half-angle (sqrt) formulas, expressed
+/// in terms of the doubled argument 2a (so sin(x/2) -> sqrt((1-cos x)/2)).
+fn half_angles(expr: &Expr) -> Expr {
+    if let Expr::List { op: Operator::Named(id), args, .. } = expr {
+        let name = resolve(*id);
+        if args.len() == 1 && matches!(name.as_str(), "sin" | "cos" | "tan") {
+            let a = half_angles(&args[0]);
+            let two_a = simplify(&Expr::mul(Expr::int(2), a.clone()));
+            let cos2 = Expr::call("cos", vec![two_a.clone()]);
+            return match name.as_str() {
+                "sin" => simplify(&Expr::call("sqrt", vec![
+                    Expr::div(Expr::sub(Expr::int(1), cos2), Expr::int(2))])),
+                "cos" => simplify(&Expr::call("sqrt", vec![
+                    Expr::div(Expr::add(Expr::int(1), cos2), Expr::int(2))])),
+                // tan(a) = sin(2a)/(1+cos(2a))
+                "tan" => simplify(&Expr::div(
+                    Expr::call("sin", vec![two_a]),
+                    Expr::add(Expr::int(1), cos2))),
+                _ => unreachable!(),
+            };
+        }
+    }
+    match expr {
+        Expr::List { op, args, simplified } => {
+            let new_args: Vec<Expr> = args.iter().map(half_angles).collect();
+            Expr::List { op: *op, simplified: *simplified, args: new_args }
+        }
+        _ => expr.clone(),
+    }
+}
+
+
 
 /// trigsimp: simplify using Pythagorean identities
 fn trig_simp(expr: &Expr) -> Expr {

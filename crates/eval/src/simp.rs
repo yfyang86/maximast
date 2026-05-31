@@ -1,5 +1,110 @@
 use maxima_core::{Expr, Operator};
 
+/// Coefficient of a like-term during sum collection. Rationals are kept exact
+/// so that e.g. (1/2)*x + (-1/2)*x cancels to 0; any contact with a float
+/// coefficient degrades to float (preserving prior behavior, no exactness
+/// claim for floats).
+#[derive(Clone, Copy, PartialEq)]
+enum Coef {
+    Rat(i64, i64), // num/den, den > 0, reduced
+    Flt(f64),
+}
+
+impl Coef {
+    fn rat(num: i64, den: i64) -> Coef {
+        if den == 0 { return Coef::Flt(f64::NAN); }
+        let sign = if (num < 0) ^ (den < 0) { -1i64 } else { 1 };
+        let (mut a, mut b) = (num.unsigned_abs(), den.unsigned_abs());
+        while b != 0 { let t = b; b = a % b; a = t; }
+        let g = a.max(1);
+        let n = (num.unsigned_abs() / g) as i64 * sign;
+        let d = (den.unsigned_abs() / g) as i64;
+        Coef::Rat(n, d)
+    }
+
+    fn add(self, other: Coef) -> Coef {
+        match (self, other) {
+            (Coef::Rat(a, b), Coef::Rat(c, d)) => {
+                // a/b + c/d = (a*d + c*b)/(b*d)
+                let n = a * d + c * b;
+                let den = b * d;
+                Coef::rat(n, den)
+            }
+            (x, y) => Coef::Flt(x.to_f64() + y.to_f64()),
+        }
+    }
+
+    fn to_f64(self) -> f64 {
+        match self {
+            Coef::Rat(n, d) => n as f64 / d as f64,
+            Coef::Flt(f) => f,
+        }
+    }
+
+    fn is_zero(self) -> bool {
+        match self {
+            Coef::Rat(n, _) => n == 0,
+            Coef::Flt(f) => f == 0.0,
+        }
+    }
+
+    /// Render this coefficient as a standalone numeric expression.
+    fn to_expr(self) -> Expr {
+        match self {
+            Coef::Rat(n, 1) => Expr::int(n),
+            Coef::Rat(n, d) => Expr::Rational { num: n, den: d },
+            Coef::Flt(f) => Expr::Float(f),
+        }
+    }
+
+    /// Build `coef * base`, normalizing the common small cases.
+    fn times(self, base: Expr) -> Option<Expr> {
+        match self {
+            Coef::Rat(0, _) => None,
+            Coef::Rat(1, 1) => Some(base),
+            Coef::Rat(-1, 1) => Some(Expr::neg(base)),
+            Coef::Rat(n, 1) => Some(Expr::mul(Expr::int(n), base)),
+            Coef::Rat(n, d) => Some(Expr::mul(Expr::Rational { num: n, den: d }, base)),
+            Coef::Flt(f) if f == 0.0 => None,
+            Coef::Flt(f) if f == 1.0 => Some(base),
+            Coef::Flt(f) if f == -1.0 => Some(Expr::neg(base)),
+            Coef::Flt(f) if f == f.floor() && f.abs() < i64::MAX as f64 =>
+                Some(Expr::mul(Expr::int(f as i64), base)),
+            Coef::Flt(f) => Some(Expr::mul(Expr::Float(f), base)),
+        }
+    }
+}
+
+/// Like `extract_coeff` but returns an exact `Coef` so rational coefficients
+/// collect without losing precision.
+fn extract_coeff_c(expr: &Expr) -> (Coef, Expr) {
+    if let Expr::List { op: Operator::MTimes, args, .. } = expr {
+        if !args.is_empty() {
+            let coef = match &args[0] {
+                Expr::Integer(n) => Some(Coef::Rat(*n, 1)),
+                Expr::Rational { num, den } => Some(Coef::rat(*num, *den)),
+                Expr::Float(f) => Some(Coef::Flt(*f)),
+                _ => None,
+            };
+            if let Some(coef) = coef {
+                let mut rest_args: Vec<Expr> = args[1..].to_vec();
+                rest_args.sort_by(|a, b| expr_sort_key(a).cmp(&expr_sort_key(b)));
+                let rest = if rest_args.len() == 1 {
+                    rest_args.pop().unwrap()
+                } else {
+                    Expr::List { op: Operator::MTimes, simplified: true, args: rest_args }
+                };
+                return (coef, rest);
+            }
+            // No numeric leading factor: canonicalize the product as the base.
+            let mut sorted = args.clone();
+            sorted.sort_by(|a, b| expr_sort_key(a).cmp(&expr_sort_key(b)));
+            return (Coef::Rat(1, 1), Expr::List { op: Operator::MTimes, simplified: true, args: sorted });
+        }
+    }
+    (Coef::Rat(1, 1), expr.clone())
+}
+
 /// Simplify an expression: collect like terms, flatten nested ops, canonical ordering.
 pub fn simplify(expr: &Expr) -> Expr {
     match expr {
@@ -142,7 +247,7 @@ fn simplify_plus(args: &[Expr]) -> Expr {
     let mut num_sum: i64 = 0;
     let mut float_sum: Option<f64> = None;
     let mut rat_sum: Option<(i64, i64)> = None; // (num, den) accumulator
-    let mut term_map: Vec<(Expr, f64)> = Vec::new(); // (base_expr, coefficient)
+    let mut term_map: Vec<(Expr, Coef)> = Vec::new(); // (base_expr, exact coefficient)
 
     for term in &terms {
         match term {
@@ -188,9 +293,9 @@ fn simplify_plus(args: &[Expr]) -> Expr {
                 num_sum = 0;
             }
             _ => {
-                let (coeff, base) = extract_coeff(term);
+                let (coeff, base) = extract_coeff_c(term);
                 if let Some(entry) = term_map.iter_mut().find(|(b, _)| *b == base) {
-                    entry.1 += coeff;
+                    entry.1 = entry.1.add(coeff);
                 } else {
                     term_map.push((base, coeff));
                 }
@@ -198,44 +303,30 @@ fn simplify_plus(args: &[Expr]) -> Expr {
         }
     }
 
-    // Pythagorean identity: sin(e)^2 + cos(e)^2 → 1
-    let pyth_count = apply_pythagorean(&mut term_map);
+    // Pythagorean identity: sin(e)^2 + cos(e)^2 → 1 (returns the combined
+    // coefficient contribution of matched pairs).
+    let pyth_coef = apply_pythagorean(&mut term_map);
 
     let mut result: Vec<Expr> = Vec::new();
 
-    // Add numeric part (including Pythagorean contributions)
-    let total_int = num_sum + pyth_count;
-
-    if let Some(f) = float_sum {
-        let total = f + pyth_count as f64;
-        if total != 0.0 || term_map.is_empty() {
-            result.push(Expr::Float(total));
-        }
+    // Exactly one of float_sum / rat_sum / num_sum carries the constant
+    // (the loop folds them together). Combine with the Pythagorean contribution.
+    let const_coef = if let Some(f) = float_sum {
+        Coef::Flt(f)
     } else if let Some((rn, rd)) = rat_sum {
-        let total_rn = rn + pyth_count * rd;
-        if total_rn != 0 || term_map.is_empty() {
-            if rd == 1 { result.push(Expr::int(total_rn)); }
-            else { result.push(Expr::Rational { num: total_rn, den: rd }); }
-        }
-    } else if total_int != 0 || term_map.is_empty() {
-        if term_map.is_empty() || total_int != 0 {
-            result.push(Expr::int(total_int));
-        }
+        Coef::Rat(rn, rd)
+    } else {
+        Coef::Rat(num_sum, 1)
+    }.add(pyth_coef);
+
+    if !const_coef.is_zero() || term_map.is_empty() {
+        result.push(const_coef.to_expr());
     }
 
     // Add collected terms
     for (base, coeff) in term_map {
-        if coeff == 0.0 {
-            continue;
-        }
-        if coeff == 1.0 {
-            result.push(base);
-        } else if coeff == -1.0 {
-            result.push(Expr::neg(base));
-        } else if coeff == coeff.floor() && coeff.abs() < i64::MAX as f64 {
-            result.push(Expr::mul(Expr::int(coeff as i64), base));
-        } else {
-            result.push(Expr::mul(Expr::Float(coeff), base));
+        if let Some(term) = coeff.times(base) {
+            result.push(term);
         }
     }
 
@@ -429,6 +520,22 @@ fn simplify_power(base: &Expr, exp: &Expr) -> Expr {
                 Expr::BigInt(Box::new(num::pow::Pow::pow(&big, *e as u64)))
             }
         }
+        // (n/d)^e for small integer e: fold to an exact rational. Leave it
+        // symbolic if the powers would overflow i64.
+        (Expr::Rational { num, den }, Expr::Integer(e)) if e.unsigned_abs() >= 2 && e.unsigned_abs() <= 30 => {
+            let k = e.unsigned_abs() as u32;
+            match (num.checked_pow(k), den.checked_pow(k)) {
+                (Some(np), Some(dp)) => {
+                    let (mut rn, mut rd) = if *e > 0 { (np, dp) } else { (dp, np) };
+                    if rd == 0 { return Expr::pow(base.clone(), exp.clone()); }
+                    if rd < 0 { rn = -rn; rd = -rd; }
+                    let g = gcd(rn.unsigned_abs(), rd.unsigned_abs()).max(1) as i64;
+                    rn /= g; rd /= g;
+                    if rd == 1 { Expr::int(rn) } else { Expr::Rational { num: rn, den: rd } }
+                }
+                _ => Expr::pow(base.clone(), exp.clone()),
+            }
+        }
         // sqrt(x)^n: sqrt(x)^2 → x, sqrt(x)^(2k) → x^k, sqrt(x)^(2k+1) → x^k*sqrt(x)
         (Expr::List { op: Operator::Named(id), args, .. }, Expr::Integer(n))
             if args.len() == 1 && maxima_core::resolve(*id) == "sqrt" && *n >= 2 =>
@@ -577,10 +684,10 @@ fn extract_trig_sq(expr: &Expr) -> Option<(&str, &Expr)> {
     None
 }
 
-fn apply_pythagorean(term_map: &mut Vec<(Expr, f64)>) -> i64 {
-    let mut added = 0i64;
+fn apply_pythagorean(term_map: &mut Vec<(Expr, Coef)>) -> Coef {
+    let mut added = Coef::Rat(0, 1);
     // Collect trig² info: (index, "sin"|"cos", argument, coefficient)
-    let trig_info: Vec<(usize, String, Expr, f64)> = term_map.iter().enumerate()
+    let trig_info: Vec<(usize, String, Expr, Coef)> = term_map.iter().enumerate()
         .filter_map(|(i, (base, coeff))| {
             extract_trig_sq(base).map(|(name, arg)| (i, name.to_string(), arg.clone(), *coeff))
         })
@@ -595,13 +702,13 @@ fn apply_pythagorean(term_map: &mut Vec<(Expr, f64)>) -> i64 {
             if used.contains(&j) { continue; }
             let (idx_i, ref name_i, ref arg_i, coeff_i) = trig_info[i];
             let (idx_j, ref name_j, ref arg_j, coeff_j) = trig_info[j];
-            // sin²(e) + cos²(e) with same coeff
-            if name_i != name_j && *arg_i == *arg_j && (coeff_i - coeff_j).abs() < 1e-15 {
+            // sin²(e) + cos²(e) with the same coefficient → contributes that
+            // coefficient to the constant term.
+            if name_i != name_j && *arg_i == *arg_j
+                && (coeff_i.to_f64() - coeff_j.to_f64()).abs() < 1e-15 {
                 to_remove.push(idx_i);
                 to_remove.push(idx_j);
-                if coeff_i == coeff_i.floor() && coeff_i.abs() < i64::MAX as f64 {
-                    added += coeff_i as i64;
-                }
+                added = added.add(coeff_i);
                 used.insert(i);
                 used.insert(j);
                 break;

@@ -14,21 +14,18 @@ fn parse_formulas(content: &str) -> Vec<(usize, String, String)> {
             if current_num > 0 && !current_input.is_empty() && !current_output.is_empty() {
                 formulas.push((current_num, current_input.clone(), current_output.clone()));
             }
-            let num_str = line.trim_start_matches("[formula.").trim_end_matches(']');
+            let num_str = line.trim_start_matches("[formula.")
+                .trim_end_matches(']');
             current_num = num_str.parse().unwrap_or(0);
             current_input.clear();
             current_output.clear();
             has_note = false;
         } else if line.starts_with("input=") {
-            current_input = line
-                .trim_start_matches("input=")
-                .trim_matches('"')
-                .to_string();
+            current_input = line.trim_start_matches("input=")
+                .trim_matches('"').to_string();
         } else if line.starts_with("output=") {
-            current_output = line
-                .trim_start_matches("output=")
-                .trim_matches('"')
-                .to_string();
+            current_output = line.trim_start_matches("output=")
+                .trim_matches('"').to_string();
         } else if line.starts_with("note=") {
             has_note = true;
         }
@@ -42,27 +39,15 @@ fn parse_formulas(content: &str) -> Vec<(usize, String, String)> {
 /// Formulas to skip (unsupported functions, meta-formulas, reduction formulas).
 fn should_skip(num: usize, input: &str, output: &str) -> Option<&'static str> {
     // Unsupported functions
-    if output.contains("gamma_incomplete") {
-        return Some("gamma_incomplete");
-    }
-    if output.contains("erf(") {
-        return Some("erf");
-    }
-    if input.contains("asec(") || output.contains("asec(") {
-        return Some("asec");
-    }
+    if output.contains("gamma_incomplete") { return Some("gamma_incomplete"); }
+    if output.contains("erf(") { return Some("erf"); }
+    if input.contains("asec(") || output.contains("asec(") { return Some("asec"); }
     // Meta-formulas (integration by parts)
-    if input.contains("'diff") || input.contains("diff(v") {
-        return Some("meta-formula");
-    }
+    if input.contains("'diff") || input.contains("diff(v") { return Some("meta-formula"); }
     // Reduction formulas (output contains integrate())
-    if output.contains("integrate(") {
-        return Some("reduction formula");
-    }
+    if output.contains("integrate(") { return Some("reduction formula"); }
     // Conditional formulas
-    if output.contains("if ") {
-        return Some("conditional");
-    }
+    if output.contains("if ") { return Some("conditional"); }
     // Parametric formulas with unbound a, b, n (keep only specific-variable ones)
     // Skip formulas where input has unbound parameters that aren't x
     None
@@ -74,15 +59,13 @@ fn is_parametric(input: &str) -> bool {
     // Extract all single-letter identifiers and check if any aren't x
     let has_free_param = |s: &str| {
         // Simple heuristic: check for common parameter patterns
-        for pat in [
-            "(a*x", "(b*x", "a^2", "b^2", "a^x", "(a+b", "(x+a", "(x-a", "a*x^2", "2*a*x", "a*x+b",
-            "(n+1)", "x^n", "x+a)", "x+b)", "sin(a*x)", "cos(a*x)", "%e^(a*x)", "/(a-x)", "/(x+a)",
-            "sqrt(a+b", "sqrt(x+a", "sqrt(a-x", "sqrt(x-a", "sqrt(a*x", "(a+x)", "(a-x)",
-            "(x+a)^n", "(x+a)^2", "sec(x)^n", "csc(x)^n",
-        ] {
-            if s.contains(pat) {
-                return true;
-            }
+        for pat in ["(a*x", "(b*x", "a^2", "b^2", "a^x", "(a+b", "(x+a", "(x-a",
+                     "a*x^2", "2*a*x", "a*x+b", "(n+1)", "x^n", "x+a)", "x+b)",
+                     "sin(a*x)", "cos(a*x)", "%e^(a*x)", "/(a-x)", "/(x+a)",
+                     "sqrt(a+b", "sqrt(x+a", "sqrt(a-x", "sqrt(x-a",
+                     "sqrt(a*x", "(a+x)", "(a-x)", "(x+a)^n", "(x+a)^2",
+                     "sec(x)^n", "csc(x)^n"] {
+            if s.contains(pat) { return true; }
         }
         false
     };
@@ -91,7 +74,7 @@ fn is_parametric(input: &str) -> bool {
 
 #[test]
 fn formula_test_suite() {
-    let content = include_str!("../../../research/integralformulalist.toml");
+    let content = include_str!("../../../../research/integralformulalist.toml");
     let formulas = parse_formulas(content);
 
     println!("\n=== Integration Formula Test Suite ===");
@@ -118,7 +101,9 @@ fn formula_test_suite() {
         }
 
         // Run the formula
-        let result = std::panic::catch_unwind(|| eval_str(&format!("{};", input)));
+        let result = std::panic::catch_unwind(|| {
+            eval_str(&format!("{};", input))
+        });
 
         match result {
             Ok(actual) => {
@@ -127,10 +112,10 @@ fn formula_test_suite() {
                 let expected_norm = normalize(expected_output);
 
                 // Try evaluating the expected output too (in case of equivalent forms)
-                let expected_evaled =
-                    std::panic::catch_unwind(|| eval_str(&format!("{};", expected_output)));
-                let expected_norm2 = expected_evaled
-                    .as_ref()
+                let expected_evaled = std::panic::catch_unwind(|| {
+                    eval_str(&format!("{};", expected_output))
+                });
+                let expected_norm2 = expected_evaled.as_ref()
                     .map(|e| normalize(e))
                     .unwrap_or_default();
 
@@ -151,12 +136,7 @@ fn formula_test_suite() {
             Err(_) => {
                 errors += 1;
                 if failures.len() < 30 {
-                    failures.push((
-                        *num,
-                        input.clone(),
-                        expected_output.clone(),
-                        "PANIC".to_string(),
-                    ));
+                    failures.push((*num, input.clone(), expected_output.clone(), "PANIC".to_string()));
                 }
             }
         }
@@ -169,31 +149,19 @@ fn formula_test_suite() {
     println!("  Skipped (unsup): {}", skipped);
     println!("  Skipped (param): {}", param_skipped);
     println!("  Total tested:    {}", passed + failed + errors);
-    println!(
-        "  Pass rate:       {:.1}%",
-        if passed + failed + errors > 0 {
-            passed as f64 / (passed + failed + errors) as f64 * 100.0
-        } else {
-            0.0
-        }
-    );
+    println!("  Pass rate:       {:.1}%", if passed + failed + errors > 0 {
+        passed as f64 / (passed + failed + errors) as f64 * 100.0
+    } else { 0.0 });
 
     if !failures.is_empty() {
         println!("\nFailures (first {}):", failures.len());
         for (num, input, expected, actual) in &failures {
-            println!(
-                "  #{}: {} => got '{}' (expected '{}')",
-                num, input, actual, expected
-            );
+            println!("  #{}: {} => got '{}' (expected '{}')", num, input, actual, expected);
         }
     }
 
     // We expect to solve a reasonable fraction
-    assert!(
-        passed > 30,
-        "Should pass at least 30 formulas, got {}",
-        passed
-    );
+    assert!(passed > 30, "Should pass at least 30 formulas, got {}", passed);
 }
 
 fn normalize(s: &str) -> String {

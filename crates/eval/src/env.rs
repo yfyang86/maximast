@@ -34,8 +34,12 @@ pub struct Environment {
     scopes: Vec<HashMap<SymbolId, Expr>>,
     /// Maxima-defined function definitions (from f(x):=...)
     pub functions: HashMap<SymbolId, FuncDef>,
-    /// Native (Rust plugin) function definitions
-    pub native_functions: HashMap<SymbolId, NativeFuncDef>,
+    /// Native (Rust plugin) function definitions, keyed by name string.
+    /// Strings (not interned SymbolIds) are the key because a dynamically
+    /// loaded plugin has its own copy of the symbol interner — its SymbolIds
+    /// would not match the host's. The name string is the stable identity
+    /// across the plugin boundary.
+    pub native_functions: HashMap<String, NativeFuncDef>,
     /// Subscripted function definitions: t[0](x):=1, t[n](x):=...
     pub subscript_fns: HashMap<SubscriptKey, FuncDef>,
     /// Generic subscripted function definitions (symbolic index): t[n](x):=...
@@ -62,6 +66,13 @@ pub struct Environment {
     pub autoload_registry: HashMap<SymbolId, String>,
     /// Pattern matching state (matchdeclare, defrule, tellsimp)
     pub pattern_state: PatternState,
+    /// Dynamically loaded plugin libraries, kept alive for the whole session.
+    /// Dropping a `Library` unloads the `.so` and turns every function pointer
+    /// it registered into a dangling pointer, so these must never be dropped
+    /// while the session runs. Parallel to `loaded_plugin_paths`.
+    pub loaded_plugins: Vec<libloading::Library>,
+    /// Resolved paths of loaded plugins, for introspection and dedup.
+    pub loaded_plugin_paths: Vec<String>,
 }
 
 impl Environment {
@@ -83,6 +94,8 @@ impl Environment {
             search_paths: vec![".".to_string()],
             autoload_registry: HashMap::new(),
             pattern_state: PatternState::default(),
+            loaded_plugins: Vec::new(),
+            loaded_plugin_paths: Vec::new(),
         }
     }
 
@@ -150,8 +163,7 @@ impl Environment {
     }
 
     pub fn register_native(&mut self, name: &str, func: NativeFn, min_args: usize, max_args: Option<usize>) {
-        let id = maxima_core::intern(name);
-        self.native_functions.insert(id, NativeFuncDef { func, min_args, max_args });
+        self.native_functions.insert(name.to_string(), NativeFuncDef { func, min_args, max_args });
     }
 
     pub fn is_file_loaded(&self, path: &str) -> bool {
@@ -177,7 +189,7 @@ impl Environment {
 
     pub fn list_functions(&self) -> Vec<SymbolId> {
         let mut fns: Vec<SymbolId> = self.functions.keys().copied().collect();
-        fns.extend(self.native_functions.keys());
+        fns.extend(self.native_functions.keys().map(|n| maxima_core::intern(n)));
         fns
     }
 

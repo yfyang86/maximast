@@ -1,0 +1,33 @@
+/* Walkthrough 35: Orthogonal Polynomials (V7.0 S3, Rust plugin)
+ *
+ * Provided by the maxima-orthopoly plugin. Build and load it first:
+ *   cargo build -p maxima-orthopoly
+ *   maxima-repl -b walkthrough/35_orthopoly.mac
+ *
+ * Each family comes from its exact three-term recurrence, so symbolic results
+ * are exact at any degree (up to the plugin's cap).
+ */
+
+load_plugin("target/debug/libmaxima_orthopoly");
+
+/* --- Legendre P_n --- */
+legendre_p(2, x);        /* (3/2)*x^2 - 1/2 */
+legendre_p(3, x);        /* (5/2)*x^3 - (3/2)*x */
+legendre_p(2, 1/2);      /* -1/8  (exact numeric) */
+
+/* --- Chebyshev (first and second kind) --- */
+chebyshev_t(3, x);       /* 4*x^3 - 3*x */
+chebyshev_u(2, x);       /* 4*x^2 - 1 */
+chebyshev_t(5, 1);       /* 1  (T_n(1) = 1) */
+
+/* --- Hermite (physicists') --- */
+hermite(3, x);           /* 8*x^3 - 12*x */
+hermite(4, 0);           /* 12 */
+
+/* --- Laguerre and generalized Laguerre --- */
+laguerre(2, x);          /* 1 - 2*x + x^2/2 */
+gen_laguerre(2, 1, x);   /* 3 - 3*x + x^2/2 */
+
+/* --- Gegenbauer (ultraspherical) and Jacobi --- */
+ultraspherical(2, 1, x); /* 4*x^2 - 1   (C_n^1 = U_n) */
+jacobi_p(2, 1, 1, x);    /* (15/4)*x^2 - 3/4 */

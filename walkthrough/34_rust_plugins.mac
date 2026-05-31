@@ -1,0 +1,71 @@
+/* Walkthrough 34: Dynamic Rust Plugins (V7.0 S1-S2)
+ *
+ * Load compiled Rust plugins (.so/.dylib/.dll) at runtime. This file
+ * documents the workflow; the load_plugin lines run only if the template
+ * plugin has been built.
+ *
+ *   load_plugin("path")   load a cdylib plugin, registering its functions
+ *   loaded_plugins()      list the paths of loaded plugins
+ */
+
+/* === Authoring a plugin (Rust) ===
+ *
+ * 1. Create a cdylib crate depending on the authoring kit:
+ *
+ *      # Cargo.toml
+ *      [lib]
+ *      crate-type = ["cdylib"]
+ *      [dependencies]
+ *      maxima-plugin = { path = "../../crates/plugin-sdk" }
+ *
+ * 2. Write native functions and register them with the macro:
+ *
+ *      use maxima_plugin::{maxima_plugin, Expr, Environment, guard};
+ *
+ *      fn plugin_double(args: &[Expr], _env: &mut Environment) -> Expr {
+ *          // `guard` contains panics inside the plugin's own runtime —
+ *          // a panic must never unwind across the .so boundary.
+ *          guard("plugin_double", args, || match args.first() {
+ *              Some(Expr::Integer(n)) => Expr::int(n * 2),
+ *              _ => Expr::call("plugin_double", args.to_vec()),
+ *          })
+ *      }
+ *
+ *      maxima_plugin!(register = |env| {
+ *          env.register_native("plugin_double", plugin_double, 1, Some(1));
+ *      });
+ *
+ *    The macro generates the three required exports:
+ *      maxima_plugin_abi           — ABI/version guard
+ *      maxima_plugin_set_interner  — shares the host symbol table
+ *      maxima_plugin_register      — runs your registration closure
+ *
+ * 3. Build it:
+ *
+ *      cargo build -p maxima-plugin-template
+ *
+ * === Loading and using a plugin (Maxima) ===
+ *
+ *      (%i1) load_plugin("target/debug/libmaxima_plugin_template");
+ *      (%o1) true
+ *      (%i2) plugin_double(21);
+ *      (%o2) 42
+ *      (%i3) plugin_double(x);          /* symbols round-trip correctly */
+ *      (%o3) plugin_double(x)
+ *      (%i4) loaded_plugins();
+ *      (%o4) ["/abs/path/.../libmaxima_plugin_template.so"]
+ *
+ * === Rules and caveats ===
+ *
+ *  - Plugins MUST be built from this workspace with the SAME toolchain as the
+ *    host. The boundary uses the Rust ABI, which is not stable across compiler
+ *    or crate versions. The host checks the plugin's ABI string and refuses to
+ *    load a mismatched one (returns false with a message).
+ *  - A plugin function MUST NOT let a panic escape: wrap bodies in `guard`.
+ *    An uncaught panic crossing the .so boundary aborts the whole process.
+ *  - load_plugin is idempotent; loading the same path twice is a no-op.
+ *  - Plugin functions have the highest dispatch priority and survive kill(all),
+ *    just like built-in functions.
+ */
+
+"Rust plugin walkthrough — see comments; build the template to run the loads";

@@ -37,7 +37,7 @@ maxima-repl -b walkthrough/03_calculus.mac
 | 18 | `18_strings.mac` | slength, split, substring, ssearch, parse_string |
 | 19 | `19_number_theory.mac` | ifactors, totient, fibonacci, CRT, Jacobi |
 | 20 | `20_laplace.mac` | Laplace transforms and inverse (ilt) |
-| 21 | `21_ode.mac` | ODE solver (ode2) for 1st and 2nd order |
+| 21 | `21_ode.mac` | ODE solver (ode2): 1st/2nd order, undetermined coeffs, variation of parameters, ic1/ic2/bc2 |
 | 22 | `22_complex.mac` | Complex numbers: %i, realpart, conjugate, rectform |
 | 23 | `23_trig_special.mac` | Exact trig values: sin(%pi/6), cos(%pi/4), ... |
 | 24 | `24_matrix_arithmetic.mac` | Matrix +/-, scalar*, dot product |
@@ -46,6 +46,13 @@ maxima-repl -b walkthrough/03_calculus.mac
 | 27 | `27_pattern_matching.mac` | matchdeclare, defrule, apply1 |
 | 28 | `28_bfloat.mac` | Floating-point evaluation (bfloat) |
 | 29 | `29_plotting.mac` | plot2d (SVG), gnuplot_script |
+| 30 | `30_ac_matching.mac` | AC pattern matching: commutative sums/products, subset rewrite, rest vars |
+| 31 | `31_symbolic_poly.mac` | Symbolic-coefficient resultant & discriminant |
+| 32 | `32_residues.mac` | Residues at simple, complex, and higher-order poles |
+| 33 | `33_trig_advanced.mac` | trigrat, extended trigreduce, halfangles |
+| 34 | `34_rust_plugins.mac` | Dynamic Rust plugins: load_plugin, authoring kit (reference) |
+| 35 | `35_orthopoly.mac` | Orthogonal polynomials plugin: Legendre, Chebyshev, Hermite, Laguerre, Jacobi, Gegenbauer |
+| 36 | `36_specfun.mac` | Special functions plugin: gamma, beta, erf/erfc, bessel_j/i |
 
 ## Suggested Order
 

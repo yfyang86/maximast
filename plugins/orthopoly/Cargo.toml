@@ -1,0 +1,13 @@
+[package]
+name = "maxima-orthopoly"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Orthogonal polynomials as a Maxima plugin (Legendre, Chebyshev, Hermite, Laguerre, Jacobi, Gegenbauer)"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+maxima-plugin = { path = "../../crates/plugin-sdk" }
+num = "0.4"

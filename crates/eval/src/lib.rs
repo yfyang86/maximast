@@ -17,7 +17,10 @@ pub mod numtheory;
 pub mod ode;
 pub mod pattern;
 pub mod plot;
+pub mod plugin;
 pub mod poly_analysis;
+pub mod poly_expr;
+pub mod residue;
 pub mod sets;
 pub mod simp;
 pub mod strings;
@@ -25,4 +28,5 @@ pub mod tex;
 pub mod zeilberger;
 
 pub use env::{Environment, NativeFn, NativeFuncDef};
-pub use eval::{eval_str, eval_str_with_env, eval_expr_with_env};
+pub use eval::{eval_str, eval_str_with_env, eval_expr_with_env, meval};
+pub use plugin::{load_plugin, MAXIMA_PLUGIN_ABI, MAXIMA_PLUGIN_ABI_CSTR};

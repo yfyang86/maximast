@@ -1,0 +1,36 @@
+/* Walkthrough 32: Residues (V6.0 S4)
+ *
+ * Run: maxima-repl -b walkthrough/32_residues.mac
+ *
+ * residue(f, z, z0) is the coefficient of 1/(z-z0) in the Laurent expansion
+ * of f about z0:
+ *   simple pole : N(z0)/D'(z0)
+ *   order-m pole: (1/(m-1)!) * (m-1)th derivative of (z-z0)^m f at z0
+ */
+
+/* --- Simple poles --- */
+residue(1/z, z, 0);                 /* 1 */
+residue(1/(z-3), z, 3);             /* 1 */
+residue(1/(z^2-1), z, 1);           /* 1/2 */
+residue(1/(z^2-1), z, -1);          /* -1/2 */
+
+/* --- Partial-fraction consistency: residues are the PFD coefficients --- */
+/* z/((z-1)(z-2)) = -1/(z-1) + 2/(z-2) */
+residue(z/((z-1)*(z-2)), z, 1);     /* -1 */
+residue(z/((z-1)*(z-2)), z, 2);     /*  2 */
+
+/* --- Complex poles --- */
+residue(1/(z^2+1), z, %i);          /* -%i/2 */
+residue(1/(z^2+1), z, -%i);         /*  %i/2 */
+
+/* --- Higher-order poles --- */
+residue(1/z^3, z, 0);               /* 0  (no 1/z term) */
+residue(exp(z)/z^2, z, 0);          /* 1  (= exp'(0)) */
+residue(1/(z*(z-1)^2), z, 1);       /* -1 (double pole at z=1) */
+
+/* --- Not a pole / analytic → residue 0 --- */
+residue(1/(z-1), z, 5);             /* 0 */
+residue(z^2 + 1, z, 0);             /* 0 */
+
+/* --- Sum of residues of 1/(z^2+1) over its poles is 0 --- */
+residue(1/(z^2+1), z, %i) + residue(1/(z^2+1), z, -%i);   /* 0 */

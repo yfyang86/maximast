@@ -21,3 +21,6 @@ fn run(s: &str) -> String { eval_str(s) }
 #[test] fn fibonacci_1() { assert_eq!(run("fibonacci(1);"), "1"); }
 #[test] fn fibonacci_10() { assert_eq!(run("fibonacci(10);"), "55"); }
 #[test] fn fibonacci_50() { assert_eq!(run("fibonacci(50);"), "12586269025"); }
+// Regression: fib(100) overflows i64; must use BigInt (was silently wrong)
+#[test] fn fibonacci_100() { assert_eq!(run("fibonacci(100);"), "354224848179261915075"); }
+#[test] fn fibonacci_92() { assert_eq!(run("fibonacci(92);"), "7540113804746346429"); }

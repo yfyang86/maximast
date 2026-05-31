@@ -1,7 +1,7 @@
 use maxima_core::{Expr, Operator, SymbolId, resolve, intern};
 use crate::simp::simplify;
 use crate::helpers::{contains_var, subst, to_i64, to_f64};
-use crate::eval::{meval, expand, diff_once};
+use crate::eval::{meval, expand, diff_once, ratsimp};
 
 pub(crate) fn eval_ode(name: &str, args: &[Expr], env: &mut crate::env::Environment) -> Option<Expr> {
     match name {
@@ -12,14 +12,20 @@ pub(crate) fn eval_ode(name: &str, args: &[Expr], env: &mut crate::env::Environm
             None
         }
         "ic1" => {
-            if args.len() == 4 {
-                return Some(apply_ic1(&args[0], &args[1], &args[2], &args[3], env));
+            if args.len() == 3 {
+                return Some(apply_ic1(&args[0], &args[1], &args[2], env));
             }
             None
         }
         "ic2" => {
+            if args.len() == 4 {
+                return Some(apply_ic2(&args[0], &args[1], &args[2], &args[3], env));
+            }
+            None
+        }
+        "bc2" => {
             if args.len() == 5 {
-                return Some(apply_ic2(&args[0], &args[1], &args[2], &args[3], &args[4], env));
+                return Some(apply_bc2(&args[0], &args[1], &args[2], &args[3], &args[4], env));
             }
             None
         }
@@ -148,20 +154,51 @@ fn solve_second_order(f: &Expr, y: &Expr, x: &Expr, dy: &Expr, d2y: &Expr, env: 
     }
 
     if forcing == Expr::int(0) {
-        return solve_const_coeff_homogeneous(&a, &b, &c, y, x);
+        return clean_solution(&solve_const_coeff_homogeneous(&a, &b, &c, y, x), env);
     }
 
-    // Non-homogeneous: try undetermined coefficients
+    // Non-homogeneous. The RHS forcing g(x) is -forcing (f = lhs - rhs).
     let homogeneous = solve_const_coeff_homogeneous(&a, &b, &c, y, x);
-    let forcing_neg = simplify(&Expr::neg(forcing.clone()));
-    if let Some(particular) = try_undetermined_coefficients(&a, &b, &c, &forcing_neg, x, env) {
-        if let Expr::List { op: Operator::MEqual, args: hsides, .. } = &homogeneous {
-            let full = simplify(&Expr::add(hsides[1].clone(), particular));
-            return Expr::List { op: Operator::MEqual, simplified: false, args: vec![y.clone(), full] };
+    let g = simplify(&Expr::neg(forcing.clone()));
+
+    // 1) Undetermined coefficients (closed-form, exact).
+    if let Some(particular) = try_undetermined_coefficients(&a, &b, &c, &g, x, env) {
+        if verify_particular(&a, &b, &c, &g, &particular, x) {
+            if let Expr::List { op: Operator::MEqual, args: hsides, .. } = &homogeneous {
+                let full = simplify(&Expr::add(hsides[1].clone(), particular));
+                return clean_solution(
+                    &Expr::List { op: Operator::MEqual, simplified: false, args: vec![y.clone(), full] }, env);
+            }
+        }
+    }
+
+    // 2) Variation of parameters (general). Always numerically verified
+    //    before use — the integrator may silently return a wrong result,
+    //    so an unverified particular solution is discarded as a noun form.
+    if let Some(particular) = try_variation_of_parameters(&homogeneous, &a, &g, x, env) {
+        if verify_particular(&a, &b, &c, &g, &particular, x) {
+            if let Expr::List { op: Operator::MEqual, args: hsides, .. } = &homogeneous {
+                let full = simplify(&Expr::add(hsides[1].clone(), particular));
+                return clean_solution(
+                    &Expr::List { op: Operator::MEqual, simplified: false, args: vec![y.clone(), full] }, env);
+            }
         }
     }
 
     Expr::call("ode2", vec![Expr::add(f.clone(), Expr::int(0)), y.clone(), x.clone()])
+}
+
+/// meval the RHS of a `y = ...` solution so leftover symbolic-builder
+/// artifacts (exp(0), 2*x/2, ...) collapse before display.
+fn clean_solution(sol: &Expr, env: &mut crate::env::Environment) -> Expr {
+    if let Expr::List { op: Operator::MEqual, args, .. } = sol {
+        if args.len() == 2 {
+            let rhs = meval(&args[1], env);
+            return Expr::List { op: Operator::MEqual, simplified: false,
+                args: vec![args[0].clone(), rhs] };
+        }
+    }
+    sol.clone()
 }
 
 fn solve_const_coeff_homogeneous(a: &Expr, b: &Expr, c: &Expr, y: &Expr, x: &Expr) -> Expr {
@@ -296,17 +333,184 @@ fn try_exp_ansatz(a: f64, b: f64, c: f64, k: f64, amp: &Expr, x: &Expr) -> Optio
     }
 }
 
-fn try_poly_ansatz(a: f64, b: f64, c: f64, gp: &maxima_poly::Poly, x: &Expr, var: maxima_core::SymbolId, deg: u32) -> Option<Expr> {
-    if c.abs() < 1e-15 { return None; }
-    // For constant forcing: yp = g/c
-    if deg == 0 {
-        let g0 = match gp.constant_term() {
-            maxima_poly::Coeff::Int(n) => n as f64,
-            maxima_poly::Coeff::Rat(n, d) => n as f64 / d as f64,
-        };
-        return Some(float_or_int(g0 / c));
+fn try_poly_ansatz(a: f64, b: f64, c: f64, gp: &maxima_poly::Poly, x: &Expr, _var: maxima_core::SymbolId, deg: u32) -> Option<Expr> {
+    // Solve a*yp'' + b*yp' + c*yp = g(x) for polynomial g via matching
+    // coefficients. The coefficient of x^j in L[yp] (yp = Σ p_k x^k) is
+    //   c*p_j + b*(j+1)*p_{j+1} + a*(j+1)(j+2)*p_{j+2}.
+    // When the lowest acting term vanishes (c=0, or c=b=0) the ansatz
+    // degree is raised so the system stays solvable.
+    let n = deg as usize;
+    let g: Vec<f64> = (0..=n).map(|i| poly_coeff_f64(gp, i as u32)).collect();
+
+    let total = if c.abs() > 1e-12 { n }
+        else if b.abs() > 1e-12 { n + 1 }
+        else { n + 2 };
+    let mut p = vec![0.0f64; total + 3];
+
+    if c.abs() > 1e-12 {
+        for j in (0..=n).rev() {
+            let known = b * ((j + 1) as f64) * p[j + 1]
+                + a * ((j + 1) as f64) * ((j + 2) as f64) * p[j + 2];
+            p[j] = (g[j] - known) / c;
+        }
+    } else if b.abs() > 1e-12 {
+        for j in (0..=n).rev() {
+            let known = a * ((j + 1) as f64) * ((j + 2) as f64) * p[j + 2];
+            p[j + 1] = (g[j] - known) / (b * ((j + 1) as f64));
+        }
+    } else {
+        if a.abs() < 1e-12 { return None; }
+        for j in (0..=n).rev() {
+            p[j + 2] = g[j] / (a * ((j + 1) as f64) * ((j + 2) as f64));
+        }
+    }
+
+    let mut terms = Vec::new();
+    for (j, &pj) in p.iter().enumerate().take(total + 1) {
+        if pj.abs() <= 1e-12 { continue; }
+        let coeff = float_or_int(pj);
+        let term = if j == 0 { coeff }
+            else if j == 1 { simplify(&Expr::mul(coeff, x.clone())) }
+            else { simplify(&Expr::mul(coeff, Expr::pow(x.clone(), Expr::int(j as i64)))) };
+        terms.push(term);
+    }
+    if terms.is_empty() { return Some(Expr::int(0)); }
+    if terms.len() == 1 { return Some(terms.pop().unwrap()); }
+    Some(simplify(&Expr::List { op: Operator::MPlus, simplified: false, args: terms }))
+}
+
+fn poly_coeff_f64(p: &maxima_poly::Poly, exp: u32) -> f64 {
+    p.terms.iter()
+        .find(|(e, _)| *e == exp)
+        .map(|(_, c)| match c {
+            maxima_poly::Coeff::Int(n) => *n as f64,
+            maxima_poly::Coeff::Rat(n, d) => *n as f64 / *d as f64,
+        })
+        .unwrap_or(0.0)
+}
+
+fn extract_basis(homogeneous: &Expr, env: &mut crate::env::Environment) -> Option<(Expr, Expr)> {
+    if let Expr::List { op: Operator::MEqual, args, .. } = homogeneous {
+        let rhs = &args[1];
+        let k1 = Expr::sym("%k1");
+        let k2 = Expr::sym("%k2");
+        // meval folds residual arithmetic the symbolic builder leaves behind
+        // (e.g. exp(0)→1, cos(2*x/2)→cos(x)) so the integrator can recognise
+        // the basis functions.
+        let y1 = meval(&subst(&Expr::int(1), &k1, &subst(&Expr::int(0), &k2, rhs)), env);
+        let y2 = meval(&subst(&Expr::int(0), &k1, &subst(&Expr::int(1), &k2, rhs)), env);
+        if y1 == Expr::int(0) || y2 == Expr::int(0) { return None; }
+        return Some((y1, y2));
     }
     None
+}
+
+fn try_variation_of_parameters(homogeneous: &Expr, a: &Expr, g: &Expr, x: &Expr,
+    env: &mut crate::env::Environment) -> Option<Expr> {
+    // y1, y2 span the homogeneous solution; g(x) is the RHS forcing.
+    // Normalise to y'' + ... = g/a, then
+    //   yp = -y1 ∫ y2*(g/a)/W dx + y2 ∫ y1*(g/a)/W dx,   W = y1 y2' - y2 y1'.
+    let (y1, y2) = extract_basis(homogeneous, env)?;
+    let gn = simplify(&Expr::div(g.clone(), a.clone()));
+
+    let y1p = diff_once(&y1, x);
+    let y2p = diff_once(&y2, x);
+    let w = simplify(&Expr::sub(
+        Expr::mul(y1.clone(), y2p),
+        Expr::mul(y2.clone(), y1p),
+    ));
+    if w == Expr::int(0) { return None; }
+
+    let i1_integrand = simplify(&Expr::div(Expr::mul(y2.clone(), gn.clone()), w.clone()));
+    let i2_integrand = simplify(&Expr::div(Expr::mul(y1.clone(), gn), w));
+    let i1 = crate::integrate::table_integrate(&i1_integrand, x);
+    let i2 = crate::integrate::table_integrate(&i2_integrand, x);
+    if i1.to_string().contains("integrate") || i2.to_string().contains("integrate") {
+        return None;
+    }
+
+    let yp = simplify(&Expr::add(
+        Expr::neg(Expr::mul(y1, i1)),
+        Expr::mul(y2, i2),
+    ));
+    Some(yp)
+}
+
+/// Numerically confirm yp satisfies a*yp'' + b*yp' + c*yp = g at several
+/// sample points. Guards against silently-wrong symbolic integration.
+fn verify_particular(a: &Expr, b: &Expr, c: &Expr, g: &Expr, yp: &Expr, x: &Expr) -> bool {
+    let var = match x { Expr::Symbol(id) => *id, _ => return false };
+    let yp1 = diff_once(yp, x);
+    let yp2 = diff_once(&yp1, x);
+    let samples = [0.3f64, 0.8, 1.4, 2.1, -0.7];
+    let mut checked = 0;
+    for &v in &samples {
+        let (Some(av), Some(bv), Some(cv)) =
+            (numeric_eval(a, var, v), numeric_eval(b, var, v), numeric_eval(c, var, v))
+            else { continue };
+        let (Some(y0), Some(y1), Some(y2), Some(gv)) = (
+            numeric_eval(yp, var, v),
+            numeric_eval(&yp1, var, v),
+            numeric_eval(&yp2, var, v),
+            numeric_eval(g, var, v),
+        ) else { continue };
+        let lhs = av * y2 + bv * y1 + cv * y0;
+        if !(lhs - gv).abs().is_finite() { continue; }
+        if (lhs - gv).abs() > 1e-6 * (1.0 + gv.abs()) { return false; }
+        checked += 1;
+    }
+    checked >= 2
+}
+
+fn numeric_eval(e: &Expr, var: maxima_core::SymbolId, val: f64) -> Option<f64> {
+    match e {
+        Expr::Integer(n) => Some(*n as f64),
+        Expr::Float(f) => Some(*f),
+        Expr::Rational { num, den } => Some(*num as f64 / *den as f64),
+        Expr::Symbol(id) => {
+            if *id == var { return Some(val); }
+            match resolve(*id).as_str() {
+                "%pi" => Some(std::f64::consts::PI),
+                "%e" => Some(std::f64::consts::E),
+                _ => None,
+            }
+        }
+        Expr::List { op, args, .. } => match op {
+            Operator::MPlus => {
+                let mut s = 0.0;
+                for a in args { s += numeric_eval(a, var, val)?; }
+                Some(s)
+            }
+            Operator::MTimes => {
+                let mut p = 1.0;
+                for a in args { p *= numeric_eval(a, var, val)?; }
+                Some(p)
+            }
+            Operator::MExpt if args.len() == 2 => {
+                let base = numeric_eval(&args[0], var, val)?;
+                let exp = numeric_eval(&args[1], var, val)?;
+                Some(base.powf(exp))
+            }
+            Operator::Named(id) if args.len() == 1 => {
+                let a = numeric_eval(&args[0], var, val)?;
+                match resolve(*id).as_str() {
+                    "sin" => Some(a.sin()),
+                    "cos" => Some(a.cos()),
+                    "tan" => Some(a.tan()),
+                    "exp" => Some(a.exp()),
+                    "log" => Some(a.ln()),
+                    "sqrt" => Some(a.sqrt()),
+                    "sinh" => Some(a.sinh()),
+                    "cosh" => Some(a.cosh()),
+                    "tanh" => Some(a.tanh()),
+                    "abs" => Some(a.abs()),
+                    _ => None,
+                }
+            }
+            _ => None,
+        },
+        _ => None,
+    }
 }
 
 fn extract_sincos(g: &Expr, x: &Expr) -> Option<(f64, bool, Expr)> {
@@ -388,9 +592,8 @@ fn float_or_int(v: f64) -> Expr {
 
 fn gcd_u64(a: u64, b: u64) -> u64 { if b == 0 { a } else { gcd_u64(b, a % b) } }
 
-fn apply_ic1(sol: &Expr, x_eq: &Expr, y_eq: &Expr, _dummy: &Expr, env: &mut crate::env::Environment) -> Expr {
-    // ic1(sol, x=a, y=b) — actually takes 3 args after sol
-    // But Maxima's ic1 takes: ic1(sol, x=a, y=b)
+fn apply_ic1(sol: &Expr, x_eq: &Expr, y_eq: &Expr, env: &mut crate::env::Environment) -> Expr {
+    // ic1(sol, x=a, y=b):
     // sol is y = f(x, %c), substitute x=a, y=b, solve for %c
     if let (
         Expr::List { op: Operator::MEqual, args: sol_sides, .. },
@@ -410,15 +613,88 @@ fn apply_ic1(sol: &Expr, x_eq: &Expr, y_eq: &Expr, _dummy: &Expr, env: &mut crat
         let c_const = simplify(&subst(&Expr::int(0), &c_sym, &c_eq));
         if c_coeff != Expr::int(0) {
             let c_val = simplify(&Expr::neg(Expr::div(c_const, c_coeff)));
-            let result_rhs = simplify(&subst(&c_val, &c_sym, rhs));
+            let result_rhs = meval(&subst(&c_val, &c_sym, rhs), env);
             return Expr::List { op: Operator::MEqual, simplified: false, args: vec![sol_sides[0].clone(), result_rhs] };
         }
     }
     Expr::call("ic1", vec![sol.clone(), x_eq.clone(), y_eq.clone()])
 }
 
-fn apply_ic2(sol: &Expr, x_eq: &Expr, y_eq: &Expr, dy_eq: &Expr, _dummy: &Expr, env: &mut crate::env::Environment) -> Expr {
+fn apply_ic2(sol: &Expr, x_eq: &Expr, y_eq: &Expr, dy_eq: &Expr, env: &mut crate::env::Environment) -> Expr {
+    // ic2(sol, x=x0, y=y0, 'diff(y,x)=dy0): solve for %k1,%k2.
+    if let (
+        Expr::List { op: Operator::MEqual, args: sol_s, .. },
+        Expr::List { op: Operator::MEqual, args: x_s, .. },
+        Expr::List { op: Operator::MEqual, args: y_s, .. },
+        Expr::List { op: Operator::MEqual, args: dy_s, .. },
+    ) = (sol, x_eq, y_eq, dy_eq) {
+        let rhs = &sol_s[1];
+        let x_var = &x_s[0];
+        let x0 = &x_s[1];
+        let yprime = diff_once(rhs, x_var);
+        let rhs_at = simplify(&subst(x0, x_var, rhs));
+        let yp_at = simplify(&subst(x0, x_var, &yprime));
+        if let Some(rhs_final) = solve_two_consts(
+            rhs, (&rhs_at, &y_s[1]), (&yp_at, &dy_s[1]), env) {
+            return Expr::List { op: Operator::MEqual, simplified: false,
+                args: vec![sol_s[0].clone(), rhs_final] };
+        }
+    }
     Expr::call("ic2", vec![sol.clone(), x_eq.clone(), y_eq.clone(), dy_eq.clone()])
+}
+
+fn apply_bc2(sol: &Expr, x_eq1: &Expr, y_eq1: &Expr, x_eq2: &Expr, y_eq2: &Expr,
+    env: &mut crate::env::Environment) -> Expr {
+    // bc2(sol, x=x0, y=y0, x=x1, y=y1): two boundary points, solve %k1,%k2.
+    if let (
+        Expr::List { op: Operator::MEqual, args: sol_s, .. },
+        Expr::List { op: Operator::MEqual, args: x0_s, .. },
+        Expr::List { op: Operator::MEqual, args: y0_s, .. },
+        Expr::List { op: Operator::MEqual, args: x1_s, .. },
+        Expr::List { op: Operator::MEqual, args: y1_s, .. },
+    ) = (sol, x_eq1, y_eq1, x_eq2, y_eq2) {
+        let rhs = &sol_s[1];
+        let x_var = &x0_s[0];
+        let rhs_at0 = simplify(&subst(&x0_s[1], x_var, rhs));
+        let rhs_at1 = simplify(&subst(&x1_s[1], x_var, rhs));
+        if let Some(rhs_final) = solve_two_consts(
+            rhs, (&rhs_at0, &y0_s[1]), (&rhs_at1, &y1_s[1]), env) {
+            return Expr::List { op: Operator::MEqual, simplified: false,
+                args: vec![sol_s[0].clone(), rhs_final] };
+        }
+    }
+    Expr::call("bc2", vec![sol.clone(), x_eq1.clone(), y_eq1.clone(), x_eq2.clone(), y_eq2.clone()])
+}
+
+/// Solve the 2x2 linear system in %k1,%k2 given two constraints
+/// `lhs_i = rhs_i` (each lhs linear in %k1,%k2), then substitute the
+/// solved constants back into `expr`.
+fn solve_two_consts(expr: &Expr, c1: (&Expr, &Expr), c2: (&Expr, &Expr),
+    env: &mut crate::env::Environment) -> Option<Expr> {
+    let k1 = Expr::sym("%k1");
+    let k2 = Expr::sym("%k2");
+    // meval folds boundary values like cos(0), sin(%pi/2), exp(0).
+    let e1 = expand(&meval(&Expr::sub(c1.0.clone(), c1.1.clone()), env));
+    let e2 = expand(&meval(&Expr::sub(c2.0.clone(), c2.1.clone()), env));
+    let (a1, b1, d1) = lin_coeffs(&e1, &k1, &k2);
+    let (a2, b2, d2) = lin_coeffs(&e2, &k1, &k2);
+    // a*k1 + b*k2 = d  (d = -constant term)
+    let det = ratsimp(&Expr::sub(Expr::mul(a1.clone(), b2.clone()), Expr::mul(b1.clone(), a2.clone())));
+    if det == Expr::int(0) { return None; }
+    let k1v = ratsimp(&Expr::div(
+        Expr::sub(Expr::mul(d1.clone(), b2.clone()), Expr::mul(b1, d2.clone())), det.clone()));
+    let k2v = ratsimp(&Expr::div(
+        Expr::sub(Expr::mul(a1, d2), Expr::mul(d1, a2)), det));
+    let out = subst(&k1v, &k1, &subst(&k2v, &k2, expr));
+    Some(meval(&out, env))
+}
+
+fn lin_coeffs(e: &Expr, k1: &Expr, k2: &Expr) -> (Expr, Expr, Expr) {
+    let a = coeff_of(e, k1);
+    let b = coeff_of(e, k2);
+    let c = simplify(&subst(&Expr::int(0), k1, &subst(&Expr::int(0), k2, e)));
+    // a*k1 + b*k2 + c = 0  ⇒  a*k1 + b*k2 = -c
+    (a, b, simplify(&Expr::neg(c)))
 }
 
 fn coeff_of(expr: &Expr, term: &Expr) -> Expr {

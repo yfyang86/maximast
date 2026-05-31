@@ -4,15 +4,14 @@ use crate::helpers::contains_var;
 
 pub(crate) fn eval_complex_func(name: &str, args: &[Expr]) -> Option<Expr> {
     match name {
-        "realpart" => args.first().map(|a| { let (re, _) = complex_decompose(a); simplify(&re) }),
-        "imagpart" => args.first().map(|a| { let (_, im) = complex_decompose(a); simplify(&im) }),
+        "realpart" => args.first().map(|a| { let (re, _) = decompose_expanded(a); simplify(&re) }),
+        "imagpart" => args.first().map(|a| { let (_, im) = decompose_expanded(a); simplify(&im) }),
         "conjugate" => args.first().map(|a| {
-            let (re, im) = complex_decompose(a);
+            let (re, im) = decompose_expanded(a);
             simplify(&Expr::sub(re, Expr::mul(im, Expr::sym("%i"))))
         }),
         "rectform" => args.first().map(|a| {
-            let expanded = crate::eval::expand(a);
-            let (re, im) = complex_decompose(&expanded);
+            let (re, im) = decompose_expanded(a);
             let re_s = simplify(&re);
             let im_s = simplify(&im);
             if im_s == Expr::int(0) { re_s }
@@ -20,7 +19,7 @@ pub(crate) fn eval_complex_func(name: &str, args: &[Expr]) -> Option<Expr> {
             else { simplify(&Expr::add(re_s, Expr::mul(im_s, Expr::sym("%i")))) }
         }),
         "cabs" => args.first().map(|a| {
-            let (re, im) = complex_decompose(a);
+            let (re, im) = decompose_expanded(a);
             simplify(&Expr::call("sqrt", vec![simplify(&Expr::add(
                 Expr::mul(re.clone(), re),
                 Expr::mul(im.clone(), im),
@@ -28,6 +27,51 @@ pub(crate) fn eval_complex_func(name: &str, args: &[Expr]) -> Option<Expr> {
         }),
         _ => None,
     }
+}
+
+/// Expand the argument before decomposing, so powers/products of complex
+/// numbers (e.g. (1+%i)^2) are reduced to a+b*%i form first.
+fn decompose_expanded(expr: &Expr) -> (Expr, Expr) {
+    complex_decompose(&crate::eval::expand(expr))
+}
+
+/// Complex division num/den, rationalizing a complex denominator and
+/// returning the result in rectangular form a+b*%i. Handles real denominators
+/// too (the imaginary part is then zero).
+pub(crate) fn complex_div(num: &Expr, den: &Expr) -> Expr {
+    let den_e = crate::eval::expand(den);
+    let (dr, di) = complex_decompose(&den_e);
+    // |den|^2 = dr^2 + di^2  (real, nonzero for a genuine denominator)
+    let mag2 = simplify(&crate::eval::expand(&Expr::add(
+        Expr::mul(dr.clone(), dr.clone()),
+        Expr::mul(di.clone(), di.clone()),
+    )));
+    // conj(den) = dr - di*%i
+    let conj = simplify(&Expr::sub(dr, Expr::mul(di, Expr::sym("%i"))));
+    let numerator = crate::eval::expand(&Expr::mul(num.clone(), conj));
+    let (nr, ni) = complex_decompose(&numerator);
+    let re = num_div(&nr, &mag2);
+    let im = num_div(&ni, &mag2);
+    if im == Expr::int(0) { re }
+    else if re == Expr::int(0) { simplify(&Expr::mul(im, Expr::sym("%i"))) }
+    else { simplify(&Expr::add(re, Expr::mul(im, Expr::sym("%i")))) }
+}
+
+/// Divide reducing exact integer quotients (50/2 -> 25); otherwise symbolic.
+fn num_div(num: &Expr, den: &Expr) -> Expr {
+    if let (Expr::Integer(n), Expr::Integer(d)) = (num, den) {
+        if *d != 0 {
+            let sign = if (*n < 0) ^ (*d < 0) { -1 } else { 1 };
+            let (na, da) = (n.unsigned_abs(), d.unsigned_abs());
+            let mut a = na; let mut b = da;
+            while b != 0 { let t = b; b = a % b; a = t; }
+            let g = a.max(1);
+            let nn = (na / g) as i64 * sign;
+            let dd = (da / g) as i64;
+            return if dd == 1 { Expr::int(nn) } else { Expr::Rational { num: nn, den: dd } };
+        }
+    }
+    simplify(&Expr::div(num.clone(), den.clone()))
 }
 
 /// Simplify %i^n in the power simplifier.

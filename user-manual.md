@@ -180,6 +180,42 @@ taylor(sin(x), x, 0, 7);       → x - x^3/6 + x^5/120 - x^7/5040
 taylor(exp(x), x, 0, 5);       → 1 + x + x^2/2 + x^3/6 + ...
 ```
 
+### Ordinary Differential Equations
+
+`ode2(eqn, y, x)` solves first- and second-order ODEs. Use `'diff` (quoted)
+so the derivative is not evaluated before the solver sees it.
+
+```
+ode2('diff(y,x) = x*y, y, x);            → y = %c*exp(x^2/2)   (separable)
+ode2('diff(y,x) + y = 0, y, x);          → y = %c*exp(-x)      (linear)
+ode2('diff(y,x,2) - y = 0, y, x);        → %k1*exp(x)+%k2*exp(-x)
+ode2('diff(y,x,2) + y = 0, y, x);        → %k1*cos(x)+%k2*sin(x)
+ode2('diff(y,x,2) + 4*'diff(y,x) + 4*y = 0, y, x); → (%k1+%k2*x)*exp(-2*x)
+```
+
+Non-homogeneous equations are solved by undetermined coefficients (polynomial,
+exponential, sine/cosine forcing) and, as a general fallback, by variation of
+parameters:
+
+```
+ode2('diff(y,x,2) + y = x^2, y, x);      → %k1*cos(x)+%k2*sin(x)+x^2-2
+ode2('diff(y,x,2) - 3*'diff(y,x) + 2*y = x, y, x); → ...+x/2+3/4
+ode2('diff(y,x,2) - y = exp(x), y, x);   → ...+x*exp(x)/2  (resonance)
+ode2('diff(y,x,2) + y = sin(x), y, x);   → solved by variation of parameters
+```
+
+Each particular solution is verified numerically before being returned; if it
+cannot be confirmed, `ode2` returns the unevaluated noun form.
+
+Initial and boundary conditions specialise the constants:
+
+```
+ic1(ode2('diff(y,x)=x, y, x), x=0, y=1);                 → y = 1 + x^2/2
+ic2(ode2('diff(y,x,2)+y=0,y,x), x=0, y=1, 'diff(y,x)=0); → y = cos(x)
+ic2(ode2('diff(y,x,2)+y=0,y,x), x=0, y=0, 'diff(y,x)=1); → y = sin(x)
+bc2(ode2('diff(y,x,2)+y=0,y,x), x=0, y=0, x=%pi/2, y=1); → y = sin(x)
+```
+
 ---
 
 ## Solving Equations
@@ -395,7 +431,7 @@ Native functions survive `kill(all)`.
 
 ## Walkthroughs
 
-16 interactive tutorials in `walkthrough/`:
+36 interactive tutorials in `walkthrough/`:
 
 | # | File | Topic |
 |---|------|-------|
@@ -415,6 +451,26 @@ Native functions survive `kill(all)`.
 | 14 | `14_matrix_applications.mac` | Matrix power, Fibonacci, indexing |
 | 15 | `15_game_solver.mac` | 24-game solver (recursive programming) |
 | 16 | `16_number_theory.mac` | floor, ceiling, round, mod, gcd, primep |
+| 17 | `17_sets.mac` | {}-syntax, union, intersection, powerset |
+| 18 | `18_strings.mac` | slength, split, substring, ssearch, parse_string |
+| 19 | `19_number_theory.mac` | ifactors, totient, fibonacci, CRT, Jacobi |
+| 20 | `20_laplace.mac` | Laplace transforms and inverse (ilt) |
+| 21 | `21_ode.mac` | ODE solver (ode2), undetermined coeffs, variation of params, ic2/bc2 |
+| 22 | `22_complex.mac` | Complex numbers: %i, realpart, conjugate, rectform |
+| 23 | `23_trig_special.mac` | Exact trig values: sin(%pi/6), cos(%pi/4), ... |
+| 24 | `24_matrix_arithmetic.mac` | Matrix +/-, scalar*, dot product |
+| 25 | `25_partfrac_advanced.mac` | Partial fractions with irreducible quadratics |
+| 26 | `26_realroots.mac` | Sturm chains: nroots, realroots |
+| 27 | `27_pattern_matching.mac` | matchdeclare, defrule, apply1 |
+| 28 | `28_bfloat.mac` | Floating-point evaluation (bfloat) |
+| 29 | `29_plotting.mac` | plot2d (SVG), gnuplot_script |
+| 30 | `30_ac_matching.mac` | AC pattern matching: commutative sums/products |
+| 31 | `31_symbolic_poly.mac` | Symbolic-coefficient resultant & discriminant |
+| 32 | `32_residues.mac` | Residues at simple, complex, and higher-order poles |
+| 33 | `33_trig_advanced.mac` | trigrat, extended trigreduce, halfangles |
+| 34 | `34_rust_plugins.mac` | Dynamic Rust plugins: load_plugin, authoring kit |
+| 35 | `35_orthopoly.mac` | Orthogonal polynomials plugin (Legendre, Chebyshev, ...) |
+| 36 | `36_specfun.mac` | Special functions plugin (gamma, beta, erf, Bessel) |
 
 Run any tutorial:
 
@@ -433,7 +489,7 @@ maxima-kernel/
 ├── crates/eval/       Evaluator, simplifier, assumptions, limits, integration
 ├── crates/poly/       Sparse polynomial arithmetic, GCD, factoring, algebraic fields
 ├── crates/repl/       Interactive REPL with readline and tab completion
-└── walkthrough/       16 interactive tutorials (.mac files)
+└── walkthrough/       36 interactive tutorials (.mac files)
 ```
 
 ---
@@ -447,6 +503,8 @@ maxima-kernel/
 | v3.0 | 777 | Algebraic fields, classic Gruntz, Zeilberger |
 | v4.0 | 794 | CLI, PolyAlg, algebraic integration, benchmarks |
 | v5.0 | 822 | Plugin API, package system, walkthroughs, bug fixes |
+| v6.0 | 1008 | AC pattern matching, residues, advanced trig, ODE (variation of parameters, ic2/bc2) |
+| v7.0 | 1021 | Dynamic Rust plugin toolchain (load_plugin); orthopoly + specfun plugins |
 
 ## License
 

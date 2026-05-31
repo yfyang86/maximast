@@ -4,12 +4,14 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Evaluator for Maxima expressions"
+build = "build.rs"
 
 [dependencies]
 maxima-core = { path = "../core" }
 maxima-parser = { path = "../parser" }
 maxima-poly = { path = "../poly" }
 num = "0.4"
+libloading = "0.8"
 plotters = { version = "0.3", default-features = false, features = ["svg_backend", "line_series"] }
 
 [dev-dependencies]

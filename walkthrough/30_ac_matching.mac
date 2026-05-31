@@ -1,0 +1,54 @@
+/* Walkthrough 30: Associative-Commutative Pattern Matching (V6.0 S1)
+ *
+ * Run: maxima-repl -b walkthrough/30_ac_matching.mac
+ *
+ * The V6.0 pattern engine matches sums (+) and products (*) modulo
+ * commutativity and associativity. A pattern like a+b matches a sum with
+ * any number of terms in any order; a rule pattern can also fire on a
+ * sub-part of a larger sum, leaving the rest intact.
+ */
+
+/* --- Commutativity: order does not matter --- */
+matchdeclare(p, true)$
+defrule(drop_one, 1 + p, p)$
+apply1(1 + x, drop_one);      /* x */
+apply1(x + 1, drop_one);      /* x  (same, order-independent) */
+
+/* --- Rest variable: last pattern var absorbs the leftover terms --- */
+matchdeclare(a, true, b, true)$
+defrule(split, a + b, pair(a, b))$
+apply1(u + v, split);         /* pair(u, v) */
+
+/* --- Subset rewrite: a 2-term pattern fires inside a bigger sum --- */
+matchdeclare(c, true)$
+defrule(pyth, sin(c)^2 + cos(c)^2, 1)$
+apply1(sin(t)^2 + cos(t)^2 + w, pyth);     /* 1 + w */
+apply1(a + sin(t)^2 + b + cos(t)^2, pyth); /* 1 + a + b  (non-contiguous) */
+
+/* --- Products match modulo AC too --- */
+matchdeclare(u, true)$
+defrule(halve, 2*u, u)$
+apply1(y*2, halve);           /* y */
+
+/* --- Repeated pattern variables must bind consistently --- */
+matchdeclare(a, true)$
+defrule(diag, foo(a, a), a)$
+apply1(foo(5, 5), diag);      /* 5  — both slots equal */
+apply1(foo(5, 6), diag);      /* foo(5,6)  — unequal, no match */
+
+/* --- Predicate filtering during the match --- */
+matchdeclare(n, integerp, x, true)$
+defrule(grab, x^n, captured(x, n))$
+apply1(z^3, grab);            /* captured(z, 3) */
+apply1(z^m, grab);            /* z^m  — m is not an integer, no match */
+
+/* --- tellsimp installs an AC simplification rule --- */
+matchdeclare(c, true)$
+tellsimp(sin(c)^2 + cos(c)^2, 1)$
+sin(theta)^2 + cos(theta)^2;  /* 1  — fires automatically during simplify */
+
+/* --- Resource safety: pathological patterns are budget-capped, not hung.
+ *     This returns the input unchanged (no match) in bounded time. --- */
+matchdeclare(a,true, b,true, c,true, d,true, e,true, z,integerp)$
+defrule(big, a+b+c+d+e+z, hit)$
+apply1(p1+p2+p3+p4+p5+p6+p7+p8+p9+p10, big);  /* unchanged (z needs integer) */

@@ -36,24 +36,39 @@ pub(crate) fn eval_poly_func(name: &str, args: &[Expr]) -> Option<Expr> {
 }
 
 fn resultant(p: &Expr, q: &Expr, var: SymbolId) -> Option<Expr> {
-    let pp = maxima_poly::expr_to_poly(&crate::eval::expand(p), var)?;
-    let pq = maxima_poly::expr_to_poly(&crate::eval::expand(q), var)?;
-    let res = maxima_poly::resultant(&pp, &pq);
-    Some(coeff_to_expr(&res))
+    // Fast path: integer/rational coefficients via maxima_poly.
+    if let (Some(pp), Some(pq)) = (
+        maxima_poly::expr_to_poly(&crate::eval::expand(p), var),
+        maxima_poly::expr_to_poly(&crate::eval::expand(q), var),
+    ) {
+        let res = maxima_poly::resultant(&pp, &pq);
+        return Some(coeff_to_expr(&res));
+    }
+    // Symbolic-coefficient fallback (e.g. resultant(x^2+a, x+b, x)).
+    let vexpr = Expr::Symbol(var);
+    let pp = crate::poly_expr::PolyExpr::from_expr(p, &vexpr)?;
+    let pq = crate::poly_expr::PolyExpr::from_expr(q, &vexpr)?;
+    crate::poly_expr::resultant(&pp, &pq)
 }
 
 fn discriminant(p: &Expr, var: SymbolId) -> Option<Expr> {
-    let pp = maxima_poly::expr_to_poly(&crate::eval::expand(p), var)?;
-    let deg = pp.degree()?;
-    if deg < 2 { return Some(Expr::int(0)); }
-    let dp = pp.derivative();
-    let res = maxima_poly::resultant(&pp, &dp);
-    let res_expr = coeff_to_expr(&res);
-    let lc = pp.leading_coeff();
-    let lc_expr = coeff_to_expr(&lc);
-    let sign = if (deg * (deg - 1) / 2) % 2 == 0 { 1 } else { -1 };
-    let signed = if sign == -1 { simplify(&Expr::neg(res_expr)) } else { res_expr };
-    Some(simplify(&Expr::div(signed, lc_expr)))
+    // Fast path: integer/rational coefficients via maxima_poly.
+    if let Some(pp) = maxima_poly::expr_to_poly(&crate::eval::expand(p), var) {
+        let deg = pp.degree()?;
+        if deg < 2 { return Some(Expr::int(0)); }
+        let dp = pp.derivative();
+        let res = maxima_poly::resultant(&pp, &dp);
+        let res_expr = coeff_to_expr(&res);
+        let lc = pp.leading_coeff();
+        let lc_expr = coeff_to_expr(&lc);
+        let sign = if (deg * (deg - 1) / 2) % 2 == 0 { 1 } else { -1 };
+        let signed = if sign == -1 { simplify(&Expr::neg(res_expr)) } else { res_expr };
+        return Some(divide_reduced(&signed, &lc_expr));
+    }
+    // Symbolic-coefficient fallback (e.g. discriminant(a*x^2+b*x+c, x)).
+    let vexpr = Expr::Symbol(var);
+    let pp = crate::poly_expr::PolyExpr::from_expr(p, &vexpr)?;
+    crate::poly_expr::discriminant(&pp, &vexpr)
 }
 
 fn content_poly(p: &Expr, var: SymbolId) -> Option<Expr> {
@@ -73,6 +88,22 @@ fn primpart(p: &Expr, var: SymbolId) -> Option<Expr> {
     };
     let prim = pp.scale(&inv_c);
     Some(maxima_poly::poly_to_expr(&prim))
+}
+
+/// Divide `num` by `den`, reducing to a fully simplified integer/rational when
+/// both are numeric (a bare `simplify(div(...))` leaves e.g. 50/2 unreduced).
+fn divide_reduced(num: &Expr, den: &Expr) -> Expr {
+    if let (Expr::Integer(n), Expr::Integer(d)) = (num, den) {
+        if *d != 0 {
+            let sign = if (*n < 0) ^ (*d < 0) { -1 } else { 1 };
+            let (na, da) = (n.unsigned_abs(), d.unsigned_abs());
+            let g = gcd_u64(na, da).max(1);
+            let nn = (na / g) as i64 * sign;
+            let dd = (da / g) as i64;
+            return if dd == 1 { Expr::int(nn) } else { Expr::Rational { num: nn, den: dd } };
+        }
+    }
+    simplify(&Expr::div(num.clone(), den.clone()))
 }
 
 fn coeff_to_expr(c: &maxima_poly::Coeff) -> Expr {

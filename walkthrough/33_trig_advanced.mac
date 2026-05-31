@@ -1,0 +1,36 @@
+/* Walkthrough 33: Advanced Trigonometric Simplification (V6.0 S5)
+ *
+ * Run: maxima-repl -b walkthrough/33_trig_advanced.mac
+ *
+ * trigrat   — canonical multiple-angle (linearized) form
+ * trigreduce — products/powers of sin,cos to multiple angles (now n=2,3,4
+ *              and product-to-sum for different angles)
+ * halfangles — rewrite sin/cos/tan of a half angle via sqrt formulas
+ */
+
+/* --- trigrat: linearize to multiple angles --- */
+trigrat(2*sin(x)*cos(x));        /* sin(2*x) */
+trigrat(sin(x)^2);               /* (1-cos(2*x))/2 */
+trigrat(cos(x)^2);               /* (1+cos(2*x))/2 */
+trigrat(sin(x)^2 + cos(x)^2);    /* 1 */
+
+/* --- Power reduction (trigreduce) --- */
+trigreduce(sin(x)^2);            /* (1-cos(2*x))/2 */
+trigreduce(sin(x)^3);            /* (3*sin(x)-sin(3*x))/4 */
+trigreduce(cos(x)^3);            /* (3*cos(x)+cos(3*x))/4 */
+trigreduce(sin(x)^4);            /* (3-4*cos(2*x)+cos(4*x))/8 */
+trigreduce(cos(x)^4);            /* (3+4*cos(2*x)+cos(4*x))/8 */
+
+/* --- Product-to-sum for different angles --- */
+trigreduce(sin(a)*cos(b));       /* (sin(a+b)+sin(a-b))/2 */
+trigreduce(sin(a)*sin(b));       /* (cos(a-b)-cos(a+b))/2 */
+trigreduce(cos(a)*cos(b));       /* (cos(a-b)+cos(a+b))/2 */
+
+/* --- Half-angle formulas --- */
+halfangles(sin(x/2));            /* sqrt((1-cos(x))/2) */
+halfangles(cos(x/2));            /* sqrt((1+cos(x))/2) */
+halfangles(tan(x/2));            /* sin(x)/(1+cos(x)) */
+
+/* --- trigexpand goes the other way (sum/double angle -> products) --- */
+trigexpand(sin(2*x));            /* 2*cos(x)*sin(x) */
+trigexpand(cos(2*x));            /* cos(x)^2-sin(x)^2 */

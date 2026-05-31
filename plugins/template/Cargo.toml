@@ -1,0 +1,12 @@
+[package]
+name = "maxima-plugin-template"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Template Maxima plugin — copy this to start a new plugin"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+maxima-plugin = { path = "../../crates/plugin-sdk" }

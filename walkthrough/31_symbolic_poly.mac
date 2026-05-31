@@ -1,0 +1,38 @@
+/* Walkthrough 31: Symbolic Polynomial Coefficients (V6.0 S3)
+ *
+ * Run: maxima-repl -b walkthrough/31_symbolic_poly.mac
+ *
+ * resultant and discriminant now work when the polynomial coefficients are
+ * themselves symbols (not just integers), via a Sylvester-matrix determinant
+ * over symbolic entries.
+ */
+
+/* --- Discriminant of the general quadratic --- */
+discriminant(a*x^2 + b*x + c, x);      /* b^2 - 4*a*c */
+
+/* --- Monic quadratic --- */
+discriminant(x^2 + b*x + c, x);        /* b^2 - 4*c */
+
+/* --- Discriminant of the depressed cubic --- */
+discriminant(x^3 + p*x + q, x);        /* -4*p^3 - 27*q^2 */
+
+/* --- Resultant with symbolic coefficients --- */
+resultant(x^2 + a, x + b, x);          /* a + b^2 */
+resultant(x - p, x - q, x);            /* p - q  (eliminant of the two roots) */
+
+/* --- Resultant of two general quadratics --- */
+resultant(x^2 + a*x + b, x^2 + c*x + d, x);
+
+/* --- Numerical check: symbolic result agrees with the integer computation --- */
+subst([a=2, b=7, c=3], discriminant(a*x^2 + b*x + c, x));   /* 25 */
+discriminant(2*x^2 + 7*x + 3, x);                            /* 25 */
+
+subst([a=5, b=2], resultant(x^2 + a, x + b, x));             /* 9 */
+resultant(x^2 + 5, x + 2, x);                                /* 9 */
+
+/* --- Integer-coefficient results are fully reduced --- */
+discriminant(x^2 - 5*x + 6, x);        /* 1 */
+discriminant(3*x^2 + x + 1, x);        /* -11 */
+
+/* --- Use a discriminant to detect a repeated root: disc = 0 --- */
+discriminant(x^2 - 2*x + 1, x);        /* 0  → (x-1)^2 has a double root */

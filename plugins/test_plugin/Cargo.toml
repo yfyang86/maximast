@@ -1,0 +1,12 @@
+[package]
+name = "maxima-test-plugin"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Minimal cdylib fixture exercising the Maxima plugin ABI"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+maxima-plugin = { path = "../../crates/plugin-sdk" }

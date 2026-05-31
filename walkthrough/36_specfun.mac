@@ -1,0 +1,33 @@
+/* Walkthrough 36: Special Functions (V7.0 S4, Rust plugin)
+ *
+ * Provided by the maxima-specfun plugin. Build and load it first:
+ *   cargo build -p maxima-specfun
+ *   maxima-repl -b walkthrough/36_specfun.mac
+ *
+ * Numeric (f64) special functions with a few exact cases. A symbolic argument
+ * is returned unevaluated (noun form); use a float to force numeric eval.
+ */
+
+load_plugin("target/debug/libmaxima_specfun");
+
+/* --- Gamma and friends --- */
+gamma(5);            /* 24        (exact: (n-1)!) */
+gamma(1/2);          /* sqrt(%pi) (exact) */
+gamma(4.5);          /* 11.6317...            */
+log_gamma(10.0);     /* 12.8018...            */
+beta(2, 3);          /* 1/12      (exact for integers) */
+beta(2.0, 3.0);      /* 0.08333...            */
+
+/* --- Error function --- */
+erf(0);              /* 0         (exact) */
+erf(1.0);            /* 0.8427... */
+erfc(2.0);           /* 0.004677... */
+
+/* --- Bessel functions (first kind J, modified first kind I) --- */
+bessel_j(0, 1.0);    /* 0.7651... */
+bessel_j(1, 2.0);    /* 0.5767... */
+bessel_i(0, 1.0);    /* 1.2660... */
+
+/* Symbolic arguments stay symbolic: */
+gamma(x);            /* gamma(x) */
+erf(x);              /* erf(x) */

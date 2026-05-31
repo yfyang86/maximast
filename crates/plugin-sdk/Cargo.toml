@@ -1,0 +1,10 @@
+[package]
+name = "maxima-plugin"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Authoring kit for Maxima Rust plugins (cdylib ABI + helper macro)"
+
+[dependencies]
+maxima-core = { path = "../core" }
+maxima-eval = { path = "../eval" }
