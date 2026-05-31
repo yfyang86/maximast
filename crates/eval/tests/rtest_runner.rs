@@ -142,7 +142,7 @@ fn run_rtest(path: &str) -> RtestResult {
 
 #[test]
 fn rtest1_progress() {
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../../tests/rtest1.mac");
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/rtest1.mac");
     let result = run_rtest(path);
 
     println!("\n=== rtest1.mac Results ===");
@@ -180,7 +180,7 @@ fn rtest1_progress() {
 
 #[test]
 fn rtest_basic_arithmetic() {
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../../tests/rtest1.mac");
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/rtest1.mac");
 
     // Just verify the runner parses the file correctly
     let content = std::fs::read_to_string(path).unwrap();
@@ -190,14 +190,14 @@ fn rtest_basic_arithmetic() {
 
 /// Run a single rtest file and return (passed, total)
 fn run_rtest_quick(name: &str) -> (usize, usize) {
-    let path = format!("{}/{}", concat!(env!("CARGO_MANIFEST_DIR"), "/../../../tests"), name);
+    let path = format!("{}/{}", concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests"), name);
     let result = run_rtest(&path);
     (result.passed, result.total)
 }
 
 #[test]
 fn rtest_abs() {
-    let path = format!("{}/{}", concat!(env!("CARGO_MANIFEST_DIR"), "/../../../tests"), "rtest_abs.mac");
+    let path = format!("{}/{}", concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests"), "rtest_abs.mac");
     let result = run_rtest(&path);
     println!("rtest_abs: {}/{} ({:.0}%)", result.passed, result.total,
         if result.total > 0 { result.passed as f64 / result.total as f64 * 100.0 } else { 0.0 });
@@ -212,7 +212,7 @@ fn rtest_abs() {
 
 #[test]
 fn rtest_boolean() {
-    let path = format!("{}/{}", concat!(env!("CARGO_MANIFEST_DIR"), "/../../../tests"), "rtest_boolean.mac");
+    let path = format!("{}/{}", concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests"), "rtest_boolean.mac");
     let result = run_rtest(&path);
     println!("rtest_boolean: {}/{} ({:.0}%)", result.passed, result.total,
         if result.total > 0 { result.passed as f64 / result.total as f64 * 100.0 } else { 0.0 });
@@ -227,7 +227,7 @@ fn rtest_boolean() {
 
 #[test]
 fn rtest_equal() {
-    let path = format!("{}/{}", concat!(env!("CARGO_MANIFEST_DIR"), "/../../../tests"), "rtest_equal.mac");
+    let path = format!("{}/{}", concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests"), "rtest_equal.mac");
     let result = run_rtest(&path);
     println!("rtest_equal: {}/{} ({:.0}%)", result.passed, result.total,
         if result.total > 0 { result.passed as f64 / result.total as f64 * 100.0 } else { 0.0 });
@@ -242,7 +242,7 @@ fn rtest_equal() {
 
 #[test]
 fn rtest_algebraic() {
-    let path = format!("{}/{}", concat!(env!("CARGO_MANIFEST_DIR"), "/../../../tests"), "rtest_algebraic.mac");
+    let path = format!("{}/{}", concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests"), "rtest_algebraic.mac");
     let result = run_rtest(&path);
     println!("rtest_algebraic: {}/{} ({:.0}%)", result.passed, result.total,
         if result.total > 0 { result.passed as f64 / result.total as f64 * 100.0 } else { 0.0 });
@@ -264,7 +264,7 @@ fn rtest_gcd() {
 
 #[test]
 fn rtest_everysome() {
-    let path = format!("{}/{}", concat!(env!("CARGO_MANIFEST_DIR"), "/../../../tests"), "rtest_everysome.mac");
+    let path = format!("{}/{}", concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests"), "rtest_everysome.mac");
     let result = run_rtest(&path);
     println!("rtest_everysome: {}/{} ({:.0}%)", result.passed, result.total,
         if result.total > 0 { result.passed as f64 / result.total as f64 * 100.0 } else { 0.0 });
@@ -285,7 +285,7 @@ fn rtest_diff_invtrig() {
 
 #[test]
 fn rtest_dot() {
-    let path = format!("{}/{}", concat!(env!("CARGO_MANIFEST_DIR"), "/../../../tests"), "rtest_dot.mac");
+    let path = format!("{}/{}", concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests"), "rtest_dot.mac");
     let result = run_rtest(&path);
     println!("rtest_dot: {}/{} ({:.0}%)", result.passed, result.total,
         if result.total > 0 { result.passed as f64 / result.total as f64 * 100.0 } else { 0.0 });
@@ -314,7 +314,7 @@ fn rtest_carg() {
 #[test]
 #[ignore] // Slow: scans all 99 rtest files. Run with: cargo test -- --ignored
 fn rtest_multi_file_scan() {
-    let test_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../../tests");
+    let test_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests");
     let mut files: Vec<String> = Vec::new();
 
     if let Ok(entries) = std::fs::read_dir(test_dir) {

@@ -6,6 +6,12 @@ members = [
     "crates/eval",
     "crates/poly",
     "crates/repl",
+    "crates/plugin-sdk",
+    "plugins/template",
+    "plugins/test_plugin",
+    "plugins/orthopoly",
+    "plugins/specfun",
+    "plugins/bad_plugin",
 ]
 
 [workspace.package]

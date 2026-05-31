@@ -74,7 +74,7 @@ fn is_parametric(input: &str) -> bool {
 
 #[test]
 fn formula_test_suite() {
-    let content = include_str!("../../../../research/integralformulalist.toml");
+    let content = include_str!("../../../research/integralformulalist.toml");
     let formulas = parse_formulas(content);
 
     println!("\n=== Integration Formula Test Suite ===");

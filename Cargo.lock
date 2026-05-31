@@ -214,6 +214,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "68ab91017fe16c622486840e4c83c9a37afeff978bd239b5293d61ece587de66"
 
 [[package]]
+name = "libloading"
+version = "0.8.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d7c4b02199fee7c5d21a5ae7d8cfa79a6ef5bb2fc834d6e9058e89c825efdc55"
+dependencies = [
+ "cfg-if",
+ "windows-link",
+]
+
+[[package]]
 name = "linux-raw-sys"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -226,6 +236,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5e5032e24019045c762d3c0f28f5b6b8bbf38563a65908389bf7978758920897"
 
 [[package]]
+name = "maxima-bad-plugin"
+version = "5.0.0"
+dependencies = [
+ "maxima-plugin",
+]
+
+[[package]]
 name = "maxima-core"
 version = "5.0.0"
 dependencies = [
@@ -236,6 +253,7 @@ dependencies = [
 name = "maxima-eval"
 version = "5.0.0"
 dependencies = [
+ "libloading",
  "maxima-core",
  "maxima-parser",
  "maxima-poly",
@@ -245,10 +263,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "maxima-orthopoly"
+version = "5.0.0"
+dependencies = [
+ "maxima-plugin",
+ "num",
+]
+
+[[package]]
 name = "maxima-parser"
 version = "5.0.0"
 dependencies = [
  "maxima-core",
+]
+
+[[package]]
+name = "maxima-plugin"
+version = "5.0.0"
+dependencies = [
+ "maxima-core",
+ "maxima-eval",
+]
+
+[[package]]
+name = "maxima-plugin-template"
+version = "5.0.0"
+dependencies = [
+ "maxima-plugin",
 ]
 
 [[package]]
@@ -267,6 +308,21 @@ dependencies = [
  "maxima-eval",
  "maxima-parser",
  "rustyline",
+]
+
+[[package]]
+name = "maxima-specfun"
+version = "5.0.0"
+dependencies = [
+ "maxima-plugin",
+ "num",
+]
+
+[[package]]
+name = "maxima-test-plugin"
+version = "5.0.0"
+dependencies = [
+ "maxima-plugin",
 ]
 
 [[package]]
