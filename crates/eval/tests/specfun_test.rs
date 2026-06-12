@@ -4,15 +4,20 @@ use maxima_eval::{eval_str_with_env, Environment};
 use std::path::PathBuf;
 use std::process::Command;
 
+fn target_dir() -> PathBuf {
+    std::env::var("CARGO_TARGET_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../target"))
+}
+
 fn plugin_path() -> Option<String> {
-    let target = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../target");
     let name = format!(
         "{}maxima_specfun.{}",
         std::env::consts::DLL_PREFIX,
         std::env::consts::DLL_EXTENSION
     );
     for profile in ["debug", "release"] {
-        let p = target.join(profile).join(&name);
+        let p = target_dir().join(profile).join(&name);
         if p.is_file() {
             return Some(p.display().to_string());
         }
@@ -21,9 +26,9 @@ fn plugin_path() -> Option<String> {
 }
 
 fn ensure() -> Option<String> {
-    if let Some(p) = plugin_path() {
-        return Some(p);
-    }
+    // Always invoke `cargo build` so a source change to the plugin is picked
+    // up; cargo is a no-op when up to date. Without this, a stale .so from
+    // before a source change would be used silently.
     let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
     let _ = Command::new(cargo).args(["build", "-p", "maxima-specfun"]).status();
     plugin_path()
@@ -80,6 +85,34 @@ fn specfun_numeric_references() {
     approx(&mut env, "bessel_j(1, 2.0);", 0.576_724_807_756_873_4);
     approx(&mut env, "bessel_i(0, 1.0);", 1.266_065_877_752_008_4);
     approx(&mut env, "bessel_i(1, 1.0);", 0.565_159_103_992_485_1);
+
+    // Second-kind Bessel (integer order) — references from A&S / DLMF tables.
+    approx(&mut env, "bessel_y(0, 1.0);", 0.088_256_964_215_676_96);
+    approx(&mut env, "bessel_y(0, 2.0);", 0.510_375_672_649_745_0);
+    approx(&mut env, "bessel_y(1, 1.0);", -0.781_212_821_300_288_7);
+    approx(&mut env, "bessel_y(1, 2.0);", -0.107_032_431_540_937_5);
+    approx(&mut env, "bessel_y(2, 1.0);", -1.650_682_606_816_254_3);
+    approx(&mut env, "bessel_y(2, 2.0);", -0.617_408_104_190_682_5);
+    approx(&mut env, "bessel_k(0, 1.0);", 0.421_024_438_240_708_3);
+    approx(&mut env, "bessel_k(0, 2.0);", 0.113_893_872_749_533_43);
+    approx(&mut env, "bessel_k(1, 1.0);", 0.601_907_230_197_234_57);
+    approx(&mut env, "bessel_k(1, 2.0);", 0.139_865_881_816_522_48);
+    approx(&mut env, "bessel_k(2, 1.0);", 1.624_838_898_635_177_3);
+    approx(&mut env, "bessel_k(2, 2.0);", 0.253_759_754_566_079_6);
+}
+
+#[test]
+fn bessel_y_k_require_integer_order_and_positive_x() {
+    let Some(path) = ensure() else { return; };
+    let mut env = Environment::new();
+    eval_str_with_env(&format!("load_plugin(\"{}\");", path), &mut env);
+
+    // Non-integer order: noun (matches Maxima for unsupported argument shapes).
+    assert!(eval_str_with_env("bessel_y(0.5, 1.0);", &mut env).contains("bessel_y"));
+    assert!(eval_str_with_env("bessel_k(0.5, 1.0);", &mut env).contains("bessel_k"));
+    // Non-positive x: noun (log(x/2) is singular at 0).
+    assert!(eval_str_with_env("bessel_y(0, 0.0);", &mut env).contains("bessel_y"));
+    assert!(eval_str_with_env("bessel_k(0, -1.0);", &mut env).contains("bessel_k"));
 }
 
 #[test]

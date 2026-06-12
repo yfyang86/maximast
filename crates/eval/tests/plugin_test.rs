@@ -5,15 +5,20 @@ use maxima_eval::{eval_str_with_env, Environment};
 use std::path::PathBuf;
 use std::process::Command;
 
+fn target_dir() -> PathBuf {
+    std::env::var("CARGO_TARGET_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../target"))
+}
+
 fn plugin_path() -> Option<String> {
-    let target = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../target");
     let name = format!(
         "{}maxima_test_plugin.{}",
         std::env::consts::DLL_PREFIX,
         std::env::consts::DLL_EXTENSION
     );
     for profile in ["debug", "release"] {
-        let p = target.join(profile).join(&name);
+        let p = target_dir().join(profile).join(&name);
         if p.is_file() {
             return Some(p.display().to_string());
         }
@@ -21,11 +26,11 @@ fn plugin_path() -> Option<String> {
     None
 }
 
-/// Locate the fixture cdylib, building it once if necessary.
+/// Locate the fixture cdylib, rebuilding it through cargo so that a source
+/// change to the plugin is picked up. Cargo's incremental build is a no-op
+/// when nothing changed — but a "use the .so if it exists" shortcut would
+/// silently use a stale artifact from before the source change.
 fn ensure_plugin() -> Option<String> {
-    if let Some(p) = plugin_path() {
-        return Some(p);
-    }
     let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
     let _ = Command::new(cargo)
         .args(["build", "-p", "maxima-test-plugin"])

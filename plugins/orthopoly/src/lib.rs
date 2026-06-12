@@ -136,6 +136,47 @@ fn legendre_p(args: &[Expr], env: &mut Environment) -> Expr {
     })
 }
 
+fn legendre_q(args: &[Expr], env: &mut Environment) -> Expr {
+    guard("legendre_q", args, || {
+        let (Some(n), x) = (extract_n(&args[0]), &args[1]) else {
+            return Expr::call("legendre_q", args.to_vec());
+        };
+        // Q_n(x) = A_n(x) * Q_0(x) + B_n(x), where
+        // Q_0(x) = (1/2) * log((1+x)/(1-x)).
+        // Both A_n and B_n satisfy the Legendre recurrence
+        // (k+1) Y_{k+1} = (2k+1) x Y_k - k Y_{k-1}
+        // with A_0=1, A_1=x and B_0=0, B_1=-1.
+        let step = |k: u32, pk: &[Q], pk1: &[Q]| {
+            let k = k as i64;
+            pscale(
+                &psub(&pscale(&pshift(pk), &qi(2 * k + 1)), &pscale(pk1, &qi(k))),
+                &qr(1, k + 1),
+            )
+        };
+        let a_n = run(n, vec![qi(1)], vec![qi(0), qi(1)], step);
+        let b_n = run(n, vec![qi(0)], vec![qi(-1)], step);
+
+        let one = Expr::int(1);
+        let q0 = Expr::mul(
+            Expr::div(one.clone(), Expr::int(2)),
+            Expr::call("log", vec![Expr::div(
+                Expr::add(one.clone(), x.clone()),
+                Expr::sub(one.clone(), x.clone()),
+            )]),
+        );
+        let a_expr = poly_to_expr(&a_n, x);
+        let b_expr = poly_to_expr(&b_n, x);
+        let result = if a_expr == Expr::int(0) {
+            b_expr
+        } else if b_expr == Expr::int(0) {
+            Expr::mul(a_expr, q0)
+        } else {
+            Expr::add(Expr::mul(a_expr, q0), b_expr)
+        };
+        meval(&result, env)
+    })
+}
+
 fn chebyshev_t(args: &[Expr], env: &mut Environment) -> Expr {
     guard("chebyshev_t", args, || {
         let (Some(n), x) = (extract_n(&args[0]), &args[1]) else {
@@ -276,6 +317,7 @@ fn jacobi_p(args: &[Expr], env: &mut Environment) -> Expr {
 
 maxima_plugin!(register = |env| {
     env.register_native("legendre_p", legendre_p, 2, Some(2));
+    env.register_native("legendre_q", legendre_q, 2, Some(2));
     env.register_native("chebyshev_t", chebyshev_t, 2, Some(2));
     env.register_native("chebyshev_u", chebyshev_u, 2, Some(2));
     env.register_native("hermite", hermite, 2, Some(2));
