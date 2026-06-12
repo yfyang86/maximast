@@ -1,6 +1,7 @@
 //! Special functions as a Maxima plugin (numeric, f64).
 //!
-//! Functions: gamma, log_gamma, beta, erf, erfc, bessel_j, bessel_i.
+//! Functions: gamma, log_gamma, beta, erf, erfc, bessel_j, bessel_i,
+//! bessel_y, bessel_k.
 //! These return a Float for a numeric (Float) argument, with a few exact
 //! cases: `gamma(n)` = (n-1)!, `gamma(1/2)` = sqrt(%pi), `beta(m,n)` for
 //! positive integers, `erf(0)` = 0, `erfc(0)` = 1. A symbolic (or otherwise
@@ -8,9 +9,6 @@
 //!
 //! Every numeric routine has a fixed iteration cap and is checked against
 //! reference values in the test suite (see crates/eval/tests/specfun_test.rs).
-//!
-//! Deferred: bessel_y and bessel_k (second-kind). For integer order they
-//! require the digamma function and logarithmic terms; a focused follow-up.
 
 use maxima_plugin::{maxima_plugin, Expr, Environment, guard};
 use num::{BigInt, BigRational, One, ToPrimitive};
@@ -146,6 +144,136 @@ fn bessel_series(nu: f64, x: f64, alternating: bool) -> f64 {
 fn bessel_j(nu: f64, x: f64) -> f64 { bessel_series(nu, x, true) }
 fn bessel_i(nu: f64, x: f64) -> f64 { bessel_series(nu, x, false) }
 
+const EULER_MASCHERONI: f64 = 0.577_215_664_901_532_9;
+
+// Bessel Y and K for integer order n >= 0 and x > 0.
+// Computed from ascending series for Y_0/Y_1/K_0/K_1, then recurrence.
+
+fn bessel_y0(x: f64) -> f64 {
+    let h = x / 2.0;
+    let ln_h = h.ln();
+    let j0 = bessel_j(0.0, x);
+    let mut sum = 0.0;
+    let mut a = 1.0; // (-1)^k * h^{2k} / (k!)^2
+    let mut harmonic = 0.0;
+    let h2 = h * h;
+    for k in 1..500 {
+        harmonic += 1.0 / k as f64;
+        a *= -h2 / (k as f64).powi(2);
+        let term = a * harmonic;
+        sum += term;
+        if term.abs() < sum.abs().max(1.0) * 1e-18 {
+            break;
+        }
+    }
+    2.0 / PI * ((ln_h + EULER_MASCHERONI) * j0 - sum)
+}
+
+fn bessel_y1(x: f64) -> f64 {
+    let h = x / 2.0;
+    let ln_h = h.ln();
+    let j1 = bessel_j(1.0, x);
+    let singular = -2.0 / (PI * x);
+    let mut sum = 0.0;
+    let mut a = 1.0; // h^{2k} / (k! * (k+1)!)
+    let mut harmonic_k = 0.0; // H_k, H_0 = 0
+    let mut harmonic_k1 = 1.0; // H_{k+1}, H_1 = 1
+    let h2 = h * h;
+    for k in 0..500 {
+        if k > 0 {
+            harmonic_k += 1.0 / k as f64;
+            harmonic_k1 += 1.0 / (k + 1) as f64;
+            a *= -h2 / (k as f64 * (k + 1) as f64);
+        }
+        let psi_sum = harmonic_k + harmonic_k1 - 2.0 * EULER_MASCHERONI;
+        let term = a * psi_sum;
+        sum += term;
+        if term.abs() < sum.abs().max(1.0) * 1e-18 {
+            break;
+        }
+    }
+    2.0 / PI * j1 * ln_h + singular - h / PI * sum
+}
+
+fn bessel_y(n: i64, x: f64) -> f64 {
+    match n {
+        0 => bessel_y0(x),
+        1 => bessel_y1(x),
+        _ => {
+            let mut y0 = bessel_y0(x);
+            let mut y1 = bessel_y1(x);
+            for k in 1..n {
+                let y2 = 2.0 * k as f64 / x * y1 - y0;
+                y0 = y1;
+                y1 = y2;
+            }
+            y1
+        }
+    }
+}
+
+fn bessel_k0(x: f64) -> f64 {
+    let h = x / 2.0;
+    let ln_h = h.ln();
+    let i0 = bessel_i(0.0, x);
+    let mut sum = 0.0;
+    let mut a = 1.0; // h^{2k} / (k!)^2
+    let mut harmonic = 0.0;
+    let h2 = h * h;
+    for k in 1..500 {
+        harmonic += 1.0 / k as f64;
+        a *= h2 / (k as f64).powi(2);
+        let term = a * harmonic;
+        sum += term;
+        if term.abs() < sum.abs().max(1.0) * 1e-18 {
+            break;
+        }
+    }
+    -(ln_h + EULER_MASCHERONI) * i0 + sum
+}
+
+fn bessel_k1(x: f64) -> f64 {
+    let h = x / 2.0;
+    let ln_h = h.ln();
+    let i1 = bessel_i(1.0, x);
+    let mut sum = 0.0;
+    let mut a = 1.0; // h^{2k} / (k! * (k+1)!)
+    let mut harmonic_k = 0.0; // H_k, H_0 = 0
+    let mut harmonic_k1 = 1.0; // H_{k+1}, H_1 = 1
+    let h2 = h * h;
+    for k in 0..500 {
+        if k > 0 {
+            harmonic_k += 1.0 / k as f64;
+            harmonic_k1 += 1.0 / (k + 1) as f64;
+            a *= h2 / (k as f64 * (k + 1) as f64);
+        }
+        let psi_sum = harmonic_k + harmonic_k1 - 2.0 * EULER_MASCHERONI;
+        let term = a * psi_sum;
+        sum += term;
+        if term.abs() < sum.abs().max(1.0) * 1e-18 {
+            break;
+        }
+    }
+    1.0 / x + ln_h * i1 - h / 2.0 * sum
+}
+
+fn bessel_k(n: i64, x: f64) -> f64 {
+    match n {
+        0 => bessel_k0(x),
+        1 => bessel_k1(x),
+        _ => {
+            let mut k0 = bessel_k0(x);
+            let mut k1 = bessel_k1(x);
+            for k in 1..n {
+                let k2 = k0 + 2.0 * k as f64 / x * k1;
+                k0 = k1;
+                k1 = k2;
+            }
+            k1
+        }
+    }
+}
+
 // ---- function dispatch ---------------------------------------------------
 
 fn float_or_noun(name: &str, args: &[Expr], v: f64) -> Expr {
@@ -226,6 +354,30 @@ fn bessel_i_fn(args: &[Expr], _env: &mut Environment) -> Expr {
     })
 }
 
+fn is_integer_order(nu: f64) -> bool { nu.fract().abs() < 1e-15 }
+
+fn bessel_y_fn(args: &[Expr], _env: &mut Environment) -> Expr {
+    guard("bessel_y", args, || {
+        if let (Some(nu), Some(x)) = (as_f64(&args[0]), as_f64(&args[1])) {
+            if is_float(&args[1]) && nu >= 0.0 && x > 0.0 && is_integer_order(nu) {
+                return float_or_noun("bessel_y", args, bessel_y(nu as i64, x));
+            }
+        }
+        Expr::call("bessel_y", args.to_vec())
+    })
+}
+
+fn bessel_k_fn(args: &[Expr], _env: &mut Environment) -> Expr {
+    guard("bessel_k", args, || {
+        if let (Some(nu), Some(x)) = (as_f64(&args[0]), as_f64(&args[1])) {
+            if is_float(&args[1]) && nu >= 0.0 && x > 0.0 && is_integer_order(nu) {
+                return float_or_noun("bessel_k", args, bessel_k(nu as i64, x));
+            }
+        }
+        Expr::call("bessel_k", args.to_vec())
+    })
+}
+
 maxima_plugin!(register = |env| {
     env.register_native("gamma", gamma_fn, 1, Some(1));
     env.register_native("log_gamma", log_gamma_fn, 1, Some(1));
@@ -234,4 +386,6 @@ maxima_plugin!(register = |env| {
     env.register_native("erfc", erfc_fn, 1, Some(1));
     env.register_native("bessel_j", bessel_j_fn, 2, Some(2));
     env.register_native("bessel_i", bessel_i_fn, 2, Some(2));
+    env.register_native("bessel_y", bessel_y_fn, 2, Some(2));
+    env.register_native("bessel_k", bessel_k_fn, 2, Some(2));
 });
