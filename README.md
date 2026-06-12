@@ -202,20 +202,28 @@ Compiled Rust plugins (`cdylib`) can be loaded at runtime:
 ```maxima
 load_plugin("target/debug/libmaxima_orthopoly");
 legendre_p(2, x);     /* → (3/2)*x^2-1/2 */
+legendre_q(2, x);     /* → ((3*x^2-1)/4)*log((1+x)/(1-x)) - 3*x/2 */
 load_plugin("target/debug/libmaxima_specfun");
 erf(1.0);             /* → 0.8427... */
+bessel_y(1, 1.0);     /* → -0.7812... */
+bessel_k(0, 1.0);     /* → 0.4210... */
 ```
 
-Shipped plugins: `maxima-orthopoly` (orthogonal polynomials) and
-`maxima-specfun` (gamma, beta, erf, Bessel). Write your own with the
-`maxima-plugin` authoring kit — copy `plugins/template` and see the
-[plugin development manual](plugin-dev-manual.md).
+Shipped plugins:
+- `maxima-orthopoly` — orthogonal polynomials: `legendre_p`, `legendre_q`,
+  `chebyshev_t`, `chebyshev_u`, `hermite`, `laguerre`, `gen_laguerre`,
+  `ultraspherical`, `jacobi_p`.
+- `maxima-specfun` — special functions: `gamma`, `log_gamma`, `beta`, `erf`,
+  `erfc`, `bessel_j`, `bessel_i`, `bessel_y`, `bessel_k`.
+
+Write your own with the `maxima-plugin` authoring kit — copy
+`plugins/template` and see the [plugin development manual](plugin-dev-manual.md).
 
 ## Build & Test
 
 ```sh
 cargo build                # build all crates
-cargo test                 # run 1008 unit + integration tests
+cargo test                 # run 1113 unit + integration tests
 cargo run                  # start REPL
 ```
 
