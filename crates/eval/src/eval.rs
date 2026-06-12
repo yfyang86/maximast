@@ -390,6 +390,12 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
         "ev" => return eval_ev(args, env),
         "sum" => return eval_sum(args, env),
         "product" => return eval_product(args, env),
+        // makelist/create_list bind a loop var; the body must NOT be eagerly
+        // evaluated in the outer scope (where the loop var is unbound). Doing
+        // so wastes work in the easy case and infinite-recurses through a
+        // user-defined recursive call whose argument depends on the loop var.
+        "makelist" => return eval_makelist(args, env),
+        "create_list" => return eval_makelist(args, env),
         "errcatch" => return eval_errcatch(args, env),
         "batch" => {
             if args.len() >= 1 {
@@ -579,8 +585,20 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
             }
         }
         "rest" => {
+            // rest(L) drops the first element; rest(L, n) drops the first n
+            // (or last |n| for n<0); rest(L, 0) returns L; |n| > length gives [].
             if let Some(Expr::List { op: Operator::MList, args: items, .. }) = evaled_args.first() {
-                Expr::list(items[1..].to_vec())
+                let n = match evaled_args.get(1) {
+                    None => 1,
+                    Some(Expr::Integer(k)) => *k,
+                    _ => return Expr::call("rest", evaled_args),
+                };
+                let len = items.len() as i64;
+                let drop_from_front = if n >= 0 { n.min(len) } else { 0 };
+                let drop_from_back  = if n <  0 { (-n).min(len) } else { 0 };
+                let lo = drop_from_front as usize;
+                let hi = (len - drop_from_back) as usize;
+                Expr::list(items[lo..hi].to_vec())
             } else {
                 Expr::call("rest", evaled_args)
             }
@@ -941,6 +959,21 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
             }
             if let Some(result) = crate::poly_analysis::eval_poly_func(&func_name, &evaled_args) {
                 return result;
+            }
+            Expr::call(&func_name, evaled_args)
+        }
+        "groebner_basis" => {
+            if let Some(r) = crate::groebner::eval_groebner(&func_name, &evaled_args) {
+                return r;
+            }
+            Expr::call(&func_name, evaled_args)
+        }
+        "polysys_solve" => crate::groebner::eval_polysys_solve(&evaled_args, env),
+        "factor_multivariate" => crate::groebner::eval_factor_multivariate(&evaled_args, env),
+        "eliminate" | "ideal_sum" | "ideal_product"
+        | "ideal_intersect" | "ideal_contains" => {
+            if let Some(r) = crate::groebner::eval_groebner(&func_name, &evaled_args) {
+                return r;
             }
             Expr::call(&func_name, evaled_args)
         }
@@ -1604,6 +1637,23 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
                     if let Some(i) = to_i64(&evaled_args[1]) {
                         if i >= 1 && (i as usize) <= rows.len() {
                             return rows[(i - 1) as usize].clone();
+                        }
+                    }
+                }
+            }
+            // List element access: L[i].  Maxima is 1-indexed; negative i counts
+            // from the end (L[-1] is the last element).
+            if evaled_args.len() == 2 {
+                if let Expr::List { op: Operator::MList, args: items, .. } = &evaled_args[0] {
+                    if let Some(i) = to_i64(&evaled_args[1]) {
+                        if i >= 1 && (i as usize) <= items.len() {
+                            return items[(i - 1) as usize].clone();
+                        }
+                        if i < 0 {
+                            let k = (-i) as usize;
+                            if k >= 1 && k <= items.len() {
+                                return items[items.len() - k].clone();
+                            }
                         }
                     }
                 }

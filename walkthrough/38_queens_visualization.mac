@@ -1,0 +1,98 @@
+/* Walkthrough 38: 8-Queens Visualization (Challenge Demo)
+ *
+ * Builds on walkthrough 37 (the n-queens solver) with ASCII-board rendering,
+ * a board-size scoreboard, and a small demonstration of the reflection
+ * symmetry that pairs up most of the 92 solutions.
+ *
+ * Run: maxima-repl -b walkthrough/38_queens_visualization.mac
+ *
+ * Showcases (now that the four walkthrough-37 kernel quirks are fixed):
+ *   - L[i] indexes lists inside function bodies
+ *   - $ actually suppresses display
+ *   - recursive makelist with loop-var-dependent recursive arg works
+ *   - rest(L, n) honours the count
+ */
+
+/* ============================================================ */
+/* 1. Solver (from walkthrough 37, backtracking variant)       */
+/* ============================================================ */
+
+safe(c, placed, dist) :=
+  if emptyp(placed) then true
+  else if first(placed) = c then false
+  else if abs(first(placed) - c) = dist then false
+  else safe(c, rest(placed), dist + 1)$
+
+queens(n, k, placed) :=
+  if k = 0 then [reverse(placed)]
+  else apply(append,
+             makelist(
+               if safe(c, placed, 1)
+                 then queens(n, k - 1, cons(c, placed))
+                 else [],
+               c, 1, n))$
+
+/* ============================================================ */
+/* 2. ASCII board rendering                                    */
+/* ============================================================ */
+
+/* One row of the board: "Q " in the queen's column, ". " elsewhere. */
+render_row(qcol, n) := block([s : ""],
+  for c : 1 thru n do
+    s : concat(s, if c = qcol then "Q " else ". "),
+  s)$
+
+/* Print a placement as an n x n board.  p[i] is the column of the
+ * queen in row i. */
+render(p) := block([n : length(p)],
+  for r : 1 thru n do print(render_row(p[r], n)),
+  print(""))$
+
+/* ============================================================ */
+/* 3. The first 8-queens solution, drawn                       */
+/* ============================================================ */
+
+sample : first(queens(8, 8, []))$
+
+print("First 8-queens solution: column-by-row =", sample);
+print("Board:")$
+render(sample)$
+
+/* ============================================================ */
+/* 4. Combinatorial scoreboard: solution count vs board size   */
+/* ============================================================ */
+
+print("How many ways to place N non-attacking queens on an NxN board:")$
+for n : 1 thru 8 do
+  print("  n=", n, "  ->  ", length(queens(n, n, [])), " solutions")$
+
+/* ============================================================ */
+/* 5. All four 6-queens solutions, drawn                       */
+/* ============================================================ */
+
+print("All four 6-queens solutions:")$
+for sol in queens(6, 6, []) do (
+  print(sol),
+  render(sol))$
+
+/* ============================================================ */
+/* 6. Reflection symmetry                                       */
+/* ============================================================ */
+
+/* The horizontal reflection of a solution (flip each column index across
+ * the board's vertical axis) is always also a solution.  The 92 solutions
+ * of n=8 collapse to 12 fundamental solutions under the full dihedral
+ * group; this demo shows just the simplest pairing. */
+
+mirror(p) := block([n : length(p)],
+  makelist(n + 1 - p[i], i, 1, n))$
+
+print("A solution and its horizontal mirror:")$
+print("  original:  ", sample)$
+print("  mirrored:  ", mirror(sample))$
+render(sample)$
+render(mirror(sample))$
+
+/* Sanity: the mirror is itself a valid placement, found by the solver. */
+print("mirror is among the 92 valid 8-queens solutions:",
+      member(mirror(sample), queens(8, 8, [])));

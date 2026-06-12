@@ -9,6 +9,8 @@ pub mod traits;
 pub mod cre;
 pub mod alg_field;
 pub mod poly_alg;
+pub mod mpoly;
+pub mod buchberger;
 pub use poly_alg::{factor_over_extension, cyclotomic_poly};
 
 pub use coeff::Coeff;
@@ -19,3 +21,5 @@ pub use groebner::{groebner_univariate, poly_reduce};
 pub use hermite::{hermite_reduce, poly_extended_gcd, resultant, lazard_rioboo_trager};
 pub use cre::CRE;
 pub use convert::{expr_to_poly, poly_to_expr, expr_to_cre, cre_to_expr};
+pub use mpoly::{MPoly, Monomial, MonomialOrder, MCoeff, expr_to_mpoly, mpoly_to_expr};
+pub use buchberger::{buchberger, s_polynomial, normal_form, MAX_BUCHBERGER_STEPS};

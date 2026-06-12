@@ -7,6 +7,7 @@ pub mod assume;
 pub mod bigfloat;
 pub mod complex;
 pub mod expr_manip;
+pub mod groebner;
 pub mod gruntz;
 pub mod helpers;
 pub mod risch_integrate;

@@ -1,0 +1,84 @@
+/* Walkthrough 39: Polynomial Systems (V8.0)
+ *
+ * Showcases the V8.0 polynomial-systems work:
+ *   groebner_basis(polys, vars [, order]) — reduced Gröbner basis
+ *   polysys_solve(eqns, vars)              — solve a polynomial system
+ *   eliminate(polys, vars_to_eliminate)    — variable elimination /
+ *                                            implicitization
+ *   ideal_sum / ideal_product / ideal_intersect / ideal_contains
+ *   factor_multivariate(p)                 — common monomial extraction
+ */
+
+/* ============================================================ */
+/* 1. Gröbner basis (the algorithm, exposed)                   */
+/* ============================================================ */
+
+groebner_basis([x^2 + y^2 - 1, x - y^2], [x, y]);
+/* default grevlex: [x^2 + x - 1, y^2 - x] */
+
+groebner_basis([x^2 + y^2 - 1, x - y^2], [x, y], lex);
+/* lex order, x > y: [x - y^2, y^4 + y^2 - 1] */
+
+groebner_basis([x, x - 1], [x]);
+/* inconsistent system -> [1] */
+
+/* ============================================================ */
+/* 2. Solving polynomial systems                                */
+/* ============================================================ */
+
+polysys_solve([x + y - 3, 2*x - y], [x, y]);
+/* linear: [[x = 1, y = 2]] */
+
+polysys_solve([x^2 - 4, y - x], [x, y]);
+/* quadratic substitution: [[x = 2, y = 2], [x = -2, y = -2]] */
+
+polysys_solve([x*y - 1, x + y - 2], [x, y]);
+/* hyperbola meets line at (1, 1) with multiplicity */
+
+polysys_solve([x = 1, y = 2], [x, y]);
+/* p = q form is also accepted */
+
+/* ============================================================ */
+/* 3. Variable elimination / implicitization                    */
+/* ============================================================ */
+
+eliminate([x - t, y - t^2], [t]);
+/* parametric (x, y) = (t, t^2) -> implicit y = x^2 */
+
+eliminate([x = t, y = t^2, z = t^3], [t]);
+/* twisted cubic: four classical relations */
+
+eliminate([x^2 + y^2 - 1, x - y - 1], [x]);
+/* eliminate x -> polynomial in y alone */
+
+/* ============================================================ */
+/* 4. Ideal arithmetic                                          */
+/* ============================================================ */
+
+ideal_sum([x^2 - 1], [x*y], [x, y]);
+/* <x^2 - 1, xy> = <x^2 - 1, y> */
+
+ideal_product([x], [y], [x, y]);
+/* <x>·<y> = <xy> */
+
+ideal_intersect([x], [y], [x, y]);
+/* <x> ∩ <y> = <xy> */
+
+ideal_contains(x^3 - 1, [x - 1], [x]);
+/* x^3 - 1 = (x - 1)(x^2 + x + 1), so YES */
+
+ideal_contains(x^2 + 1, [x - 1], [x]);
+/* x^2 + 1 mod (x - 1) = 2, so NO */
+
+/* ============================================================ */
+/* 5. Multivariate factoring (minimal)                          */
+/* ============================================================ */
+
+factor_multivariate(x^2*y - x*y^2);
+/* common monomial: x*y*(x - y) */
+
+factor_multivariate(x^3 + x);
+/* univariate after gcd: x*(1 + x^2) */
+
+factor_multivariate(x^4*y^2 - x^2*y^4);
+/* higher gcd: x^2*y^2*(x^2 - y^2) */

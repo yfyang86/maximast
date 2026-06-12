@@ -1,0 +1,89 @@
+/* Walkthrough 37: 8-Queens Solver
+ *
+ * Mirrors the elegant Mathematica one-liner
+ *   Select[Permutations@v, And @@ Unequal @@@ {#+v, #-v} &] /. v -> Range[8]
+ *
+ * Idea: a permutation p of 1..n places queens at rows 1..n with column p[i] in
+ * row i (one queen per row, one per column by construction). The placement is
+ * a solution iff no two queens share a diagonal — equivalently, every entry of
+ * the lists p[i]+i and p[i]-i is distinct.
+ *
+ * Two versions:
+ *   - filter style: generate all permutations, keep the diagonal-distinct ones
+ *   - backtracking: prune as we go (the practical version for n=8)
+ *
+ * Kernel notes (Rust kernel quirks worked around below):
+ *   - L[i] in a function body does not list-index; use part(L, i).
+ *   - rest(L, n) drops 1 element, not n; use makelist for explicit slices.
+ *   - A recursive call inside a makelist body whose loop var clashes with an
+ *     inner makelist does not always bind correctly; we use a for-loop in
+ *     perms but plain makelist works fine in the queens backtracking below.
+ */
+
+/* ============================================================ */
+/* 1. Filter-style version (Mathematica spirit, fine for n<=6) */
+/* ============================================================ */
+
+/* Drop element at index i from L (without using rest(L, i)). */
+remove_at(L, i) := append(makelist(part(L, j), j, 1, i - 1),
+                          makelist(part(L, j), j, i + 1, length(L)))$
+
+/* All permutations of L, by recursive expansion. Uses a for-loop instead of
+ * makelist around the recursive call to dodge a kernel quirk. */
+perms(L) := if emptyp(L) then [[]]
+            else block([n : length(L), result : []],
+                       for i : 1 thru n do
+                         block([rp : perms(remove_at(L, i))],
+                               for p in rp do
+                                 result : cons(cons(part(L, i), p), result)),
+                       result)$
+
+length(perms([1, 2, 3, 4]));   /* 4! = 24 */
+
+/* Diagonal-distinct predicate: every entry of p+v and every entry of p-v is
+ * distinct. (length doesn't apply to sets in this kernel, so listify first.) */
+diag_distinct(p) := block([n : length(p)],
+  length(listify(setify(makelist(part(p, i) + i, i, 1, n)))) = n
+  and length(listify(setify(makelist(part(p, i) - i, i, 1, n)))) = n)$
+
+/* n-queens by filter — analogous to the Mathematica Select. */
+queens_filter(n) := sublist(perms(makelist(i, i, 1, n)), diag_distinct)$
+
+length(queens_filter(5));      /* 10 solutions */
+first(queens_filter(5));       /* one of them */
+
+/* ============================================================ */
+/* 2. Backtracking version (the practical 8-queens solver)     */
+/* ============================================================ */
+
+/* safe(c, placed, dist):
+ *   c       — candidate column for the next row
+ *   placed  — already-placed columns, most recent first
+ *   dist    — row distance from the next row to first(placed)
+ * No previously-placed queen may share the column or the diagonal. */
+safe(c, placed, dist) :=
+  if emptyp(placed) then true
+  else if first(placed) = c then false
+  else if abs(first(placed) - c) = dist then false
+  else safe(c, rest(placed), dist + 1)$
+
+/* queens(n, k, placed): all valid placements of n queens, with k still to
+ * place. placed records the columns already placed (most recent first); we
+ * reverse on success so each solution lists the column per row. */
+queens(n, k, placed) :=
+  if k = 0 then [reverse(placed)]
+  else apply(append,
+             makelist(
+               if safe(c, placed, 1)
+                 then queens(n, k - 1, cons(c, placed))
+                 else [],
+               c, 1, n))$
+
+/* All 8-queens solutions (92, the classic result): */
+length(queens(8, 8, []));     /* 92 */
+first(queens(8, 8, []));      /* one valid placement: column per row */
+
+/* Smaller boards: */
+length(queens(4, 4, []));   /* 2  */
+length(queens(6, 6, []));   /* 4  */
+length(queens(7, 7, []));   /* 40 */
