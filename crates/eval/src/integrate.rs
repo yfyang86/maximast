@@ -1755,26 +1755,42 @@ pub(crate) fn table_integrate(f: &Expr, var: &Expr) -> Expr {
                                                         Expr::neg(Expr::pow(Expr::call("csc", vec![x]), Expr::int(n))),
                                                         Expr::int(n)));
                                                 }
-                                                // ∫ cos^n*sin = -cos^(n+1)/(n+1)
+                                                // ∫ cos^n*sin = -cos^(n+1)/(n+1) — but n=-1 needs the log form.
                                                 if fname == "cos" && gname == "sin" {
+                                                    if n == -1 {
+                                                        // ∫ sin/cos = -log(cos)
+                                                        return Expr::neg(Expr::call("log", vec![Expr::call("cos", vec![x])]));
+                                                    }
                                                     return simplify(&Expr::div(
                                                         Expr::neg(Expr::pow(Expr::call("cos", vec![x]), Expr::int(n+1))),
                                                         Expr::int(n+1)));
                                                 }
                                                 // ∫ cosh^n*sinh = cosh^(n+1)/(n+1)
                                                 if fname == "cosh" && gname == "sinh" {
+                                                    if n == -1 {
+                                                        // ∫ sinh/cosh = log(cosh)
+                                                        return Expr::call("log", vec![Expr::call("cosh", vec![x])]);
+                                                    }
                                                     return simplify(&Expr::div(
                                                         Expr::pow(Expr::call("cosh", vec![x.clone()]), Expr::int(n+1)),
                                                         Expr::int(n+1)));
                                                 }
                                                 // ∫ sinh^n*cosh = sinh^(n+1)/(n+1)
                                                 if fname == "sinh" && gname == "cosh" {
+                                                    if n == -1 {
+                                                        // ∫ cosh/sinh = log|sinh|
+                                                        return Expr::call("log", vec![Expr::call("abs", vec![Expr::call("sinh", vec![x])])]);
+                                                    }
                                                     return simplify(&Expr::div(
                                                         Expr::pow(Expr::call("sinh", vec![x.clone()]), Expr::int(n+1)),
                                                         Expr::int(n+1)));
                                                 }
                                                 // ∫ sin^n*cos = sin^(n+1)/(n+1)
                                                 if fname == "sin" && gname == "cos" {
+                                                    if n == -1 {
+                                                        // ∫ cos/sin = log|sin|
+                                                        return Expr::call("log", vec![Expr::call("abs", vec![Expr::call("sin", vec![x])])]);
+                                                    }
                                                     return simplify(&Expr::div(
                                                         Expr::pow(Expr::call("sin", vec![x]), Expr::int(n+1)),
                                                         Expr::int(n+1)));

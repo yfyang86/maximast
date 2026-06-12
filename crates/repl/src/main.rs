@@ -29,14 +29,16 @@ const BUILTIN_FUNCTIONS: &[&str] = &[
     "ceiling", "charpoly", "coeff", "concat", "cos", "cosh", "cot", "coth", "csc", "csch",
     "declare", "determinant", "diff", "display",
     "eigenvalues", "eigenvectors", "endcons", "ev", "expand", "exp",
-    "factor", "facts", "file_search", "file_search_maxima", "first", "float",
+    "eliminate", "factor", "factor_multivariate", "facts", "file_search",
+    "file_search_maxima", "first", "float",
     "floor", "forget", "fourth",
-    "gcd",
+    "gcd", "groebner_basis",
+    "ideal_contains", "ideal_intersect", "ideal_product", "ideal_sum",
     "integrate", "invert", "is",
     "kill",
     "last", "length", "limit", "linsolve", "load", "load_pathname", "loaded_files", "log",
     "makelist", "map", "matrix", "max", "min", "mod",
-    "part", "partfrac", "primep", "print", "printfile", "product",
+    "part", "partfrac", "polysys_solve", "primep", "print", "printfile", "product",
     "quit",
     "radcan", "ratsimp", "remainder", "require", "rest", "reverse", "round",
     "save", "sconcat", "sec", "sech", "second", "setup_autoload",
@@ -258,14 +260,14 @@ fn run_stdin() -> i32 {
 
 fn run_script(content: &str, quiet: bool) -> i32 {
     let mut env = Environment::new();
-    let exprs = maxima_parser::parse_multi(content);
+    let stmts = maxima_parser::parse_multi_with_display(content);
 
-    for expr in exprs {
+    for (expr, display) in stmts {
         match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             eval_expr_with_env(&expr, &mut env)
         })) {
             Ok(output) => {
-                if !quiet {
+                if !quiet && display {
                     println!("{}", output);
                 }
             }

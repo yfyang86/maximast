@@ -8,3 +8,6 @@ description = "Sparse polynomial arithmetic for Maxima kernel"
 [dependencies]
 maxima-core = { path = "../core" }
 num = "0.4"
+
+[dev-dependencies]
+maxima-parser = { path = "../parser" }

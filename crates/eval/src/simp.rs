@@ -392,7 +392,10 @@ fn simplify_times(args: &[Expr]) -> Expr {
                 }
             }
             Expr::Rational { num, den } => {
-                if let Some((ref mut rn, ref mut rd)) = rat_num {
+                if let Some(ref mut f) = float_prod {
+                    // A float coefficient already exists; fold the rational in.
+                    *f *= (*num as f64) / (*den as f64);
+                } else if let Some((ref mut rn, ref mut rd)) = rat_num {
                     *rn *= num;
                     *rd *= den;
                     let g = gcd(rn.unsigned_abs(), rd.unsigned_abs()) as i64;
@@ -409,7 +412,13 @@ fn simplify_times(args: &[Expr]) -> Expr {
             }
             Expr::Float(f) => {
                 if *f == 0.0 { return Expr::Float(0.0); }
-                let base = float_prod.unwrap_or(num_prod as f64);
+                // Fold any pending integer and rational accumulators into the
+                // float — output only emits one numeric coefficient, so the
+                // others must merge here or they would be silently dropped.
+                let mut base = float_prod.unwrap_or(num_prod as f64);
+                if let Some((rn, rd)) = rat_num.take() {
+                    base *= (rn as f64) / (rd as f64);
+                }
                 float_prod = Some(base * f);
                 num_prod = 1;
             }

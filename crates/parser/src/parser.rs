@@ -483,20 +483,27 @@ pub fn parse(input: &str) -> Expr {
 
 /// Parse multiple statements separated by `;` or `$`.
 pub fn parse_multi(input: &str) -> Vec<Expr> {
+    parse_multi_with_display(input).into_iter().map(|(e, _)| e).collect()
+}
+
+/// Like `parse_multi`, but pairs each expression with `true` if it was
+/// terminated by `;` (display the result) or `false` if it was terminated by
+/// `$` (suppress the result). An expression with no trailing terminator is
+/// treated as `;` (display).
+pub fn parse_multi_with_display(input: &str) -> Vec<(Expr, bool)> {
     let tokens = Lexer::tokenize(input);
     let mut parser = Parser::new(tokens);
-    let mut exprs = Vec::new();
+    let mut out = Vec::new();
     while *parser.peek() != Token::Eof {
         let expr = parser.parse_expr();
-        exprs.push(expr);
-        match parser.peek() {
-            Token::Semicolon | Token::Dollar => {
-                parser.advance();
-            }
-            _ => {}
-        }
+        let display = match parser.peek() {
+            Token::Dollar => { parser.advance(); false }
+            Token::Semicolon => { parser.advance(); true }
+            _ => true,
+        };
+        out.push((expr, display));
     }
-    exprs
+    out
 }
 
 #[cfg(test)]
@@ -918,6 +925,15 @@ mod tests {
     fn parse_multi_empty() {
         let stmts = parse_multi("");
         assert_eq!(stmts.len(), 0);
+    }
+
+    #[test]
+    fn parse_multi_with_display_flags_terminators() {
+        // ; → display=true, $ → display=false, EOF after last → display=true.
+        let stmts = parse_multi_with_display("a:1$ b:2; c:3$ d:4");
+        let flags: Vec<bool> = stmts.iter().map(|(_, d)| *d).collect();
+        assert_eq!(flags, vec![false, true, false, true]);
+        assert_eq!(stmts.len(), 4);
     }
 
     // --- Complex expressions ---

@@ -5,30 +5,30 @@ use std::path::PathBuf;
 use std::process::Command;
 
 fn target_dir() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../target")
+    std::env::var("CARGO_TARGET_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../target"))
 }
 
 fn lib_name(pkg_lib: &str) -> String {
     format!("{}{}.{}", std::env::consts::DLL_PREFIX, pkg_lib, std::env::consts::DLL_EXTENSION)
 }
 
-/// Find the cdylib for the given crate-lib name, building the package if needed.
+/// Find the cdylib for the given crate-lib name, always rebuilding it through
+/// cargo so a source change to the plugin is picked up. Cargo's incremental
+/// build is a no-op when nothing changed; the alternative — using whatever
+/// .so happens to be on disk — would silently use a stale artifact from
+/// before the source change.
 fn artifact(pkg: &str, lib: &str) -> Option<String> {
-    let find = || {
-        for profile in ["debug", "release"] {
-            let p = target_dir().join(profile).join(lib_name(lib));
-            if p.is_file() {
-                return Some(p.display().to_string());
-            }
-        }
-        None
-    };
-    if let Some(p) = find() {
-        return Some(p);
-    }
     let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
     let _ = Command::new(cargo).args(["build", "-p", pkg]).status();
-    find()
+    for profile in ["debug", "release"] {
+        let p = target_dir().join(profile).join(lib_name(lib));
+        if p.is_file() {
+            return Some(p.display().to_string());
+        }
+    }
+    None
 }
 
 fn load(env: &mut Environment, path: &str) -> String {

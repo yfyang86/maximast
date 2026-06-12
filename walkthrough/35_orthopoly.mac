@@ -15,6 +15,11 @@ legendre_p(2, x);        /* (3/2)*x^2 - 1/2 */
 legendre_p(3, x);        /* (5/2)*x^3 - (3/2)*x */
 legendre_p(2, 1/2);      /* -1/8  (exact numeric) */
 
+/* --- Legendre Q_n (second kind, non-polynomial) --- */
+legendre_q(0, x);        /* (1/2)*log((1+x)/(1-x)) */
+legendre_q(1, x);        /* x*Q_0(x) - 1 */
+legendre_q(2, x);        /* ((3*x^2-1)/4)*log((1+x)/(1-x)) - 3*x/2 */
+
 /* --- Chebyshev (first and second kind) --- */
 chebyshev_t(3, x);       /* 4*x^3 - 3*x */
 chebyshev_u(2, x);       /* 4*x^2 - 1 */

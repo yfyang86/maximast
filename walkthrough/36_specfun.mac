@@ -23,10 +23,16 @@ erf(0);              /* 0         (exact) */
 erf(1.0);            /* 0.8427... */
 erfc(2.0);           /* 0.004677... */
 
-/* --- Bessel functions (first kind J, modified first kind I) --- */
+/* --- Bessel functions, first kind --- */
 bessel_j(0, 1.0);    /* 0.7651... */
 bessel_j(1, 2.0);    /* 0.5767... */
 bessel_i(0, 1.0);    /* 1.2660... */
+
+/* --- Bessel functions, second kind (integer order, x > 0) --- */
+bessel_y(0, 1.0);    /* 0.0883... */
+bessel_y(1, 2.0);    /* -0.1070... */
+bessel_k(0, 1.0);    /* 0.4210... */
+bessel_k(1, 2.0);    /* 0.1399... */
 
 /* Symbolic arguments stay symbolic: */
 gamma(x);            /* gamma(x) */
