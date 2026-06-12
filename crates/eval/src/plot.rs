@@ -1,6 +1,5 @@
-use maxima_core::{Expr, Operator, resolve};
+use maxima_core::{Expr, Operator};
 use crate::helpers::{subst, to_f64};
-use crate::simp::simplify;
 use crate::eval::meval;
 use crate::env::Environment;
 
@@ -65,7 +64,7 @@ fn gnuplot_script(expr_or_list: &Expr, rest: &[Expr], env: &mut Environment) -> 
     script.push_str("set grid\n");
 
     let mut data_blocks = Vec::new();
-    for (idx, expr) in exprs.iter().enumerate() {
+    for (_idx, expr) in exprs.iter().enumerate() {
         let mut block = String::new();
         for i in 0..=n_points {
             let x = lo + dx * (i as f64);

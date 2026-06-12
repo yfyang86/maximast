@@ -236,7 +236,7 @@ fn integrate_hermite(
 fn integrate_partfrac_linear(
     num: &maxima_poly::Poly,
     factors: &[(maxima_poly::Poly, u32)],
-    var: &Expr,
+    _var: &Expr,
 ) -> Option<Expr> {
     let mut terms = Vec::new();
     for (i, (fi, _)) in factors.iter().enumerate() {
@@ -621,7 +621,7 @@ fn try_factor_match(
         if let (Some(a), Some(b)) = (to_f64(&vp_at), to_f64(&uf_at)) {
             if b.abs() > 1e-15 && (a/b - 1.0).abs() < 1e-10 {
                 // var_product ≈ up_factors[i], so u' = var_product * remaining
-                let mut remaining: Vec<Expr> = up_factors.iter().enumerate()
+                let remaining: Vec<Expr> = up_factors.iter().enumerate()
                     .filter(|(j, _)| *j != i)
                     .map(|(_, f)| f.clone())
                     .collect();
@@ -1127,7 +1127,7 @@ pub(crate) fn try_known_definite_integral(f: &Expr, var: &Expr, a: &Expr, b: &Ex
                         let inner = simplify(&ea[0]);
                         if let Expr::List { op: Operator::MTimes, args: ma, .. } = &inner {
                             if ma.len() == 2 {
-                                let (c, v) = if ma[1] == *var { (&ma[0], &ma[1]) }
+                                let (c, _v) = if ma[1] == *var { (&ma[0], &ma[1]) }
                                     else if ma[0] == *var { (&ma[1], &ma[0]) }
                                     else { continue };
                                 if let Some(cv) = to_f64(c) {
@@ -1250,7 +1250,7 @@ fn residue_simple_poles(
     let all_centered = factors.iter().all(|(f, _)| get_poly_coeff(f, 1) == 0);
     if !all_centered { return None; }
 
-    let dp_deriv = dp.derivative();
+    let _dp_deriv = dp.derivative();
 
     // Sum residues: for each factor ax²+c, the upper pole is z₀ = i*sqrt(c/a)
     // Residue = P(z₀) / Q'(z₀)
@@ -1263,10 +1263,10 @@ fn residue_simple_poles(
     // Special case: constant numerator
     if np.is_constant() {
         let p_val = match np.constant_term() { maxima_poly::Coeff::Int(n) => n, _ => return None };
-        let mut total_num = 0i64;
-        let mut total_den = 1i64;
+        let _total_num = 0i64;
+        let _total_den = 1i64;
 
-        for (i, (fi, _)) in factors.iter().enumerate() {
+        for (_i, (fi, _)) in factors.iter().enumerate() {
             let ai = get_poly_coeff(fi, 2);
             let ci = get_poly_coeff(fi, 0);
             // Residue contribution: 1/(2*ai*i*√(ci/ai)) × 1/Πⱼ≠ᵢ((ci/ai - cⱼ/aⱼ))
@@ -1404,7 +1404,7 @@ fn try_algebraic_factor_integrate(
             // P/(q1·q2) = (Ax+B)/q1 + (Cx+D)/q2
             // → P = (Ax+B)·q2 + (Cx+D)·q1
             // Evaluate at 4 points to get 4 equations in A,B,C,D
-            let mut env = crate::Environment::new();
+            let _env = crate::Environment::new();
             let test_xs = [0.5f64, 1.0, 1.5, 2.0];
             let mut mat = [[0.0f64; 4]; 4];
             let mut rhs = [0.0f64; 4];
@@ -2064,7 +2064,7 @@ pub(crate) fn table_integrate(f: &Expr, var: &Expr) -> Expr {
                                         let a_val = if consts.len() == 1 { consts[0].clone() }
                                             else { simplify(&Expr::List { op: Operator::MTimes, simplified: false, args: consts.into_iter().cloned().collect() }) };
                                         let fname = resolve(*fid);
-                                        let x = var.clone();
+                                        let _x = var.clone();
                                         // #42: ∫ x*exp(a*x) = (1/a²)(ax-1)*exp(ax)
                                         if fname == "exp" && x_power == 1 {
                                             let ax = fa[0].clone();
@@ -2946,7 +2946,7 @@ pub(crate) fn table_integrate(f: &Expr, var: &Expr) -> Expr {
                         if resolve(*sid) == "sqrt" && sa.len() == 1 {
                             if let Some(p) = maxima_poly::expr_to_poly(&expand(&sa[0]), *var_id) {
                                 if p.degree() == Some(2) && get_poly_coeff(&p, 2) == 1 && get_poly_coeff(&p, 1) == 0 {
-                                    let ci = get_poly_coeff(&p, 0);
+                                    let _ci = get_poly_coeff(&p, 0);
                                     let x = var.clone();
                                     let sqrt_e = num_expr.clone();
                                     // -√(x²+c)/x + log(x+√(x²+c))

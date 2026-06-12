@@ -27,8 +27,7 @@ pub(crate) fn eval_groebner(name: &str, args: &[Expr]) -> Option<Expr> {
 /// extract the monomial-GCD of all terms as a common factor, and if what
 /// remains is univariate, pass it through the existing `factor`.
 pub(crate) fn eval_factor_multivariate(args: &[Expr], env: &mut crate::env::Environment) -> Expr {
-    use maxima_poly::{expr_to_mpoly, mpoly_to_expr, MCoeff, MonomialOrder, MPoly, Monomial};
-    use num::One;
+    use maxima_poly::{expr_to_mpoly, mpoly_to_expr, MonomialOrder, Monomial};
 
     let noun = || Expr::call("factor_multivariate", args.to_vec());
     if args.is_empty() { return noun(); }

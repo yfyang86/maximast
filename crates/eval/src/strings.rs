@@ -1,4 +1,4 @@
-use maxima_core::{Expr, Operator};
+use maxima_core::Expr;
 
 fn as_str(e: &Expr) -> Option<&str> {
     if let Expr::String(s) = e { Some(s) } else { None }

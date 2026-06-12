@@ -1,7 +1,6 @@
 use maxima_core::{Expr, Operator};
 use crate::eval::meval;
 use crate::env::Environment;
-use crate::simp::simplify;
 
 fn set_elements(expr: &Expr) -> Option<&Vec<Expr>> {
     match expr {
@@ -17,6 +16,7 @@ fn make_set(mut items: Vec<Expr>) -> Expr {
     Expr::set(items)
 }
 
+#[allow(dead_code)]
 fn list_to_set(items: &[Expr]) -> Expr {
     make_set(items.to_vec())
 }

@@ -258,7 +258,7 @@ pub fn factor_over_extension(f: &crate::Poly, field: &AlgField) -> Vec<PolyAlg> 
 
     if field.degree == 2 && deg >= 2 {
         let alpha = field.gen();
-        let target_deg = deg / 2; // looking for factors of degree deg/2
+        let _target_deg = deg / 2; // looking for factors of degree deg/2
 
         // Trial divisor: try gcd(f, candidate) for candidates of degree deg/2
         // Candidates: x² + a·α·x + (b + c·α) for small integers a,b,c
@@ -343,6 +343,7 @@ fn factor_quotient_recursive(q: &PolyAlg, field: &AlgField, var: SymbolId) -> Ve
 }
 
 /// Shift polynomial: compute f(x + s) where s is an AlgNumber.
+#[allow(dead_code)]
 fn shift_poly(f: &PolyAlg, s: &AlgNumber, var: SymbolId, field: &AlgField) -> PolyAlg {
     // f(x+s) = Σ a_k · (x+s)^k
     // Expand each (x+s)^k via binomial theorem
@@ -365,6 +366,7 @@ fn shift_poly(f: &PolyAlg, s: &AlgNumber, var: SymbolId, field: &AlgField) -> Po
     result
 }
 
+#[allow(dead_code)]
 fn binomial_coeff(n: u32, k: u32) -> u64 {
     if k > n { return 0; }
     let k = k.min(n - k) as u64;
@@ -642,7 +644,7 @@ mod tests {
         let s2 = f.gen();
         let a = PolyAlg { var: x(), terms: vec![(2, f.one()), (0, f.from_rational(-2, 1))], field: f.clone() };
         let b = PolyAlg { var: x(), terms: vec![(1, f.one()), (0, s2.clone())], field: f.clone() };
-        let (g, s, t) = a.extended_gcd(&b);
+        let (g, _s, _t) = a.extended_gcd(&b);
         // g should divide both a and b
         assert!(g.degree().unwrap_or(0) >= 1 || !g.is_zero());
         // Verify: s*a + t*b = g (approximately, via checking at a point)

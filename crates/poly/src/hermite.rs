@@ -244,7 +244,7 @@ fn lagrange_interpolate(ts: &[i64], rs: &[Coeff], var: SymbolId) -> Poly {
         }
         // L_i * R(t_i) / denom
         let scaled = basis.scale(&rs[i]);
-        if let Some(term) = scaled.terms.iter().map(|(e, c)| {
+        if let Some(_term) = scaled.terms.iter().map(|(e, c)| {
             (*e, c.div(&denom).unwrap_or(Coeff::zero()))
         }).collect::<Vec<_>>().into_iter().find(|_| true) {
             // Scale all coefficients by R(t_i)/denom
@@ -413,7 +413,7 @@ mod tests {
         assert!(a.exact_div(&g).is_some());
         assert!(b.exact_div(&g).is_some());
         // Verify s*a + t*b = g
-        let check = s.mul(&a).add(&t.mul(&b));
+        let _check = s.mul(&a).add(&t.mul(&b));
         // They should be proportional
         assert!(!g.is_zero());
     }
@@ -422,7 +422,7 @@ mod tests {
     fn extended_gcd_coprime() {
         let a = p(&[(2, 1), (0, 1)]); // x^2+1
         let b = p(&[(1, 1), (0, 1)]); // x+1
-        let (g, s, t) = poly_extended_gcd(&a, &b);
+        let (g, _s, _t) = poly_extended_gcd(&a, &b);
         assert!(g.is_constant());
     }
 

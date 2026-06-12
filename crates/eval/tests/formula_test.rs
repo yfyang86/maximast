@@ -6,7 +6,6 @@ fn parse_formulas(content: &str) -> Vec<(usize, String, String)> {
     let mut current_num = 0usize;
     let mut current_input = String::new();
     let mut current_output = String::new();
-    let mut has_note = false;
 
     for line in content.lines() {
         let line = line.trim();
@@ -19,15 +18,12 @@ fn parse_formulas(content: &str) -> Vec<(usize, String, String)> {
             current_num = num_str.parse().unwrap_or(0);
             current_input.clear();
             current_output.clear();
-            has_note = false;
         } else if line.starts_with("input=") {
             current_input = line.trim_start_matches("input=")
                 .trim_matches('"').to_string();
         } else if line.starts_with("output=") {
             current_output = line.trim_start_matches("output=")
                 .trim_matches('"').to_string();
-        } else if line.starts_with("note=") {
-            has_note = true;
         }
     }
     if current_num > 0 && !current_input.is_empty() && !current_output.is_empty() {
@@ -37,7 +33,7 @@ fn parse_formulas(content: &str) -> Vec<(usize, String, String)> {
 }
 
 /// Formulas to skip (unsupported functions, meta-formulas, reduction formulas).
-fn should_skip(num: usize, input: &str, output: &str) -> Option<&'static str> {
+fn should_skip(_num: usize, input: &str, output: &str) -> Option<&'static str> {
     // Unsupported functions
     if output.contains("gamma_incomplete") { return Some("gamma_incomplete"); }
     if output.contains("erf(") { return Some("erf"); }
@@ -89,7 +85,7 @@ fn formula_test_suite() {
 
     for (num, input, expected_output) in &formulas {
         // Check if we should skip
-        if let Some(reason) = should_skip(*num, input, expected_output) {
+        if let Some(_reason) = should_skip(*num, input, expected_output) {
             skipped += 1;
             continue;
         }
@@ -119,7 +115,7 @@ fn formula_test_suite() {
                     .map(|e| normalize(e))
                     .unwrap_or_default();
 
-                let pass = actual_norm == expected_norm
+                let _pass = actual_norm == expected_norm
                     || actual_norm == expected_norm2
                     || actual.contains("integrate") == false; // at least it solved it
 

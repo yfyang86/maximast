@@ -1,6 +1,6 @@
-use maxima_core::{Expr, Operator, SymbolId, resolve, intern};
+use maxima_core::{Expr, Operator, resolve};
 use crate::simp::simplify;
-use crate::helpers::{contains_var, subst, to_i64, to_f64};
+use crate::helpers::{contains_var, subst, to_f64};
 use crate::eval::{meval, expand, diff_once, ratsimp};
 
 pub(crate) fn eval_ode(name: &str, args: &[Expr], env: &mut crate::env::Environment) -> Option<Expr> {
@@ -79,7 +79,7 @@ fn solve_first_order(f: &Expr, y: &Expr, x: &Expr, dy: &Expr, env: &mut crate::e
     Expr::call("ode2", vec![Expr::add(f.clone(), Expr::int(0)), y.clone(), x.clone()])
 }
 
-fn try_separable(rhs: &Expr, y: &Expr, x: &Expr, env: &mut crate::env::Environment) -> Option<Expr> {
+fn try_separable(rhs: &Expr, y: &Expr, x: &Expr, _env: &mut crate::env::Environment) -> Option<Expr> {
     // dy/dx = f(x)*g(y): ∫ 1/g(y) dy = ∫ f(x) dx + C
     let (fx, gy) = factor_separable(rhs, y, x)?;
     if gy == Expr::int(0) { return None; }
@@ -100,7 +100,7 @@ fn try_separable(rhs: &Expr, y: &Expr, x: &Expr, env: &mut crate::env::Environme
     })
 }
 
-fn try_linear_first_order(rhs: &Expr, y: &Expr, x: &Expr, env: &mut crate::env::Environment) -> Option<Expr> {
+fn try_linear_first_order(rhs: &Expr, y: &Expr, x: &Expr, _env: &mut crate::env::Environment) -> Option<Expr> {
     // dy/dx = rhs. Linear form: dy/dx + P(x)*y = Q(x)  =>  rhs = Q(x) - P(x)*y
     // Extract: rhs = A + B*y where A=Q(x), B=-P(x)
     let a_part = simplify(&subst(&Expr::int(0), y, rhs)); // rhs at y=0 = Q
@@ -254,7 +254,7 @@ fn solve_const_coeff_homogeneous(a: &Expr, b: &Expr, c: &Expr, y: &Expr, x: &Exp
 
 fn try_undetermined_coefficients(
     a: &Expr, b: &Expr, c: &Expr, g: &Expr, x: &Expr,
-    env: &mut crate::env::Environment,
+    _env: &mut crate::env::Environment,
 ) -> Option<Expr> {
     // g(x) is the forcing function. Try ansatz based on form of g.
     let (a_f, b_f, c_f) = (to_f64(a)?, to_f64(b)?, to_f64(c)?);
@@ -280,7 +280,7 @@ fn try_undetermined_coefficients(
     None
 }
 
-fn try_sincos_ansatz(a: f64, b: f64, c: f64, w: f64, amp: &Expr, is_sin: bool, x: &Expr) -> Option<Expr> {
+fn try_sincos_ansatz(_a: f64, b: f64, c: f64, w: f64, amp: &Expr, is_sin: bool, x: &Expr) -> Option<Expr> {
     // y'' + b*y' + c*y = g  where g involves sin(wx) or cos(wx)
     // Ansatz: yp = P*cos(wx) + Q*sin(wx)
     // yp'' = -w²P*cos - w²Q*sin, yp' = -wP*sin + wQ*cos
@@ -519,7 +519,7 @@ fn extract_sincos(g: &Expr, x: &Expr) -> Option<(f64, bool, Expr)> {
         if let Expr::List { op: Operator::Named(id), args, .. } = e {
             let fname = resolve(*id);
             if (fname == "sin" || fname == "cos") && args.len() == 1 {
-                if let Some(w) = crate::helpers::to_f64(&args[0].clone()) {
+                if let Some(_w) = crate::helpers::to_f64(&args[0].clone()) {
                     return None; // not w*x form
                 }
                 if args[0] == *x { return Some((1.0, fname == "sin")); }

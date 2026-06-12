@@ -1,5 +1,5 @@
-use maxima_core::{Expr, Operator, SymbolId, intern, resolve};
-use crate::helpers::{to_i64, to_f64, contains_var, subst};
+use maxima_core::Expr;
+use crate::helpers::{to_f64, subst};
 use crate::simp::simplify;
 
 /// Full Zeilberger's algorithm: given F(n,k) hypergeometric in both n and k,
@@ -77,9 +77,9 @@ fn try_zeilberger_order(f: &Expr, n: &Expr, k: &Expr, order: u32) -> Option<Zeil
 /// z_0 + z_1·r_1(k) = R(k+1)·t(k) - R(k)
 fn try_order_1(
     f: &Expr, n: &Expr, k: &Expr,
-    r1: &Expr, t: &Expr,
+    _r1: &Expr, _t: &Expr,
 ) -> Option<ZeilbergerResult> {
-    if let Expr::Symbol(k_id) = k {
+    if let Expr::Symbol(_k_id) = k {
         // r1 and t should be rational functions of k
         // For binomial(n,k): r1 = (n+1)/(n+1-k), t = (n-k)/(k+1)
 
@@ -195,7 +195,7 @@ fn try_order_1(
     None
 }
 
-fn try_gosper_certificate(f: &Expr, n: &Expr, k: &Expr) -> Option<ZeilbergerResult> {
+fn try_gosper_certificate(_f: &Expr, _n: &Expr, _k: &Expr) -> Option<ZeilbergerResult> {
     // Order 0: just Gosper (indefinite sum)
     None
 }
