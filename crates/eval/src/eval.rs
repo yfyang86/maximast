@@ -1008,6 +1008,7 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
             }
             Expr::call(&func_name, evaled_args)
         }
+        "help" => crate::help::eval_help(&evaled_args),
         "ode2" | "ic1" | "ic2" | "bc2" => {
             if let Some(result) = crate::ode::eval_ode(&func_name, &evaled_args, env) {
                 return result;

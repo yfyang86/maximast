@@ -160,9 +160,20 @@ stringout("file.mac", expr1, expr2);     → write expressions as source
 tex(x^2/(x+1));       → "\frac{x^{2}}{1+x}"
 ```
 
+### Help System
+```
+help();                         → list documented functions
+help("factor");                 → full help page for factor
+help("factor", "usage");        → just the usage section
+```
+
+Help pages are stored in `crates/eval/src/help.toml` and embedded into the
+binary. Each entry supports title, description, usage, arguments, details,
+return value, references, authors, and aliases.
+
 ## Walkthroughs
 
-36 interactive tutorials in `walkthrough/`. Run any topic:
+41 interactive tutorials in `walkthrough/`. Run any topic:
 
 ```sh
 cargo run -- -b walkthrough/01_arithmetic.mac
@@ -223,7 +234,7 @@ Write your own with the `maxima-plugin` authoring kit — copy
 
 ```sh
 cargo build                # build all crates
-cargo test                 # run 1113 unit + integration tests
+cargo test                 # run 1116 unit + integration tests
 cargo run                  # start REPL
 ```
 

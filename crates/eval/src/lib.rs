@@ -1,5 +1,6 @@
 mod env;
 mod eval;
+mod help;
 pub mod integrate;
 pub mod laplace;
 pub mod log_trig;
