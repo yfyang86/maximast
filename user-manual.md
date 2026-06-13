@@ -462,7 +462,7 @@ Native functions survive `kill(all)`.
 
 ## Walkthroughs
 
-36 interactive tutorials in `walkthrough/`:
+41 interactive tutorials in `walkthrough/`:
 
 | # | File | Topic |
 |---|------|-------|
@@ -525,7 +525,7 @@ maxima-kernel/
 ├── crates/eval/       Evaluator, simplifier, assumptions, limits, integration
 ├── crates/poly/       Sparse polynomial arithmetic, GCD, factoring, algebraic fields
 ├── crates/repl/       Interactive REPL with readline and tab completion
-└── walkthrough/       36 interactive tutorials (.mac files)
+└── walkthrough/       41 interactive tutorials (.mac files)
 ```
 
 ---
@@ -541,7 +541,8 @@ maxima-kernel/
 | v5.0 | 822 | Plugin API, package system, walkthroughs, bug fixes |
 | v6.0 | 1008 | AC pattern matching, residues, advanced trig, ODE (variation of parameters, ic2/bc2) |
 | v7.0 | 1021 | Dynamic Rust plugin toolchain (load_plugin); orthopoly + specfun plugins |
-| v7.1 | 1113 | `legendre_q` in orthopoly; `bessel_y`/`bessel_k` in specfun; `cargo test` warning-free |
+| v7.1 | 1116 | `legendre_q` in orthopoly; `bessel_y`/`bessel_k` in specfun; `cargo test` warning-free |
+| v7.2 | 1116 | Built-in `help(...)` documentation system; 41 walkthroughs with Sudoku demos |
 
 ## License
 
