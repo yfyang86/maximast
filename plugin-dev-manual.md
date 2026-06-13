@@ -284,7 +284,29 @@ current design.
 
 ---
 
-## 9. Testing a plugin
+## 9. Documenting a plugin
+
+The built-in `help(...)` command covers core functions via the embedded TOML
+file `crates/eval/src/help.toml`. Because plugin libraries are loaded
+ dynamically, they cannot currently inject entries into the built-in help
+index at runtime.
+
+Therefore, document your plugin functions in the plugin crate itself:
+
+- Add a `README.md` inside `plugins/myplugin/` explaining each function,
+  its arguments, return values, and examples.
+- For shipped plugins (`maxima-orthopoly`, `maxima-specfun`), help entries
+  can be added to `crates/eval/src/help.toml` by opening a PR. Use the same
+  schema as existing entries: `name`, `alias`, `title`, `description`,
+  `usage`, `arguments`, `details`, `value`, `references`, `authors`.
+
+Keep docs accurate: every argument, exact return behavior, and any noun-form
+fallback should be described. A user who reads the docs should be able to
+predict the output without running the function.
+
+---
+
+## 10. Testing a plugin
 
 Put integration tests under `crates/eval/tests/`. Locate (and build if
 necessary) the cdylib, load it into a fresh `Environment`, and assert results.
@@ -326,7 +348,7 @@ wrong is worse than not shipping it.
 
 ---
 
-## 10. SDK reference (`maxima_plugin::`)
+## 11. SDK reference (`maxima_plugin::`)
 
 | Item | Description |
 |------|-------------|
@@ -341,7 +363,7 @@ wrong is worse than not shipping it.
 
 ---
 
-## 11. Worked examples in the tree
+## 12. Worked examples in the tree
 
 - **`plugins/template`** — minimal starting point.
 - **`plugins/orthopoly`** — symbolic results: orthogonal polynomials from

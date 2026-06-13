@@ -15,12 +15,14 @@ maxima-kernel/          ~24K lines of Rust
 ├── crates/poly/        Polynomial ring, GCD, factoring (math library, self-contained)
 ├── crates/eval/        Evaluator — where 90% of work happens
 │   ├── src/eval.rs     Core dispatch (~7K lines) — THE hot file
+│   ├── src/help.rs     Built-in help(...) documentation system
+│   ├── src/help.toml   Embedded TOML help pages
 │   ├── src/integrate.rs  Integration engine (extracted from eval.rs)
 │   ├── src/simp.rs     Simplifier (canonical forms)
 │   ├── src/complex.rs, sets.rs, strings.rs, numtheory.rs, ...  (domain modules)
-│   └── tests/          Integration tests (14 test files, 920 tests)
+│   └── tests/          Integration tests (~20 test files, 1100+ tests)
 ├── crates/repl/        REPL binary with tab completion
-└── walkthrough/        29 .mac tutorial scripts
+└── walkthrough/        41 .mac tutorial scripts
 ```
 
 **The key file is `crates/eval/src/eval.rs`.** It contains a giant match
@@ -90,6 +92,38 @@ fn run(s: &str) -> String { eval_str(s) }
 ### Step 6: Add to tab completion
 
 In `crates/repl/src/main.rs`, add to `BUILTIN_FUNCTIONS` array.
+
+### Step 7: Add a help entry
+
+If the function is user-facing, document it in `crates/eval/src/help.toml`:
+
+```toml
+[[function]]
+name = "myfunc"
+alias = ["my_func"]
+title = "Short human-readable title"
+description = "What it does. Markdown accepted."
+usage = """
+```
+myfunc(x)
+myfunc(x, y)
+```
+"""
+arguments = """
+- `x`: description of x.
+- `y`: description of y.
+"""
+details = "Extended explanation, edge cases, assumptions."
+value = "Description of the return value."
+references = ["https://example.com/docs"]
+authors = ["Your Name"]
+```
+
+Then verify interactively:
+```maxima
+help("myfunc");
+help("myfunc", "usage");
+```
 
 ---
 
@@ -272,6 +306,7 @@ When reviewing changes to this codebase:
 - [ ] Are `i64` multiplications checked for overflow where inputs can be large?
 - [ ] Does the feature work in batch mode (`-b`) not just REPL?
 - [ ] Is the function added to tab completion?
+- [ ] Is the function documented in `crates/eval/src/help.toml` (if user-facing)?
 - [ ] Is there a walkthrough `.mac` script demonstrating the feature?
 
 ---
