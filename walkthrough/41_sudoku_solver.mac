@@ -1,0 +1,268 @@
+/* Walkthrough 41: Sudoku Solver
+ *
+ * Run: maxima-repl -b walkthrough/41_sudoku_solver.mac
+ *
+ * A recursive backtracking solver for standard 9x9 Sudoku. The board is a
+ * flat list of 81 integers (0 = empty). The solver finds the first empty
+ * cell, tries digits 1..9 that do not conflict with the row, column, or
+ * 3x3 box, and recurses. This demo also counts solutions up to a small
+ * limit so you can see that a well-posed puzzle has a unique solution.
+ *
+ * This file builds on the board helpers from walkthrough 40.
+ */
+
+/* ============================================================ */
+/* 1. A classic puzzle (the same one used in walkthrough 40)   */
+/* ============================================================ */
+
+puzzle : [
+  5, 3, 0, 0, 7, 0, 0, 0, 0,
+  6, 0, 0, 1, 9, 5, 0, 0, 0,
+  0, 9, 8, 0, 0, 0, 0, 6, 0,
+  8, 0, 0, 0, 6, 0, 0, 0, 3,
+  4, 0, 0, 8, 0, 3, 0, 0, 1,
+  7, 0, 0, 0, 2, 0, 0, 0, 6,
+  0, 6, 0, 0, 0, 0, 2, 8, 0,
+  0, 0, 0, 4, 1, 9, 0, 0, 5,
+  0, 0, 0, 0, 8, 0, 0, 7, 9
+]$
+
+/* ============================================================ */
+/* 2. Board helpers                                             */
+/* ============================================================ */
+
+row_of(idx) := floor((idx - 1) / 9) + 1$
+col_of(idx) := idx - 9 * (row_of(idx) - 1)$
+box_row_of(idx) := floor((row_of(idx) - 1) / 3) + 1$
+box_col_of(idx) := floor((col_of(idx) - 1) / 3) + 1$
+
+row_indices(r) := makelist(9 * (r - 1) + c, c, 1, 9)$
+col_indices(c) := makelist(9 * (r - 1) + c, r, 1, 9)$
+box_indices(br, bc) := block([rows, cols],
+  rows : makelist(3 * (br - 1) + r, r, 1, 3),
+  cols : makelist(3 * (bc - 1) + c, c, 1, 3),
+  apply(append,
+        makelist(makelist(9 * (r - 1) + c, c, cols),
+                 r, rows)))$
+
+filled(vals) := block([result : []],
+  for v in vals do
+    if v > 0 then result : cons(v, result),
+  reverse(result))$
+
+/* Extract values from a list of indices. */
+select_values(board, indices) := block([vals : []],
+  for i in indices do vals : cons(board[i], vals),
+  reverse(vals))$
+
+/* ============================================================ */
+/* 3. ASCII rendering (same style as walkthrough 40)           */
+/* ============================================================ */
+
+cell_char(v) := if v = 0 then "." else string(v)$
+
+render_row(board, r) := block([s : ""],
+  for c : 1 thru 9 do (
+    s : concat(s, cell_char(board[9 * (r - 1) + c])),
+    if c < 9 then
+      if member(c, [3, 6]) then s : concat(s, " | ")
+      else s : concat(s, " ")),
+  s)$
+
+separator() := "------+-------+------"$
+
+render(board) := block(
+  for r : 1 thru 9 do (
+    print(render_row(board, r)),
+    if member(r, [3, 6]) then print(separator())))$
+
+/* ============================================================ */
+/* 4. Backtracking solver                                       */
+/* ============================================================ */
+
+/* Is placing num at idx allowed? */
+safe_move(board, idx, num) := block(
+  [r, c, br, bc],
+  r  : row_of(idx),
+  c  : col_of(idx),
+  br : box_row_of(idx),
+  bc : box_col_of(idx),
+  not member(num, filled(select_values(board, row_indices(r))))
+  and not member(num, filled(select_values(board, col_indices(c))))
+  and not member(num, filled(select_values(board, box_indices(br, bc)))))$
+
+/* Return a new board with board[idx] replaced by num. */
+set_cell(board, idx, num) := block([result : []],
+  for i : 1 thru 81 do
+    if i = idx then result : cons(num, result)
+    else result : cons(board[i], result),
+  reverse(result))$
+
+/* Candidate digits for an empty cell. */
+candidates(board, idx) := if board[idx] > 0 then []
+  else sublist(makelist(k, k, 1, 9), lambda([k], safe_move(board, idx, k)))$
+
+/* Pick the empty cell with the fewest candidates (minimum-remaining-values
+ * heuristic). This reduces the search tree dramatically compared with
+ * filling cells left-to-right. */
+best_cell(board) := block([best_idx : false, best_count : 10,
+                           idx : 1, count, found : false],
+  while idx <= 81 and not found do (
+    if board[idx] = 0 then (
+      count : length(candidates(board, idx)),
+      if count < best_count then (
+        best_count : count,
+        best_idx : idx,
+        if best_count = 1 then found : true)),
+    idx : idx + 1),
+  best_idx)$
+
+/* Solve: returns the solved board, or [] if no solution exists. */
+sudoku_solve(board) := block([idx, cands, num, result, solved : []],
+  idx : best_cell(board),
+  if idx = false then solved : board
+  else (
+    cands : candidates(board, idx),
+    for num in cands do
+      if emptyp(solved) then (
+        result : sudoku_solve(set_cell(board, idx, num)),
+        if not emptyp(result) then solved : result)),
+  solved)$
+
+/* Count solutions up to a limit (to detect non-unique puzzles). */
+count_solutions(board, limit) := block([idx, cands, num, total : 0, i],
+  idx : best_cell(board),
+  if idx = false then total : 1
+  else (
+    cands : candidates(board, idx),
+    i : 1,
+    while i <= length(cands) and total < limit do (
+      num : part(cands, i),
+      total : total + count_solutions(set_cell(board, idx, num), limit - total),
+      i : i + 1)),
+  total)$
+
+/* ============================================================ */
+/* 5. Solve the sample puzzle                                   */
+/* ============================================================ */
+
+print("Puzzle:")$
+render(puzzle)$
+print("")$
+
+solved : sudoku_solve(puzzle)$
+
+print("Solution:")$
+render(solved)$
+print("")$
+
+/* ============================================================ */
+/* 6. Verify and count solutions                                */
+/* ============================================================ */
+
+valid_group(board, indices) := block([vals : []],
+  for i in indices do vals : cons(board[i], vals),
+  block([v : filled(reverse(vals))],
+    length(v) = length(listify(setify(v)))))$
+
+all_rows_valid(board) := block([ok : true],
+  for r : 1 thru 9 do
+    if ok then ok : valid_group(board, row_indices(r)),
+  ok)$
+
+all_cols_valid(board) := block([ok : true],
+  for c : 1 thru 9 do
+    if ok then ok : valid_group(board, col_indices(c)),
+  ok)$
+
+all_boxes_valid(board) := block([ok : true],
+  for br : 1 thru 3 do
+    for bc : 1 thru 3 do
+      if ok then ok : valid_group(board, box_indices(br, bc)),
+  ok)$
+
+is_solved(board) := block(
+  not member(0, board)
+  and all_rows_valid(board)
+  and all_cols_valid(board)
+  and all_boxes_valid(board))$
+
+print("Solution is valid:", is_solved(solved))$
+print("Number of solutions (capped at 10):", count_solutions(puzzle, 10))$
+print("(A well-posed Sudoku has exactly one solution; this demo stops counting at 10.)")$
+
+/* ============================================================ */
+/* 7. A tiny 4x4 demo (easier to reason about)                 */
+/* ============================================================ */
+
+puzzle4 : [
+  1, 0, 0, 4,
+  0, 0, 2, 0,
+  0, 1, 0, 0,
+  4, 0, 0, 2
+]$
+
+/* Override helpers for a 4x4 board. */
+row_of4(idx) := floor((idx - 1) / 4) + 1$
+col_of4(idx) := idx - 4 * (row_of4(idx) - 1)$
+box_row_of4(idx) := floor((row_of4(idx) - 1) / 2) + 1$
+box_col_of4(idx) := floor((col_of4(idx) - 1) / 2) + 1$
+row_indices4(r) := makelist(4 * (r - 1) + c, c, 1, 4)$
+col_indices4(c) := makelist(4 * (r - 1) + c, r, 1, 4)$
+box_indices4(br, bc) := block([rows, cols],
+  rows : makelist(2 * (br - 1) + r, r, 1, 2),
+  cols : makelist(2 * (bc - 1) + c, c, 1, 2),
+  apply(append,
+        makelist(makelist(4 * (r - 1) + c, c, cols),
+                 r, rows)))$
+
+find_empty4(board) := block([idx : 1],
+  while idx <= 16 and board[idx] > 0 do idx : idx + 1,
+  if idx <= 16 then idx else false)$
+
+safe_move4(board, idx, num) := block(
+  [r, c, br, bc],
+  r  : row_of4(idx),
+  c  : col_of4(idx),
+  br : box_row_of4(idx),
+  bc : box_col_of4(idx),
+  not member(num, filled(select_values(board, row_indices4(r))))
+  and not member(num, filled(select_values(board, col_indices4(c))))
+  and not member(num, filled(select_values(board, box_indices4(br, bc)))))$
+
+set_cell4(board, idx, num) := block([result : []],
+  for i : 1 thru 16 do
+    if i = idx then result : cons(num, result)
+    else result : cons(board[i], result),
+  reverse(result))$
+
+sudoku_solve4(board) := block([idx, num, result, solved : []],
+  idx : find_empty4(board),
+  if idx = false then solved : board
+  else (
+    num : 1,
+    while num <= 4 and emptyp(solved) do (
+      if safe_move4(board, idx, num) then (
+        result : sudoku_solve4(set_cell4(board, idx, num)),
+        if not emptyp(result) then solved : result),
+      num : num + 1)),
+  solved)$
+
+print("")$
+print("A 4x4 Sudoku and its solution:")$
+render_row4(board, r) := block([s : ""],
+  for c : 1 thru 4 do (
+    s : concat(s, cell_char(board[4 * (r - 1) + c])),
+    if c < 4 then
+      if c = 2 then s : concat(s, " | ")
+      else s : concat(s, " ")),
+  s)$
+
+render4(board) := block(
+  for r : 1 thru 4 do (
+    print(render_row4(board, r)),
+    if r = 2 then print("----+----")))$
+
+render4(puzzle4)$
+print("")$
+render4(sudoku_solve4(puzzle4))$
