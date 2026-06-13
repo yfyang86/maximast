@@ -1,5 +1,5 @@
-use maxima_core::{Expr, Operator, SymbolId, resolve};
-use crate::helpers::{contains_var, subst};
+use maxima_core::{Expr, Operator, SymbolId};
+use crate::helpers::contains_var;
 use crate::simp::simplify;
 use crate::risch_tower::{Tower, Extension, build_tower};
 
@@ -35,8 +35,8 @@ fn integrate_in_tower(f: &Expr, var: &Expr, tower: &Tower) -> Option<Expr> {
 /// Integrate in Q(x, t) where t = log(u(x)).
 /// The integrand f should be rewritten in terms of t.
 fn integrate_primitive(
-    f: &Expr, var: &Expr, t_var: &Expr, tid: SymbolId,
-    log_arg: &Expr, t_deriv: &Expr, tower: &Tower,
+    f: &Expr, var: &Expr, t_var: &Expr, _tid: SymbolId,
+    log_arg: &Expr, t_deriv: &Expr, _tower: &Tower,
 ) -> Option<Expr> {
     // In Q(x)[t] where t = log(u), t' = u'/u:
     // Express f as polynomial in t with coefficients in Q(x)
@@ -144,8 +144,8 @@ fn integrate_primitive(
 
 /// Integrate in Q(x, t) where t = exp(v(x)).
 fn integrate_exponential(
-    f: &Expr, var: &Expr, t_var: &Expr, tid: SymbolId,
-    exp_arg: &Expr, t_deriv: &Expr, tower: &Tower,
+    f: &Expr, var: &Expr, t_var: &Expr, _tid: SymbolId,
+    exp_arg: &Expr, _t_deriv: &Expr, _tower: &Tower,
 ) -> Option<Expr> {
     // t = exp(v), t' = v' * t
     // Express f as Laurent polynomial in t: f = Σ a_i(x) * t^i

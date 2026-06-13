@@ -1,0 +1,177 @@
+/* Walkthrough 40: Sudoku Visualization
+ *
+ * Run: maxima-repl -b walkthrough/40_sudoku_visualize.mac
+ *
+ * Demonstrates representing a 9x9 Sudoku board as a flat list of 81
+ * integers (0 denotes an empty cell) and rendering it with ASCII grid
+ * lines. Also validates rows, columns, and 3x3 boxes, and displays the
+ * candidate digits for each empty cell.
+ *
+ * Board layout:
+ *   index = (row - 1) * 9 + col        (1-based, row-major)
+ *   box row = floor((row - 1) / 3) + 1
+ *   box col = floor((col - 1) / 3) + 1
+ */
+
+/* ============================================================ */
+/* 1. Sample puzzle and its solution                           */
+/* ============================================================ */
+
+puzzle : [
+  5, 3, 0, 0, 7, 0, 0, 0, 0,
+  6, 0, 0, 1, 9, 5, 0, 0, 0,
+  0, 9, 8, 0, 0, 0, 0, 6, 0,
+  8, 0, 0, 0, 6, 0, 0, 0, 3,
+  4, 0, 0, 8, 0, 3, 0, 0, 1,
+  7, 0, 0, 0, 2, 0, 0, 0, 6,
+  0, 6, 0, 0, 0, 0, 2, 8, 0,
+  0, 0, 0, 4, 1, 9, 0, 0, 5,
+  0, 0, 0, 0, 8, 0, 0, 7, 9
+]$
+
+solution : [
+  5, 3, 4, 6, 7, 8, 9, 1, 2,
+  6, 7, 2, 1, 9, 5, 3, 4, 8,
+  1, 9, 8, 3, 4, 2, 5, 6, 7,
+  8, 5, 9, 7, 6, 1, 4, 2, 3,
+  4, 2, 6, 8, 5, 3, 7, 9, 1,
+  7, 1, 3, 9, 2, 4, 8, 5, 6,
+  9, 6, 1, 5, 3, 7, 2, 8, 4,
+  2, 8, 7, 4, 1, 9, 6, 3, 5,
+  3, 4, 5, 2, 8, 6, 1, 7, 9
+]$
+
+/* ============================================================ */
+/* 2. Board helpers                                             */
+/* ============================================================ */
+
+row_of(idx) := floor((idx - 1) / 9) + 1$
+col_of(idx) := idx - 9 * (row_of(idx) - 1)$
+box_row_of(idx) := floor((row_of(idx) - 1) / 3) + 1$
+box_col_of(idx) := floor((col_of(idx) - 1) / 3) + 1$
+
+row_indices(r) := makelist(9 * (r - 1) + c, c, 1, 9)$
+col_indices(c) := makelist(9 * (r - 1) + c, r, 1, 9)$
+box_indices(br, bc) := block([rows, cols],
+  rows : makelist(3 * (br - 1) + r, r, 1, 3),
+  cols : makelist(3 * (bc - 1) + c, c, 1, 3),
+  apply(append,
+        makelist(makelist(9 * (r - 1) + c, c, cols),
+                 r, rows)))$
+
+filled(vals) := block([result : []],
+  for v in vals do
+    if v > 0 then result : cons(v, result),
+  reverse(result))$
+
+no_duplicates(vals) := block([v : filled(vals)],
+  length(v) = length(listify(setify(v))))$
+
+/* ============================================================ */
+/* 3. ASCII rendering                                           */
+/* ============================================================ */
+
+cell_char(v) := if v = 0 then "." else string(v)$
+
+render_row(board, r) := block([s : ""],
+  for c : 1 thru 9 do (
+    s : concat(s, cell_char(board[9 * (r - 1) + c])),
+    if c < 9 then
+      if member(c, [3, 6]) then s : concat(s, " | ")
+      else s : concat(s, " ")),
+  s)$
+
+separator() := "------+-------+------"$
+
+render(board) := block(
+  for r : 1 thru 9 do (
+    print(render_row(board, r)),
+    if member(r, [3, 6]) then print(separator())))$
+
+/* ============================================================ */
+/* 4. Display the puzzle and the solution                      */
+/* ============================================================ */
+
+print("Sample Sudoku puzzle:")$
+render(puzzle)$
+print("")$
+
+print("Solved board:")$
+render(solution)$
+print("")$
+
+/* ============================================================ */
+/* 5. Validation                                                */
+/* ============================================================ */
+
+valid_group(board, indices) := block([vals : []],
+  for i in indices do vals : cons(board[i], vals),
+  no_duplicates(reverse(vals)))$
+
+all_rows_valid(board) := block([ok : true],
+  for r : 1 thru 9 do
+    if ok then ok : valid_group(board, row_indices(r)),
+  ok)$
+
+all_cols_valid(board) := block([ok : true],
+  for c : 1 thru 9 do
+    if ok then ok : valid_group(board, col_indices(c)),
+  ok)$
+
+all_boxes_valid(board) := block([ok : true],
+  for br : 1 thru 3 do
+    for bc : 1 thru 3 do
+      if ok then ok : valid_group(board, box_indices(br, bc)),
+  ok)$
+
+print("Rows valid:", all_rows_valid(solution))$
+print("Cols valid:", all_cols_valid(solution))$
+print("Boxes valid:", all_boxes_valid(solution))$
+
+is_solved(board) := block(
+  not member(0, board)
+  and all_rows_valid(board)
+  and all_cols_valid(board)
+  and all_boxes_valid(board))$
+
+print("Solution is fully solved and valid:", is_solved(solution))$
+print("Puzzle is valid so far (no conflicts):",
+      all_rows_valid(puzzle) and all_cols_valid(puzzle) and all_boxes_valid(puzzle))$
+
+/* ============================================================ */
+/* 6. Candidates for empty cells                                */
+/* ============================================================ */
+
+row_values(board, idx) := block([r : row_of(idx), vals : []],
+  for c : 1 thru 9 do vals : cons(board[9 * (r - 1) + c], vals),
+  reverse(vals))$
+
+col_values(board, idx) := block([c : col_of(idx), vals : []],
+  for r : 1 thru 9 do vals : cons(board[9 * (r - 1) + c], vals),
+  reverse(vals))$
+
+box_values(board, idx) := block([br : box_row_of(idx), bc : box_col_of(idx),
+                                  rows, cols, vals : []],
+  rows : makelist(3 * (br - 1) + r, r, 1, 3),
+  cols : makelist(3 * (bc - 1) + c, c, 1, 3),
+  for r in rows do
+    for c in cols do
+      vals : cons(board[9 * (r - 1) + c], vals),
+  reverse(vals))$
+
+used(board, idx) := listify(setify(append(
+  filled(row_values(board, idx)),
+  filled(col_values(board, idx)),
+  filled(box_values(board, idx)))))$
+
+candidates(board, idx) := if board[idx] > 0 then []
+  else sublist(makelist(k, k, 1, 9), lambda([k], not member(k, used(board, idx))))$
+
+print("")$
+print("First few empty cells and their candidates:")$
+block([count : 0],
+  for idx : 1 thru 81 do
+    if puzzle[idx] = 0 then (
+      count : count + 1,
+      print("  idx", idx, "(r", row_of(idx), "c", col_of(idx), ") ->", candidates(puzzle, idx)),
+      if count >= 5 then return(true)))$

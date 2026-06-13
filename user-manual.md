@@ -469,8 +469,13 @@ Native functions survive `kill(all)`.
 | 32 | `32_residues.mac` | Residues at simple, complex, and higher-order poles |
 | 33 | `33_trig_advanced.mac` | trigrat, extended trigreduce, halfangles |
 | 34 | `34_rust_plugins.mac` | Dynamic Rust plugins: load_plugin, authoring kit |
-| 35 | `35_orthopoly.mac` | Orthogonal polynomials plugin (Legendre, Chebyshev, ...) |
-| 36 | `36_specfun.mac` | Special functions plugin (gamma, beta, erf, Bessel) |
+| 35 | `35_orthopoly.mac` | Orthogonal polynomials plugin: Legendre P/Q, Chebyshev, Hermite, Laguerre, Jacobi, Gegenbauer |
+| 36 | `36_specfun.mac` | Special functions plugin: gamma, beta, erf, Bessel J/I/Y/K |
+| 37 | `37_eight_queens.mac` | Eight queens: permutations + diagonal filter, recursive backtracking |
+| 38 | `38_queens_visualization.mac` | Eight-queens visualization: ASCII boards, scoreboard, reflection symmetry |
+| 39 | `39_polynomial_systems.mac` | Polynomial systems: Gröbner basis, polysys_solve, eliminate, ideal arithmetic |
+| 40 | `40_sudoku_visualize.mac` | Sudoku visualization: 9x9 board rendering, validation, and candidate digits |
+| 41 | `41_sudoku_solver.mac` | Sudoku solver: recursive backtracking, solution counting, and a 4x4 demo |
 
 Run any tutorial:
 
@@ -505,6 +510,7 @@ maxima-kernel/
 | v5.0 | 822 | Plugin API, package system, walkthroughs, bug fixes |
 | v6.0 | 1008 | AC pattern matching, residues, advanced trig, ODE (variation of parameters, ic2/bc2) |
 | v7.0 | 1021 | Dynamic Rust plugin toolchain (load_plugin); orthopoly + specfun plugins |
+| v7.1 | 1113 | `legendre_q` in orthopoly; `bessel_y`/`bessel_k` in specfun; `cargo test` warning-free |
 
 ## License
 

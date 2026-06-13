@@ -1113,7 +1113,7 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
                         }
                     }
 
-                    if let Expr::Symbol(vid) = var {
+                    if let Expr::Symbol(_vid) = var {
                         // For (-∞,∞): try residue method first (more direct for rationals)
                         if is_minf(a) && is_inf(b) {
                             if let Some(res) = try_residue_integral(f, var) {
@@ -1915,7 +1915,7 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
                 args: items,
             }
         }
-        "set" | "setify" | "listify" | "union" | "intersection"
+        "setify" | "listify" | "union" | "intersection"
         | "setdifference" | "symdifference" | "cardinality" | "elementp"
         | "subsetp" | "disjointp" | "powerset" | "subset" => {
             if let Some(result) = crate::sets::eval_set_func(&func_name, &evaled_args, env) {
@@ -3201,7 +3201,7 @@ fn try_gosper_sum(body: &Expr, var: &Expr, lo: &Expr, hi: &Expr) -> Option<Expr>
                         // ratio = (k+a)/(k+b) where a=p_ct/p_lc, b=q_ct/q_lc
                         let a_num = p_ct * q_lc;
                         let b_num = q_ct * p_lc;
-                        let denom = p_lc * q_lc;
+                        let _denom = p_lc * q_lc;
                         let diff = a_num - b_num; // (a-b)*denom
 
                         if diff != 0 {
@@ -3214,7 +3214,7 @@ fn try_gosper_sum(body: &Expr, var: &Expr, lo: &Expr, hi: &Expr) -> Option<Expr>
                             // For t_k = binom(n,k): ratio = (n-k)/(k+1)
 
                             // Simple telescoping: S_k = t_k * q(k-1) / (p(k)-q(k))
-                            let q_shifted = maxima_poly::Poly {
+                            let _q_shifted = maxima_poly::Poly {
                                 var: *var_id,
                                 terms: q.terms.iter().map(|(e, c)| {
                                     if *e == 0 {
@@ -3445,7 +3445,7 @@ fn try_telescoping_sum(terms: &[Expr], var: &Expr, lo: &Expr, hi: &Expr) -> Opti
 fn integrate_partfrac_as_sum(
     num: &maxima_poly::Poly,
     factors: &[(maxima_poly::Poly, u32)],
-    var: &Expr,
+    _var: &Expr,
 ) -> Option<Expr> {
     let mut terms = Vec::new();
     for (i, (fi, _)) in factors.iter().enumerate() {
@@ -4652,6 +4652,7 @@ fn eval_is_with_db(val: &Expr, db: &crate::assume::AssumptionDB) -> Expr {
     }
 }
 
+#[allow(dead_code)]
 fn eval_is(val: &Expr) -> Expr {
     match val {
         Expr::Symbol(id) => {

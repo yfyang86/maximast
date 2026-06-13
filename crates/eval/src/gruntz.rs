@@ -471,7 +471,7 @@ fn limitinf(expr: &Expr, var: &Expr, depth: u32) -> Option<Expr> {
                     let b_inf = is_inf(b);
                     if (a_zero && b_inf) || (a_inf && b_zero) {
                         // 0*∞: rewrite as f/g and try L'Hôpital via substitution
-                        let combined = simplify(&Expr::mul(args[0].clone(), args[1].clone()));
+                        let _combined = simplify(&Expr::mul(args[0].clone(), args[1].clone()));
                         // Try Taylor-like: if one factor is sin(g)/g → 1 type
                         if let Some(result) = try_zero_inf_limit(&args[0], &args[1], var, depth) {
                             return Some(result);

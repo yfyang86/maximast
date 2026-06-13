@@ -136,7 +136,7 @@ fn test_native_function_registration() {
 
 #[test]
 fn test_native_overrides_maxima() {
-    fn native_myfn(args: &[Expr], _env: &mut Environment) -> Expr {
+    fn native_myfn(_args: &[Expr], _env: &mut Environment) -> Expr {
         Expr::Integer(999)
     }
 
@@ -163,7 +163,7 @@ fn test_file_search_maxima() {
 
 #[test]
 fn test_kill_all_preserves_native() {
-    fn native_fn(args: &[Expr], _env: &mut Environment) -> Expr {
+    fn native_fn(_args: &[Expr], _env: &mut Environment) -> Expr {
         Expr::Integer(42)
     }
 

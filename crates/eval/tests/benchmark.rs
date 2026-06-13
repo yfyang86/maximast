@@ -3,7 +3,7 @@ use std::time::Instant;
 
 fn run(s: &str) -> String { eval_str(s) }
 
-fn timed(label: &str, input: &str) -> (String, f64) {
+fn timed(_label: &str, input: &str) -> (String, f64) {
     let start = Instant::now();
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| run(input)));
     let elapsed = start.elapsed().as_secs_f64();
@@ -65,7 +65,7 @@ fn bench_algebra() {
         ("trigsimp(sin(x)^2+cos(x)^2);", true),
     ];
     eprintln!("\n=== Algebra ===");
-    for (input, should_solve) in &cases {
+    for (input, _should_solve) in &cases {
         let (r, t) = timed("", input);
         let ok = !r.contains("PANIC");
         eprintln!("  [{:.4}s] [{}] {} => {}", t, if ok {"OK"} else {"FAIL"}, input, r);

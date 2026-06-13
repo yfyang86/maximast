@@ -1,5 +1,4 @@
 use maxima_core::{Expr, Operator};
-use crate::helpers::{to_f64, contains_var};
 use crate::simp::simplify;
 
 /// Truncated power series: Σ c_i * (x - a)^e_i + O((x-a)^N)

@@ -132,7 +132,7 @@ fn is_prime_u64(n: u64) -> bool {
     true
 }
 
-fn pow_mod(mut base: i64, mut exp: i64, modulus: i64) -> i64 {
+fn pow_mod(base: i64, mut exp: i64, modulus: i64) -> i64 {
     if modulus == 1 { return 0; }
     let m = modulus as i128;
     let mut result = 1i128;

@@ -1,6 +1,5 @@
-use maxima_core::{Expr, Operator, resolve, intern};
+use maxima_core::{Expr, Operator, intern};
 use crate::simp::simplify;
-use crate::helpers::contains_var;
 
 pub(crate) fn eval_complex_func(name: &str, args: &[Expr]) -> Option<Expr> {
     match name {

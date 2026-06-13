@@ -1,12 +1,12 @@
 use maxima_core::{Expr, Operator, resolve};
 use crate::simp::simplify;
-use crate::helpers::{contains_var, subst, to_i64, to_f64};
+use crate::helpers::{contains_var, to_i64};
 
-pub(crate) fn eval_laplace(name: &str, args: &[Expr], env: &mut crate::env::Environment) -> Option<Expr> {
+pub(crate) fn eval_laplace(name: &str, args: &[Expr], _env: &mut crate::env::Environment) -> Option<Expr> {
     match name {
         "laplace" => {
             if args.len() == 3 {
-                if let (Expr::Symbol(t_id), Expr::Symbol(s_id)) = (&args[1], &args[2]) {
+                if let (Expr::Symbol(_t_id), Expr::Symbol(_s_id)) = (&args[1], &args[2]) {
                     return Some(laplace_transform(&args[0], &args[1], &args[2]));
                 }
             }
@@ -14,7 +14,7 @@ pub(crate) fn eval_laplace(name: &str, args: &[Expr], env: &mut crate::env::Envi
         }
         "ilt" => {
             if args.len() == 3 {
-                if let (Expr::Symbol(s_id), Expr::Symbol(t_id)) = (&args[1], &args[2]) {
+                if let (Expr::Symbol(_s_id), Expr::Symbol(_t_id)) = (&args[1], &args[2]) {
                     return Some(inverse_laplace(&args[0], &args[1], &args[2]));
                 }
             }
@@ -244,7 +244,7 @@ fn extract_linear_coeff(expr: &Expr, var: &Expr) -> Option<Expr> {
     None
 }
 
-fn extract_ratio(expr: &Expr, s: &Expr) -> Option<(Expr, Expr)> {
+fn extract_ratio(expr: &Expr, _s: &Expr) -> Option<(Expr, Expr)> {
     if let Expr::List { op: Operator::MTimes, args, .. } = expr {
         let mut num_parts = Vec::new();
         let mut den_parts = Vec::new();

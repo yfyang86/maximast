@@ -120,7 +120,7 @@ pub(crate) fn eval_sturm_func(name: &str, args: &[Expr]) -> Option<Expr> {
     match name {
         "nroots" => {
             if args.len() == 3 {
-                if let Expr::Symbol(var_id) = &args[0] {
+                if let Expr::Symbol(_var_id) = &args[0] {
                     return None; // Need poly, not var
                 }
                 // nroots(poly, lo, hi) — count real roots in [lo, hi]

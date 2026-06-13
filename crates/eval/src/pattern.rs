@@ -433,7 +433,7 @@ fn substitute_bindings(template: &Expr, bindings: &HashMap<SymbolId, Expr>) -> E
                 template.clone()
             }
         }
-        Expr::List { op, args, simplified } => {
+        Expr::List { op, args, simplified: _ } => {
             let new_args: Vec<Expr> = args.iter()
                 .map(|a| substitute_bindings(a, bindings))
                 .collect();

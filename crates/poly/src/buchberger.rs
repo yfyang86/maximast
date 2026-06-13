@@ -7,7 +7,7 @@
 
 use std::collections::VecDeque;
 
-use num::{One, Zero};
+use num::One;
 
 use crate::mpoly::{MCoeff, MPoly, Monomial};
 
@@ -208,7 +208,7 @@ fn reduce_basis(mut g: Vec<MPoly>) -> Vec<MPoly> {
 mod tests {
     use super::*;
     use crate::mpoly::{expr_to_mpoly, MonomialOrder};
-    use maxima_core::{Expr, intern};
+    use maxima_core::intern;
 
     fn vars2() -> Vec<maxima_core::SymbolId> {
         vec![intern("x"), intern("y")]

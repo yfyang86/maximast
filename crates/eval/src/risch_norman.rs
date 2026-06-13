@@ -1,4 +1,4 @@
-use maxima_core::{Expr, Operator, SymbolId, resolve};
+use maxima_core::{Expr, Operator, resolve};
 use crate::helpers::{to_f64, contains_var, subst};
 use crate::simp::simplify;
 
@@ -213,7 +213,7 @@ fn try_linear_ansatz(f: &Expr, var: &Expr, block: &Expr, block_deriv: &Expr) -> 
     None
 }
 
-fn try_multi_ansatz(f: &Expr, var: &Expr, blocks: &[Expr]) -> Option<Expr> {
+fn try_multi_ansatz(_f: &Expr, _var: &Expr, _blocks: &[Expr]) -> Option<Expr> {
     // For now, just try each block individually
     // A full multi-block ansatz would solve a larger system
     None

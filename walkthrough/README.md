@@ -52,10 +52,12 @@ maxima-repl -b walkthrough/03_calculus.mac
 | 33 | `33_trig_advanced.mac` | trigrat, extended trigreduce, halfangles |
 | 34 | `34_rust_plugins.mac` | Dynamic Rust plugins: load_plugin, authoring kit (reference) |
 | 35 | `35_orthopoly.mac` | Orthogonal polynomials plugin: Legendre, Chebyshev, Hermite, Laguerre, Jacobi, Gegenbauer |
-| 36 | `36_specfun.mac` | Special functions plugin: gamma, beta, erf/erfc, bessel_j/i |
+| 36 | `36_specfun.mac` | Special functions plugin: gamma, beta, erf/erfc, bessel_j/i/y/k |
 | 37 | `37_eight_queens.mac` | 8-queens (perms + diagonal filter; recursive backtracking) |
 | 38 | `38_queens_visualization.mac` | 8-queens visualization: ASCII boards + scoreboard + reflection (challenge demo) |
 | 39 | `39_polynomial_systems.mac` | Polynomial systems: Gröbner basis, polysys_solve, eliminate, ideal arithmetic (V8.0) |
+| 40 | `40_sudoku_visualize.mac` | Sudoku visualization: 9x9 board rendering, validation, and candidate digits |
+| 41 | `41_sudoku_solver.mac` | Sudoku solver: recursive backtracking, solution counting, and a 4x4 demo |
 
 ## Suggested Order
 

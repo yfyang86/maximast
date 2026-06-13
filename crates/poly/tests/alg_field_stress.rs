@@ -1,4 +1,4 @@
-use maxima_poly::alg_field::{AlgField, AlgNumber};
+use maxima_poly::alg_field::AlgField;
 
 // ============================================================
 // V3.1 STRESS TESTS — verify algebraic number field is real,

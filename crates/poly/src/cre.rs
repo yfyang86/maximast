@@ -2,7 +2,7 @@ use maxima_core::SymbolId;
 use crate::coeff::Coeff;
 use crate::poly::Poly;
 use crate::gcd::poly_gcd;
-use crate::traits::{Ring, DifferentialRing};
+
 
 /// Canonical Rational Expression: p(x)/q(x) in lowest terms.
 /// This is the core data structure for the Risch algorithm.
