@@ -1,0 +1,229 @@
+[[function]]
+name = "factor"
+title = "Factor a polynomial or integer"
+description = """
+Factor performs complete factorization of a polynomial or integer into
+irreducible factors over the integers (or rationals).
+"""
+usage = """
+```
+factor(expr)
+```
+"""
+arguments = """
+- `expr`: a polynomial, rational expression, or integer to factor.
+"""
+details = """
+For polynomials the result is a product of irreducible polynomials with
+integer coefficients. For integers the result is a product of primes raised
+to appropriate powers.
+"""
+value = """
+Returns a factored expression, or the input unchanged if it is already
+irreducible.
+"""
+references = [
+    "https://maxima.sourceforge.io/docs/manual/maxima_48.html#factor",
+]
+authors = ["Maxima project"]
+
+[[function]]
+name = "diff"
+title = "Differentiate an expression"
+description = """
+Compute the derivative of an expression with respect to one or more
+variables.
+"""
+usage = """
+```
+diff(expr, x)
+diff(expr, x, n)
+diff(expr, x, n, y, m)
+```
+"""
+arguments = """
+- `expr`: the expression to differentiate.
+- `x`: the variable of differentiation.
+- `n`: optional; the order of the derivative (default 1).
+- Additional `(variable, order)` pairs differentiate repeatedly.
+"""
+details = """
+`diff` treats the first argument as an expression and does not evaluate it
+before differentiating. Higher-order derivatives are computed by supplying
+additional variable/order pairs.
+"""
+value = """
+Returns the derivative (or mixed partial derivative) of `expr`.
+"""
+references = [
+    "https://maxima.sourceforge.io/docs/manual/maxima_26.html#diff",
+]
+authors = ["Maxima project"]
+
+[[function]]
+name = "integrate"
+title = "Integrate an expression"
+description = """
+Compute the indefinite or definite integral of an expression.
+"""
+usage = """
+```
+integrate(expr, x)
+integrate(expr, x, a, b)
+```
+"""
+arguments = """
+- `expr`: the expression to integrate.
+- `x`: the variable of integration.
+- `a`, `b`: optional; lower and upper bounds for definite integrals.
+"""
+details = """
+For indefinite integration the result is an antiderivative up to an additive
+constant. Definite integration attempts symbolic evaluation first and may
+fall back to numeric quadrature when symbolic methods fail.
+"""
+value = """
+Returns an antiderivative, a definite value, or the noun form `integrate(...)`
+if the integral cannot be evaluated.
+"""
+references = [
+    "https://maxima.sourceforge.io/docs/manual/maxima_22.html#integrate",
+]
+authors = ["Maxima project"]
+
+[[function]]
+name = "expand"
+title = "Expand an expression"
+description = """
+Expand products and powers into a sum of terms.
+"""
+usage = """
+```
+expand(expr)
+```
+"""
+arguments = """
+- `expr`: an algebraic expression.
+"""
+details = """
+`expand` distributes products over sums and expands integer powers of sums.
+It is the inverse of `factor` in many common cases.
+"""
+value = """
+Returns the expanded expression.
+"""
+references = [
+    "https://maxima.sourceforge.io/docs/manual/maxima_48.html#expand",
+]
+authors = ["Maxima project"]
+
+[[function]]
+name = "simplify"
+title = "Simplify an expression"
+description = """
+Apply the built-in simplifier to an expression.
+"""
+usage = """
+```
+simplify(expr)
+```
+"""
+arguments = """
+- `expr`: any expression.
+"""
+details = """
+Simplification combines like terms, normalizes rational expressions, and
+applies basic identities. It is applied automatically by the evaluator, but
+`simplify` can be called explicitly when needed.
+"""
+value = """
+Returns a simplified expression.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "solve"
+title = "Solve equations"
+description = """
+Find solutions of one or more equations.
+"""
+usage = """
+```
+solve(eqn, x)
+solve([eqn1, eqn2], [x, y])
+```
+"""
+arguments = """
+- `eqn`: an equation or list of equations.
+- `x`: the variable or list of variables to solve for.
+"""
+details = """
+`solve` returns symbolic solutions when possible. Systems may be linear or
+non-linear; if no closed-form solution exists the noun form is returned.
+"""
+value = """
+Returns a list of solutions.
+"""
+references = [
+    "https://maxima.sourceforge.io/docs/manual/maxima_24.html#solve",
+]
+authors = ["Maxima project"]
+
+[[function]]
+name = "limit"
+title = "Compute a limit"
+description = """
+Compute the limit of an expression as a variable approaches a point.
+"""
+usage = """
+```
+limit(expr, x, a)
+limit(expr, x, a, dir)
+```
+"""
+arguments = """
+- `expr`: the expression.
+- `x`: the variable.
+- `a`: the limit point.
+- `dir`: optional direction (`plus` or `minus`).
+"""
+details = """
+Two-sided limits are returned by default. Use `plus` or `minus` for one-sided
+limits.
+"""
+value = """
+Returns the limiting value, or an unevaluated noun form.
+"""
+references = [
+    "https://maxima.sourceforge.io/docs/manual/maxima_83.html#limit",
+]
+authors = ["Maxima project"]
+
+[[function]]
+name = "sum"
+title = "Summation"
+description = """
+Compute finite or symbolic sums.
+"""
+usage = """
+```
+sum(expr, i, lo, hi)
+```
+"""
+arguments = """
+- `expr`: the summand.
+- `i`: the index variable.
+- `lo`, `hi`: lower and upper bounds.
+"""
+details = """
+Finite sums are evaluated explicitly. Symbolic sums may return a closed form
+or remain as a noun form.
+"""
+value = """
+Returns the sum or a noun form.
+"""
+references = [
+    "https://maxima.sourceforge.io/docs/manual/maxima_29.html#sum",
+]
+authors = ["Maxima project"]

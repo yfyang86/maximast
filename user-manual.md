@@ -53,6 +53,37 @@ echo "diff(sin(x), x);" | maxima-repl
 
 ---
 
+## Help System
+
+The built-in `help(...)` command displays documentation for supported
+functions. Help pages are stored in `crates/eval/src/help.toml` and embedded
+into the binary.
+
+```
+help();                         → list documented functions
+help("factor");                 → full help page for factor
+help("factor", "usage");        → just the usage section
+help("factor", "description");  → specific section
+```
+
+Supported sections for the second argument: `title`, `description`, `usage`,
+`arguments`, `details`, `value`, `references`, `authors`.
+
+Each help entry in `help.toml` has the following fields:
+
+- `name` — function name
+- `alias` — array of alternative names
+- `title` — short headline
+- `description` — overview (markdown accepted)
+- `usage` — syntax examples (markdown accepted)
+- `arguments` — argument descriptions (markdown accepted)
+- `details` — extended explanation (markdown accepted)
+- `value` — return value description (markdown accepted)
+- `references` — array of URLs
+- `authors` — array of authors
+
+---
+
 ## Arithmetic
 
 Exact rational arithmetic — no floating-point rounding unless requested.
