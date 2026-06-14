@@ -16,7 +16,7 @@ competitor exists. Direct continuation of `research/survey/ALGORITHM_SURVEY.md`.
 | **S1** | Lazard–Rioboo–Trager logarithmic part (rational integration spine) | Medium | ✅ Done |
 | **S2** | Risch DE fix + named nonelementary antiderivatives (pragmatic scope) | Large | ✅ Done |
 | **S3** | Quadratic-radical integrals `∫R(x,√(ax²+bx+c))` (complete-the-square A/B/C; Euler deferred) | Medium | ✅ Done |
-| **S4** | Robust power-series engine (Laurent / Puiseux) | Medium | 📋 |
+| **S4** | Robust power-series engine (Laurent + reduced coeffs; Puiseux deferred) | Medium | ✅ Done |
 | **S5** | Holonomic closure + Almkvist–Zeilberger (definite integrals) | Large | 📋 |
 | **S6** | Trager radical-only algebraic integration | Large | 📋 |
 | **S7** | Named nonelementary antiderivatives (erf/erfi, expintegral_*, fresnel_*) | Small | ✅ Done |
@@ -27,6 +27,8 @@ competitor exists. Direct continuation of `research/survey/ALGORITHM_SURVEY.md`.
 - **S1** — `lazard_rioboo_trager` wired into rational integration as a verified, no-regression log-part method; clean logs like `∫(5x⁴+1)/(x⁵+x) → log(x⁵+x)`.
 - **S2** — pragmatic Risch scope: fixed a wrong-answer substitution bug (`∫x·exp(x²)` now `exp(x²)/2`) and added verified named results (`∫exp(x²) → erfi`, `∫1/log(x) → li`, `∫exp(x)/x → Ei`, `∫sin(x)/x → Si`, `∫cos(x)/x → Ci`). Rational-`B` RDE (e.g. `x·exp(x)/(x+1)²`) deferred.
 - **S3** — quadratic-radical integrals via completing the square, all gated by a numeric differentiate-back verifier: Family A `∫1/√(ax²+bx+c)` (asinh/asin/log), Family B `∫(px+q)/√Q`, Family C `∫√Q dx`. New cases like `∫√(x²-1)`, `∫(2x+3)/√(x²+1)`, `∫x/√(2x-x²)`. **Deferred:** Family D `∫1/((x+r)√Q)` (Euler `u=1/(x+r)`) — the candidate is correct but a verify/simplify interaction rejects it; returns noun (never a wrong answer).
+
+- **S4** — power-series robustness. Rewrote `taylor` to (1) reduce coefficients via `meval` (`x^3/3` not `2*x^3/6`) and (2) compute **Laurent series** by series-dividing the numerator/denominator Taylor coefficients with pole extraction — fixing the previously-broken `und` output: `1/(exp(x)-1) → 1/x-1/2+x/12-x³/720`, `1/sin(x) → 1/x+x/6+7x³/360`, `cos(x)/x → 1/x-x/2+x³/24`. Series-backed limits unchanged. **Deferred:** Puiseux (fractional-exponent) series.
 
 ## Follow-ups discovered
 
