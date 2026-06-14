@@ -1,6 +1,6 @@
 # v8.0 Sprint Index
 
-## Status: 🚧 Phase 1 complete (S7, S1, S2); S3 done (A/B/C, Euler deferred)
+## Status: ✅ All sprints complete (S1–S7); some scoped, deferrals noted below
 
 ## Theme
 
@@ -18,7 +18,7 @@ competitor exists. Direct continuation of `research/survey/ALGORITHM_SURVEY.md`.
 | **S3** | Quadratic-radical integrals `∫R(x,√(ax²+bx+c))` (complete-the-square A/B/C; Euler deferred) | Medium | ✅ Done |
 | **S4** | Robust power-series engine (Laurent + reduced coeffs; Puiseux deferred) | Medium | ✅ Done |
 | **S5** | Definite-integral closure via special-fn ±∞ limits (full Almkvist–Zeilberger engine deferred) | Large | ✅ Done (scoped) |
-| **S6** | Trager radical-only algebraic integration | Large | 📋 |
+| **S6** | Algebraic (radical) integration: poly/√(quadratic) reduction; elliptic→noun (full Trager deferred) | Large | ✅ Done (scoped) |
 | **S7** | Named nonelementary antiderivatives (erf/erfi, expintegral_*, fresnel_*) | Small | ✅ Done |
 
 ## Progress notes
@@ -31,6 +31,8 @@ competitor exists. Direct continuation of `research/survey/ALGORITHM_SURVEY.md`.
 - **S4** — power-series robustness. Rewrote `taylor` to (1) reduce coefficients via `meval` (`x^3/3` not `2*x^3/6`) and (2) compute **Laurent series** by series-dividing the numerator/denominator Taylor coefficients with pole extraction — fixing the previously-broken `und` output: `1/(exp(x)-1) → 1/x-1/2+x/12-x³/720`, `1/sin(x) → 1/x+x/6+7x³/360`, `cos(x)/x → 1/x-x/2+x³/24`. Series-backed limits unchanged. **Deferred:** Puiseux (fractional-exponent) series.
 
 - **S5** — scoped pragmatically. A full holonomic/Almkvist–Zeilberger engine is research-grade (~10 PM per the survey) and the parametrized Gaussian/Gamma/Laplace families it targets are already special-cased and working. The achievable win: added ±∞ limit values for the named special functions (`erf(inf)=1`, `erfc(inf)=0`, `expintegral_si(inf)=%pi/2`, …) and switched the infinite-bound definite path to `meval` its `F(b)−F(a)` result. This fixed an S2-introduced regression and yields clean closed forms: `∫₀^∞ exp(-x²)=√π/2`, **Dirichlet** `∫₀^∞ sin(x)/x=π/2`, `∫₋∞^∞ exp(-x²)=√π`. **Deferred:** the general Almkvist–Zeilberger / holonomic-closure engine (own release).
+
+- **S6** — algebraic (radical) integration, scoped. Generalized the quadratic-radical handler to **arbitrary polynomial numerators** via `∫P/√Q = R(x)√Q + λ∫1/√Q` (top-down coefficient recurrence), e.g. `∫(x²+1)/√(x²+x)`, `∫x²/√(x²+1)`. Rational-power substitutions (`∫x/√(x⁴+1)=asinh(x²)/2`, `∫x²/√(1-x⁶)=asin(x³)/3`) already worked; genuinely nonelementary elliptic integrands (`∫1/√(x³+1)`) **correctly return noun** (Trager's decision). **Deferred:** the full Trager algorithm for general algebraic function fields (elliptic/hyperelliptic elementary cases).
 
 ## Follow-ups discovered
 
