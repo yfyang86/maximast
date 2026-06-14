@@ -7280,10 +7280,10 @@ mod tests {
         assert!(!r.contains("integrate"), "should be solved, got: {}", r);
     }
     #[test]
-    fn eval_integrate_1_over_log_x_noun() {
-        // ∫ 1/log(x) is non-elementary (logarithmic integral)
+    fn eval_integrate_1_over_log_x_li() {
+        // ∫ 1/log(x) is non-elementary → the logarithmic integral li(x) (S2/V8.0)
         let r = run("integrate(1/log(x), x);");
-        assert!(r.contains("integrate"), "should return noun form, got: {}", r);
+        assert_eq!(r, "expintegral_li(x)");
     }
 
     // --- Limits ---

@@ -58,6 +58,7 @@ maxima-repl -b walkthrough/03_calculus.mac
 | 39 | `39_polynomial_systems.mac` | Polynomial systems: Gröbner basis, polysys_solve, eliminate, ideal arithmetic (V8.0) |
 | 40 | `40_sudoku_visualize.mac` | Sudoku visualization: 9x9 board rendering, validation, and candidate digits |
 | 41 | `41_sudoku_solver.mac` | Sudoku solver: recursive backtracking, solution counting, and a 4x4 demo |
+| 42 | `42_special_integrals.mac` | Named nonelementary integrals (erf, li, Ei, Si, Ci) and the Lazard–Rioboo–Trager logarithmic part |
 
 ## Suggested Order
 
