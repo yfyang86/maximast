@@ -17,7 +17,7 @@ competitor exists. Direct continuation of `research/survey/ALGORITHM_SURVEY.md`.
 | **S2** | Risch DE fix + named nonelementary antiderivatives (pragmatic scope) | Large | ✅ Done |
 | **S3** | Quadratic-radical integrals `∫R(x,√(ax²+bx+c))` (complete-the-square A/B/C; Euler deferred) | Medium | ✅ Done |
 | **S4** | Robust power-series engine (Laurent + reduced coeffs; Puiseux deferred) | Medium | ✅ Done |
-| **S5** | Holonomic closure + Almkvist–Zeilberger (definite integrals) | Large | 📋 |
+| **S5** | Definite-integral closure via special-fn ±∞ limits (full Almkvist–Zeilberger engine deferred) | Large | ✅ Done (scoped) |
 | **S6** | Trager radical-only algebraic integration | Large | 📋 |
 | **S7** | Named nonelementary antiderivatives (erf/erfi, expintegral_*, fresnel_*) | Small | ✅ Done |
 
@@ -29,6 +29,8 @@ competitor exists. Direct continuation of `research/survey/ALGORITHM_SURVEY.md`.
 - **S3** — quadratic-radical integrals via completing the square, all gated by a numeric differentiate-back verifier: Family A `∫1/√(ax²+bx+c)` (asinh/asin/log), Family B `∫(px+q)/√Q`, Family C `∫√Q dx`. New cases like `∫√(x²-1)`, `∫(2x+3)/√(x²+1)`, `∫x/√(2x-x²)`. **Deferred:** Family D `∫1/((x+r)√Q)` (Euler `u=1/(x+r)`) — the candidate is correct but a verify/simplify interaction rejects it; returns noun (never a wrong answer).
 
 - **S4** — power-series robustness. Rewrote `taylor` to (1) reduce coefficients via `meval` (`x^3/3` not `2*x^3/6`) and (2) compute **Laurent series** by series-dividing the numerator/denominator Taylor coefficients with pole extraction — fixing the previously-broken `und` output: `1/(exp(x)-1) → 1/x-1/2+x/12-x³/720`, `1/sin(x) → 1/x+x/6+7x³/360`, `cos(x)/x → 1/x-x/2+x³/24`. Series-backed limits unchanged. **Deferred:** Puiseux (fractional-exponent) series.
+
+- **S5** — scoped pragmatically. A full holonomic/Almkvist–Zeilberger engine is research-grade (~10 PM per the survey) and the parametrized Gaussian/Gamma/Laplace families it targets are already special-cased and working. The achievable win: added ±∞ limit values for the named special functions (`erf(inf)=1`, `erfc(inf)=0`, `expintegral_si(inf)=%pi/2`, …) and switched the infinite-bound definite path to `meval` its `F(b)−F(a)` result. This fixed an S2-introduced regression and yields clean closed forms: `∫₀^∞ exp(-x²)=√π/2`, **Dirichlet** `∫₀^∞ sin(x)/x=π/2`, `∫₋∞^∞ exp(-x²)=√π`. **Deferred:** the general Almkvist–Zeilberger / holonomic-closure engine (own release).
 
 ## Follow-ups discovered
 
