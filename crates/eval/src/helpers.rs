@@ -301,6 +301,7 @@ pub fn expr_to_float(expr: &Expr) -> Expr {
                     _ => None,
                 };
                 if let Some(r) = result { return Expr::Float(r); }
+                if let Some(r) = crate::special::eval_special(&name, &inner) { return r; }
             }
             Expr::call(&maxima_core::resolve(*id), vec![inner])
         }

@@ -1358,6 +1358,112 @@ references = []
 authors = ["Maxima project"]
 
 [[function]]
+name = "erfi"
+title = "Imaginary error function"
+description = """
+Compute the imaginary error function, erfi(x) = -%i*erf(%i*x). Its
+derivative is 2*exp(x^2)/sqrt(%pi). Arises as the antiderivative of
+exp(x^2).
+"""
+usage = """
+```
+erfi(x)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "expintegral_ei"
+title = "Exponential integral Ei"
+description = """
+Exponential integral Ei(x) = integrate(exp(t)/t, t, -inf, x) (principal
+value). Its derivative is exp(x)/x.
+"""
+usage = """
+```
+expintegral_ei(x)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "expintegral_li"
+title = "Logarithmic integral"
+description = """
+Logarithmic integral li(x) = integrate(1/log(t), t, 0, x) (principal
+value), equal to expintegral_ei(log(x)). Its derivative is 1/log(x).
+"""
+usage = """
+```
+expintegral_li(x)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "expintegral_si"
+title = "Sine integral"
+description = """
+Sine integral Si(x) = integrate(sin(t)/t, t, 0, x). Its derivative is
+sin(x)/x.
+"""
+usage = """
+```
+expintegral_si(x)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "expintegral_ci"
+title = "Cosine integral"
+description = """
+Cosine integral Ci(x) = %gamma + log(x) + integrate((cos(t)-1)/t, t, 0, x).
+Its derivative is cos(x)/x.
+"""
+usage = """
+```
+expintegral_ci(x)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "fresnel_s"
+title = "Fresnel sine integral"
+description = """
+Fresnel sine integral fresnel_s(x) = integrate(sin(%pi*t^2/2), t, 0, x).
+Its derivative is sin(%pi*x^2/2).
+"""
+usage = """
+```
+fresnel_s(x)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "fresnel_c"
+title = "Fresnel cosine integral"
+description = """
+Fresnel cosine integral fresnel_c(x) = integrate(cos(%pi*t^2/2), t, 0, x).
+Its derivative is cos(%pi*x^2/2).
+"""
+usage = """
+```
+fresnel_c(x)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
 name = "errcatch"
 title = "Catch errors"
 description = """

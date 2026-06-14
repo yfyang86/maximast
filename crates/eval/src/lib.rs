@@ -25,6 +25,7 @@ pub mod poly_expr;
 pub mod residue;
 pub mod sets;
 pub mod simp;
+pub mod special;
 pub mod strings;
 pub mod tex;
 pub mod zeilberger;
