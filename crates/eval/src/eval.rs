@@ -1326,7 +1326,11 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
             Expr::call("taylor", evaled_args)
         }
         "sin" | "cos" | "tan" | "log" | "exp" | "sqrt"
-        | "asin" | "acos" | "atan" | "sinh" | "cosh" | "tanh" => {
+        | "asin" | "acos" | "atan" | "sinh" | "cosh" | "tanh"
+        | "erf" | "erfc" | "erfi"
+        | "expintegral_ei" | "expintegral_li"
+        | "expintegral_si" | "expintegral_ci"
+        | "fresnel_s" | "fresnel_c" => {
             eval_math_func(&func_name, &evaled_args)
         }
         "binomial" => {
@@ -3699,6 +3703,27 @@ pub(crate) fn diff_once(expr: &Expr, var: &Expr) -> Expr {
                             Expr::int(-1),
                         ),
                         "abs" => Expr::call("signum", vec![x]),
+                        // Named nonelementary special functions.
+                        "erf" => Expr::div(
+                            Expr::mul(Expr::int(2), Expr::call("exp", vec![Expr::neg(Expr::pow(x, Expr::int(2)))])),
+                            Expr::call("sqrt", vec![Expr::sym("%pi")]),
+                        ),
+                        "erfc" => Expr::neg(Expr::div(
+                            Expr::mul(Expr::int(2), Expr::call("exp", vec![Expr::neg(Expr::pow(x, Expr::int(2)))])),
+                            Expr::call("sqrt", vec![Expr::sym("%pi")]),
+                        )),
+                        "erfi" => Expr::div(
+                            Expr::mul(Expr::int(2), Expr::call("exp", vec![Expr::pow(x, Expr::int(2))])),
+                            Expr::call("sqrt", vec![Expr::sym("%pi")]),
+                        ),
+                        "expintegral_ei" => Expr::div(Expr::call("exp", vec![x.clone()]), x),
+                        "expintegral_li" => Expr::pow(Expr::call("log", vec![x]), Expr::int(-1)),
+                        "expintegral_si" => Expr::div(Expr::call("sin", vec![x.clone()]), x),
+                        "expintegral_ci" => Expr::div(Expr::call("cos", vec![x.clone()]), x),
+                        "fresnel_s" => Expr::call("sin", vec![Expr::div(
+                            Expr::mul(Expr::sym("%pi"), Expr::pow(x, Expr::int(2))), Expr::int(2))]),
+                        "fresnel_c" => Expr::call("cos", vec![Expr::div(
+                            Expr::mul(Expr::sym("%pi"), Expr::pow(x, Expr::int(2))), Expr::int(2))]),
                         _ => return Expr::call("diff", vec![expr.clone(), var.clone()]),
                     };
                     simplify_product(&[outer_deriv, dinner])
@@ -3805,6 +3830,11 @@ fn eval_math_func(name: &str, args: &[Expr]) -> Expr {
         return Expr::call(name, args.to_vec());
     }
     let arg = &args[0];
+
+    // Named nonelementary special functions (erf, expintegral_*, fresnel_*).
+    if let Some(r) = crate::special::eval_special(name, arg) {
+        return r;
+    }
 
     // Try numeric evaluation
     if let Some(x) = to_f64(arg) {
@@ -7250,10 +7280,10 @@ mod tests {
         assert!(!r.contains("integrate"), "should be solved, got: {}", r);
     }
     #[test]
-    fn eval_integrate_1_over_log_x_noun() {
-        // ∫ 1/log(x) is non-elementary (logarithmic integral)
+    fn eval_integrate_1_over_log_x_li() {
+        // ∫ 1/log(x) is non-elementary → the logarithmic integral li(x) (S2/V8.0)
         let r = run("integrate(1/log(x), x);");
-        assert!(r.contains("integrate"), "should return noun form, got: {}", r);
+        assert_eq!(r, "expintegral_li(x)");
     }
 
     // --- Limits ---

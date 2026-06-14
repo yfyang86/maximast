@@ -1,0 +1,31 @@
+/* ============================================================ */
+/*  42 — Special-function & nonelementary integrals  (V8.0)     */
+/*  Named antiderivatives (erf, li, Ei, Si, Ci) and the         */
+/*  Lazard–Rioboo–Trager logarithmic part.                      */
+/* ============================================================ */
+
+/* --- Named special functions and their derivatives --- */
+diff(erf(x), x);
+diff(erfi(x), x);
+diff(expintegral_li(x), x);
+diff(expintegral_si(x), x);
+float(erf(1.0));
+float(expintegral_si(1.0));
+
+/* --- Gaussian integrals → erf / erfi --- */
+integrate(exp(-x^2), x);
+integrate(exp(x^2), x);
+
+/* --- Elementary Gaussian-type (now correct) --- */
+integrate(x*exp(x^2), x);
+integrate((2*x+1)*exp(x^2+x), x);
+
+/* --- Logarithmic, exponential, sine, cosine integrals --- */
+integrate(1/log(x), x);
+integrate(exp(x)/x, x);
+integrate(sin(x)/x, x);
+integrate(cos(x)/x, x);
+
+/* --- Lazard–Rioboo–Trager: clean logs over higher-degree denominators --- */
+integrate((4*x^3+1)/(x^4+x), x);
+integrate((5*x^4+1)/(x^5+x), x);
