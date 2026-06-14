@@ -183,4 +183,42 @@ mod tests {
         let result = eval_help(&[Expr::sym("not_a_real_function")]);
         assert!(result.to_string().contains("no documentation"));
     }
+
+    #[test]
+    fn help_loads_all_entries() {
+        let map = help_map();
+        assert!(map.len() >= 295, "expected at least 295 help entries, got {}", map.len());
+    }
+
+    #[test]
+    fn help_tier1_entries_are_rich() {
+        let map = help_map();
+        let tier1 = [
+            "factor", "diff", "integrate", "expand", "simplify", "solve", "limit", "sum",
+            "matrix", "determinant", "eigenvalues", "plot2d", "laplace", "ode2", "gamma",
+        ];
+        for name in tier1 {
+            let h = map.get(name).unwrap_or_else(|| panic!("missing help for {}", name));
+            assert!(!h.arguments.is_empty(), "{} missing arguments", name);
+            assert!(!h.details.is_empty(), "{} missing details", name);
+            assert!(!h.value.is_empty(), "{} missing value", name);
+        }
+    }
+
+    #[test]
+    fn help_aliases_resolve() {
+        let map = help_map();
+        assert!(map.contains_key("create_list"));
+        assert_eq!(map["create_list"].name, "makelist");
+        assert!(map.contains_key("ratdenom"));
+        assert_eq!(map["ratdenom"].name, "denom");
+    }
+
+    #[test]
+    fn help_section_queries() {
+        let r = eval_help(&[Expr::sym("factor"), Expr::sym("usage")]);
+        assert!(r.to_string().contains("factor("));
+        let r = eval_help(&[Expr::sym("diff"), Expr::sym("arguments")]);
+        assert!(r.to_string().contains("expr"));
+    }
 }
