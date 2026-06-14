@@ -274,6 +274,144 @@ pub(crate) fn coeff_to_expr(c: &maxima_poly::Coeff) -> Expr {
     }
 }
 
+/// Lazard–Rioboo–Trager logarithmic part for a proper, square-free rational
+/// function num/den (Bronstein, Symbolic Integration I, ch. 2). Computes the
+/// log part as Σ c_i·log(v_i) from a resultant, without factoring the
+/// denominator over an extension field.
+///
+/// Fires only when the rational-residue logs account for the entire
+/// denominator degree (i.e. the antiderivative is purely logarithmic with
+/// rational residues) and the result differentiates back to the integrand.
+/// Otherwise returns None, leaving the existing partfrac/atan path in charge —
+/// so this can never regress a case the older code already handled.
+fn try_lrt_log_integrate(
+    num: &maxima_poly::Poly,
+    den: &maxima_poly::Poly,
+    var: &Expr,
+) -> Option<Expr> {
+    let deg_den = den.degree().unwrap_or(0);
+    if deg_den < 1 || num.degree().unwrap_or(0) >= deg_den {
+        return None;
+    }
+    // Require a square-free denominator (Hermite reduction has run upstream).
+    if !maxima_poly::poly_gcd(den, &den.derivative()).is_constant() {
+        return None;
+    }
+
+    let logs = maxima_poly::lazard_rioboo_trager(num, den);
+    if logs.is_empty() {
+        return None;
+    }
+    // Full logarithmic coverage: rational residues span the whole denominator.
+    let cover: u32 = logs.iter().map(|(_, v)| v.degree().unwrap_or(0)).sum();
+    if cover != deg_den {
+        return None;
+    }
+
+    let mut terms = Vec::new();
+    for (c, v) in &logs {
+        let log_term = Expr::call("log", vec![maxima_poly::poly_to_expr(v)]);
+        terms.push(simplify(&Expr::mul(coeff_to_expr(c), log_term)));
+    }
+    let result = simplify(&Expr::List {
+        op: Operator::MPlus,
+        simplified: false,
+        args: terms,
+    });
+
+    let integrand = simplify(&Expr::div(
+        maxima_poly::poly_to_expr(num),
+        maxima_poly::poly_to_expr(den),
+    ));
+    if verify_antiderivative(&result, &integrand, var) {
+        Some(result)
+    } else {
+        None
+    }
+}
+
+/// Numeric check that d/dx(antideriv) ≈ integrand at several sample points.
+/// Used as the mandatory verification gate before returning a closed form.
+fn verify_antiderivative(antideriv: &Expr, integrand: &Expr, var: &Expr) -> bool {
+    let var_id = match var {
+        Expr::Symbol(id) => *id,
+        _ => return false,
+    };
+    let d = diff_once(antideriv, var);
+    let samples = [0.37f64, 1.3, 2.1, -0.8, 3.4];
+    let mut checked = 0;
+    for &v in &samples {
+        let (Some(dv), Some(iv)) = (num_eval(&d, var_id, v), num_eval(integrand, var_id, v)) else {
+            continue;
+        };
+        if !dv.is_finite() || !iv.is_finite() {
+            continue;
+        }
+        if (dv - iv).abs() > 1e-6 * (1.0 + iv.abs()) {
+            return false;
+        }
+        checked += 1;
+    }
+    checked >= 3
+}
+
+/// Minimal numeric evaluator for verification (handles the operators that
+/// appear in elementary antiderivatives).
+fn num_eval(e: &Expr, var: maxima_core::SymbolId, val: f64) -> Option<f64> {
+    match e {
+        Expr::Integer(n) => Some(*n as f64),
+        Expr::Float(f) => Some(*f),
+        Expr::Rational { num, den } => Some(*num as f64 / *den as f64),
+        Expr::Symbol(id) => {
+            if *id == var {
+                Some(val)
+            } else {
+                match resolve(*id).as_str() {
+                    "%pi" => Some(std::f64::consts::PI),
+                    "%e" => Some(std::f64::consts::E),
+                    _ => None,
+                }
+            }
+        }
+        Expr::List { op, args, .. } => match op {
+            Operator::MPlus => {
+                let mut s = 0.0;
+                for a in args {
+                    s += num_eval(a, var, val)?;
+                }
+                Some(s)
+            }
+            Operator::MTimes => {
+                let mut p = 1.0;
+                for a in args {
+                    p *= num_eval(a, var, val)?;
+                }
+                Some(p)
+            }
+            Operator::MExpt if args.len() == 2 => {
+                let b = num_eval(&args[0], var, val)?;
+                let ex = num_eval(&args[1], var, val)?;
+                Some(b.powf(ex))
+            }
+            Operator::Named(id) if args.len() == 1 => {
+                let a = num_eval(&args[0], var, val)?;
+                match resolve(*id).as_str() {
+                    "log" => Some(a.ln()),
+                    "exp" => Some(a.exp()),
+                    "sin" => Some(a.sin()),
+                    "cos" => Some(a.cos()),
+                    "tan" => Some(a.tan()),
+                    "atan" => Some(a.atan()),
+                    "sqrt" => Some(a.sqrt()),
+                    _ => None,
+                }
+            }
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
 /// Integrate A(x) / (product of linear and irreducible quadratic factors).
 /// Uses partial fractions: for each linear factor (x-r), compute residue → log.
 /// For each quadratic factor (ax²+bx+c), determine (Px+Q)/(ax²+bx+c) coefficients
@@ -2802,6 +2940,14 @@ pub(crate) fn table_integrate(f: &Expr, var: &Expr) -> Expr {
                     // Handle factors with linear + quadratic terms via partial fractions
                     if factors.iter().all(|(f, m)| *m == 1 && (f.degree() == Some(1) || f.degree() == Some(2))) {
                         if let Some(result) = integrate_partfrac_mixed(&np, &factors, var) {
+                            return result;
+                        }
+                    }
+                    // Lazard–Rioboo–Trager: purely-logarithmic part with rational
+                    // residues over a square-free denominator (handles irreducible
+                    // factors of degree ≥ 3 that the partfrac path above misses).
+                    if factors.iter().all(|(_, m)| *m == 1) {
+                        if let Some(result) = try_lrt_log_integrate(&np, &dp, var) {
                             return result;
                         }
                     }
