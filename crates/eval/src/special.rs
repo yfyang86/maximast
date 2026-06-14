@@ -43,6 +43,37 @@ pub fn eval_special(name: &str, arg: &Expr) -> Option<Expr> {
         };
     }
 
+    // Limit values at ±∞ — these let definite integrals over (a, ∞) using the
+    // named antiderivatives evaluate to clean closed forms (e.g. ∫₀^∞ exp(-x²)).
+    if let Expr::Symbol(id) = arg {
+        let half_pi = || Expr::div(Expr::sym("%pi"), Expr::int(2));
+        let half = || Expr::Rational { num: 1, den: 2 };
+        match maxima_core::resolve(*id).as_str() {
+            "inf" => {
+                return match name {
+                    "erf" => Some(Expr::int(1)),
+                    "erfc" => Some(Expr::int(0)),
+                    "expintegral_si" => Some(half_pi()),
+                    "expintegral_ci" => Some(Expr::int(0)),
+                    "fresnel_s" | "fresnel_c" => Some(half()),
+                    "erfi" | "expintegral_ei" | "expintegral_li" => Some(Expr::sym("inf")),
+                    _ => None,
+                };
+            }
+            "minf" => {
+                return match name {
+                    "erf" => Some(Expr::int(-1)),
+                    "erfc" => Some(Expr::int(2)),
+                    "expintegral_si" => Some(Expr::neg(half_pi())),
+                    "fresnel_s" | "fresnel_c" => Some(Expr::neg(half())),
+                    "erfi" => Some(Expr::sym("minf")),
+                    _ => None,
+                };
+            }
+            _ => {}
+        }
+    }
+
     // Numeric evaluation only for explicit floats (matches sin/cos behaviour:
     // erf(1) stays symbolic; float(erf(1)) evaluates).
     if let Expr::Float(x) = arg {

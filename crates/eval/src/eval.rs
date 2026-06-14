@@ -1132,7 +1132,9 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
                                 let lim = crate::gruntz::gruntz_limit(&result, var);
                                 if let Some(fb) = lim {
                                     if !matches!(&fb, Expr::Symbol(id) if { let n = resolve(*id); n == "inf" || n == "minf" || n == "und" }) {
-                                        return simplify(&Expr::sub(fb, fa));
+                                        // meval (not simplify) so named-function limit
+                                        // values like erf(inf) collapse: ∫₀^∞ exp(-x²)=√π/2.
+                                        return meval(&Expr::sub(fb, fa), env);
                                     }
                                 }
                             } else if is_minf(a) && is_inf(b) {
@@ -1143,7 +1145,7 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
                                 let result_neg = simplify(&subst(&neg_var, var, &result));
                                 let lim_neg = crate::gruntz::gruntz_limit(&result_neg, var);
                                 if let (Some(fp), Some(fn_)) = (lim_pos, lim_neg) {
-                                    return simplify(&Expr::sub(fp, fn_));
+                                    return meval(&Expr::sub(fp, fn_), env);
                                 }
                             } else {
                                 // Finite bounds
