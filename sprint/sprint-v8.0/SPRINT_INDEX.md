@@ -1,6 +1,6 @@
 # v8.0 Sprint Index
 
-## Status: 🚧 Phase 1 complete (S7, S1, S2)
+## Status: 🚧 Phase 1 complete (S7, S1, S2); S3 done (A/B/C, Euler deferred)
 
 ## Theme
 
@@ -15,7 +15,7 @@ competitor exists. Direct continuation of `research/survey/ALGORITHM_SURVEY.md`.
 |--------|---------|------|--------|
 | **S1** | Lazard–Rioboo–Trager logarithmic part (rational integration spine) | Medium | ✅ Done |
 | **S2** | Risch DE fix + named nonelementary antiderivatives (pragmatic scope) | Large | ✅ Done |
-| **S3** | General Euler substitution for `∫R(x,√(ax²+bx+c))` (the removed gap) | Medium | 📋 |
+| **S3** | Quadratic-radical integrals `∫R(x,√(ax²+bx+c))` (complete-the-square A/B/C; Euler deferred) | Medium | ✅ Done |
 | **S4** | Robust power-series engine (Laurent / Puiseux) | Medium | 📋 |
 | **S5** | Holonomic closure + Almkvist–Zeilberger (definite integrals) | Large | 📋 |
 | **S6** | Trager radical-only algebraic integration | Large | 📋 |
@@ -26,6 +26,12 @@ competitor exists. Direct continuation of `research/survey/ALGORITHM_SURVEY.md`.
 - **S7** — nine special functions as built-ins (Maxima names `erf`/`erfc`/`erfi`/`expintegral_*`/`fresnel_*`) with diff/float/help.
 - **S1** — `lazard_rioboo_trager` wired into rational integration as a verified, no-regression log-part method; clean logs like `∫(5x⁴+1)/(x⁵+x) → log(x⁵+x)`.
 - **S2** — pragmatic Risch scope: fixed a wrong-answer substitution bug (`∫x·exp(x²)` now `exp(x²)/2`) and added verified named results (`∫exp(x²) → erfi`, `∫1/log(x) → li`, `∫exp(x)/x → Ei`, `∫sin(x)/x → Si`, `∫cos(x)/x → Ci`). Rational-`B` RDE (e.g. `x·exp(x)/(x+1)²`) deferred.
+- **S3** — quadratic-radical integrals via completing the square, all gated by a numeric differentiate-back verifier: Family A `∫1/√(ax²+bx+c)` (asinh/asin/log), Family B `∫(px+q)/√Q`, Family C `∫√Q dx`. New cases like `∫√(x²-1)`, `∫(2x+3)/√(x²+1)`, `∫x/√(2x-x²)`. **Deferred:** Family D `∫1/((x+r)√Q)` (Euler `u=1/(x+r)`) — the candidate is correct but a verify/simplify interaction rejects it; returns noun (never a wrong answer).
+
+## Follow-ups discovered
+
+- **Pre-existing bug (not S3):** `∫1/√(4x²+1)` returns `log(x+√(1+x²))` — a stale handler ignores the leading coefficient 4 (wrong). Fix by letting the verified quadratic-radical path take precedence, or correcting the old handler.
+- Display polish: quadratic-radical results are correct but unreduced (`3*asinh(2*x/2)`, `2*x*√(…)/4`).
 
 ## Phases
 
