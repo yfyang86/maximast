@@ -3496,13 +3496,10 @@ fn try_quadratic_radical_integrate(f: &Expr, var: &Expr) -> Option<Expr> {
             // ∫ k/√Q
             simplify(&Expr::mul(rest, integrate_inv_sqrt_quadratic(&a, &b, &c, var)?))
         } else if let Some(rp) = maxima_poly::expr_to_poly(&rest, var_id) {
-            // ∫ (p·x+q)/√Q  (linear numerator)
-            if rp.degree()? != 1 {
-                return None;
-            }
-            let p = coeff_to_expr(&get_coeff(&rp, 1));
-            let r0 = coeff_to_expr(&get_coeff(&rp, 0));
-            integrate_linear_over_sqrt(&a, &b, &c, &p, &r0, &q, var)?
+            // ∫ P(x)/√Q for a polynomial numerator P (any degree ≥ 1).
+            let d = rp.degree()? as usize;
+            let p_coeffs: Vec<Expr> = (0..=d).map(|k| coeff_to_expr(&get_coeff(&rp, k as u32))).collect();
+            integrate_poly_over_sqrt(&a, &b, &c, &p_coeffs, &q, var)?
         } else {
             // ∫ 1/((x+r)√Q) (Euler substitution) deferred — returns noun.
             return None;
@@ -3603,19 +3600,57 @@ fn integrate_inv_sqrt_quadratic(a: &Expr, b: &Expr, c: &Expr, var: &Expr) -> Opt
     }
 }
 
-/// ∫ (p·x + q0)/√(a x² + b x + c) dx
-/// = (p/a)·√Q + (q0 − p·b/(2a))·∫ 1/√Q dx.
-fn integrate_linear_over_sqrt(
-    a: &Expr, b: &Expr, c: &Expr, p: &Expr, q0: &Expr, q_expr: &Expr, var: &Expr,
+/// ∫ P(x)/√(a x² + b x + c) dx for a polynomial numerator P, via the reduction
+/// ∫P/√Q = R(x)·√Q + λ·∫1/√Q, where deg R = deg P − 1. Matching coefficients of
+/// R'·Q + ½·R·Q' + λ = P gives the top-down recurrence
+///   [x^k]:  a·k·r_{k-1} + b·(k+½)·r_k + c·(k+1)·r_{k+1} = p_k
+/// solved from k = d (r_{d-1} = p_d/(a·d)) down to k = 1, then λ from [x^0].
+/// `p` holds the numerator coefficients, p[i] = coefficient of x^i.
+fn integrate_poly_over_sqrt(
+    a: &Expr, b: &Expr, c: &Expr, p: &[Expr], q_expr: &Expr, var: &Expr,
 ) -> Option<Expr> {
+    let d = p.len().checked_sub(1)?;
     let inv = integrate_inv_sqrt_quadratic(a, b, c, var)?;
-    let sqrt_q = simplify(&Expr::call("sqrt", vec![q_expr.clone()]));
-    let term1 = simplify(&Expr::mul(rat_eval(&Expr::div(p.clone(), a.clone())), sqrt_q));
-    let k = rat_eval(&Expr::sub(
-        q0.clone(),
-        Expr::div(Expr::mul(p.clone(), b.clone()), Expr::mul(Expr::int(2), a.clone())),
+
+    // r[j] = coefficient of x^j in R, for j = 0..d-1 (empty if d == 0).
+    let mut r = vec![Expr::int(0); d];
+    let get_r = |r: &Vec<Expr>, idx: usize| -> Expr { r.get(idx).cloned().unwrap_or(Expr::int(0)) };
+    // Solve r_{k-1} from the x^k equation, k = d .. 1.
+    for k in (1..=d).rev() {
+        let rk = get_r(&r, k);
+        let rk1 = get_r(&r, k + 1);
+        // half = b·(2k+1)/2
+        let bterm = Expr::mul(Expr::mul(b.clone(), Expr::Rational { num: (2 * k as i64 + 1), den: 2 }), rk);
+        let cterm = Expr::mul(Expr::mul(c.clone(), Expr::int(k as i64 + 1)), rk1);
+        let numer = Expr::sub(Expr::sub(p[k].clone(), bterm), cterm);
+        let rkm1 = rat_eval(&Expr::div(numer, Expr::mul(a.clone(), Expr::int(k as i64))));
+        r[k - 1] = rkm1;
+    }
+    // λ = p_0 − (b/2)·r_0 − c·r_1
+    let lambda = rat_eval(&Expr::sub(
+        Expr::sub(
+            p[0].clone(),
+            Expr::mul(Expr::div(b.clone(), Expr::int(2)), get_r(&r, 0)),
+        ),
+        Expr::mul(c.clone(), get_r(&r, 1)),
     ));
-    Some(simplify(&Expr::add(term1, Expr::mul(k, inv))))
+
+    // R(x) = Σ r_j x^j
+    let mut r_terms = Vec::new();
+    for (j, rj) in r.iter().enumerate() {
+        if *rj == Expr::int(0) { continue; }
+        let term = if j == 0 { rj.clone() } else { Expr::mul(rj.clone(), Expr::pow(var.clone(), Expr::int(j as i64))) };
+        r_terms.push(term);
+    }
+    let r_poly = if r_terms.is_empty() {
+        Expr::int(0)
+    } else {
+        simplify(&Expr::List { op: Operator::MPlus, simplified: false, args: r_terms })
+    };
+
+    let sqrt_q = simplify(&Expr::call("sqrt", vec![q_expr.clone()]));
+    let rational_part = simplify(&Expr::mul(r_poly, sqrt_q));
+    Some(simplify(&Expr::add(rational_part, Expr::mul(lambda, inv))))
 }
 
 /// ∫ √(a x² + b x + c) dx
