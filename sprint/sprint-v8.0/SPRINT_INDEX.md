@@ -1,6 +1,6 @@
 # v8.0 Sprint Index
 
-## Status: 📋 Planned
+## Status: 🚧 Phase 1 complete (S7, S1, S2)
 
 ## Theme
 
@@ -13,13 +13,19 @@ competitor exists. Direct continuation of `research/survey/ALGORITHM_SURVEY.md`.
 
 | Sprint | Content | Size | Status |
 |--------|---------|------|--------|
-| **S1** | Lazard–Rioboo–Trager logarithmic part (rational integration spine) | Medium | 📋 |
-| **S2** | Complete Risch differential-equation solver (decision-complete transcendental) | Large | 📋 |
+| **S1** | Lazard–Rioboo–Trager logarithmic part (rational integration spine) | Medium | ✅ Done |
+| **S2** | Risch DE fix + named nonelementary antiderivatives (pragmatic scope) | Large | ✅ Done |
 | **S3** | General Euler substitution for `∫R(x,√(ax²+bx+c))` (the removed gap) | Medium | 📋 |
 | **S4** | Robust power-series engine (Laurent / Puiseux) | Medium | 📋 |
 | **S5** | Holonomic closure + Almkvist–Zeilberger (definite integrals) | Large | 📋 |
 | **S6** | Trager radical-only algebraic integration | Large | 📋 |
-| **S7** | Named nonelementary antiderivatives (li, Ei, erf/erfi, Si, Ci, Fresnel) | Small | 📋 |
+| **S7** | Named nonelementary antiderivatives (erf/erfi, expintegral_*, fresnel_*) | Small | ✅ Done |
+
+## Progress notes
+
+- **S7** — nine special functions as built-ins (Maxima names `erf`/`erfc`/`erfi`/`expintegral_*`/`fresnel_*`) with diff/float/help.
+- **S1** — `lazard_rioboo_trager` wired into rational integration as a verified, no-regression log-part method; clean logs like `∫(5x⁴+1)/(x⁵+x) → log(x⁵+x)`.
+- **S2** — pragmatic Risch scope: fixed a wrong-answer substitution bug (`∫x·exp(x²)` now `exp(x²)/2`) and added verified named results (`∫exp(x²) → erfi`, `∫1/log(x) → li`, `∫exp(x)/x → Ei`, `∫sin(x)/x → Si`, `∫cos(x)/x → Ci`). Rational-`B` RDE (e.g. `x·exp(x)/(x+1)²`) deferred.
 
 ## Phases
 
