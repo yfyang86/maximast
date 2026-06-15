@@ -432,6 +432,14 @@ pub fn mpoly_gcd(a: &MPoly, b: &MPoly) -> MPoly {
         return one;
     }
     let d = 1 + max_var_exp(a).max(max_var_exp(b));
+    // Guard against Kronecker blow-up: the univariate image has degree < d^nvars,
+    // and `poly_gcd` on a very high-degree image is prohibitively slow. Skip
+    // (return the safe, incomplete `1`) when the image would be too large.
+    const KRON_DEGREE_CAP: u64 = 1024;
+    match (d as u64).checked_pow(a.nvars() as u32) {
+        Some(kd) if kd <= KRON_DEGREE_CAP => {}
+        _ => return one,
+    }
     let var = a.vars[0];
     let (Some(ka), Some(kb)) = (to_kronecker(a, d, var), to_kronecker(b, d, var)) else {
         return one;
