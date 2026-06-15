@@ -8,6 +8,9 @@
 use std::cmp::Ordering;
 use num::{BigInt, BigRational, One, Zero, ToPrimitive};
 use maxima_core::{Expr, Operator, SymbolId};
+use crate::poly::Poly;
+use crate::coeff::Coeff;
+use crate::gcd::poly_gcd;
 
 pub type MCoeff = BigRational;
 
@@ -201,6 +204,29 @@ impl MPoly {
         }
         result
     }
+
+    /// Exact division: returns Some(quotient) iff `divisor` divides `self`
+    /// exactly (remainder zero), via repeated leading-term cancellation.
+    /// Coefficients are over the field Q, so this is well-defined.
+    pub fn exact_div(&self, divisor: &MPoly) -> Option<MPoly> {
+        assert_eq!(self.vars, divisor.vars, "MPoly::exact_div: variable mismatch");
+        let (dlm, dlc) = divisor.lt()?;
+        let mut rem = self.clone();
+        let mut quot = MPoly::zero(self.vars.clone(), self.order);
+        loop {
+            let (m, c) = match rem.lt() {
+                None => break,
+                Some((rlm, rlc)) => match Monomial::div(rlm, dlm) {
+                    Some(m) => (m, rlc / dlc),
+                    None => return None, // leading term not divisible
+                },
+            };
+            let term = MPoly { vars: self.vars.clone(), order: self.order, terms: vec![(m.clone(), c.clone())] };
+            quot = quot.add(&term);
+            rem = rem.sub(&divisor.monomial_mul(&c, &m));
+        }
+        if rem.is_zero() { Some(quot) } else { None }
+    }
 }
 
 // ----------- Expr ↔ MPoly --------------------------------------------------
@@ -331,6 +357,95 @@ pub fn mpoly_to_expr(p: &MPoly) -> Expr {
 }
 
 // ----------- Unit tests -----------------------------------------------------
+
+// ----------- Multivariate GCD via Kronecker substitution -------------------
+
+fn mcoeff_to_coeff(r: &MCoeff) -> Option<Coeff> {
+    let n = r.numer().to_i64()?;
+    let d = r.denom().to_i64()?;
+    if d == 1 { Some(Coeff::Int(n)) } else { Some(Coeff::Rat(n, d)) }
+}
+
+fn coeff_to_mcoeff(c: &Coeff) -> MCoeff {
+    match c {
+        Coeff::Int(n) => BigRational::from(BigInt::from(*n)),
+        Coeff::Rat(n, d) => BigRational::new(BigInt::from(*n), BigInt::from(*d)),
+    }
+}
+
+fn max_var_exp(p: &MPoly) -> u32 {
+    p.terms.iter().flat_map(|(m, _)| m.0.iter().copied()).max().unwrap_or(0)
+}
+
+/// Kronecker map: monomial ∏ x_i^{e_i} ↦ t^{Σ e_i·d^i}. None if a coefficient
+/// doesn't fit i64 or a t-exponent overflows u32.
+fn to_kronecker(p: &MPoly, d: u32, var: SymbolId) -> Option<Poly> {
+    let mut terms: Vec<(u32, Coeff)> = Vec::new();
+    for (m, c) in &p.terms {
+        let mut texp: u64 = 0;
+        let mut place: u64 = 1;
+        for &e in &m.0 {
+            texp = texp.checked_add((e as u64).checked_mul(place)?)?;
+            place = place.checked_mul(d as u64)?;
+        }
+        if texp > u32::MAX as u64 { return None; }
+        terms.push((texp as u32, mcoeff_to_coeff(c)?));
+    }
+    Some(Poly { var, terms })
+}
+
+/// Invert the Kronecker map for `nvars` variables in base `d`.
+fn from_kronecker(p: &Poly, d: u32, nvars: usize, vars: Vec<SymbolId>, order: MonomialOrder) -> MPoly {
+    let mut terms = Vec::new();
+    for (texp, c) in &p.terms {
+        let mut e = *texp;
+        let mut exps = vec![0u32; nvars];
+        for slot in exps.iter_mut() {
+            *slot = e % d;
+            e /= d;
+        }
+        terms.push((Monomial(exps), coeff_to_mcoeff(c)));
+    }
+    let mut result = MPoly { vars, order, terms };
+    result.canonicalize();
+    result
+}
+
+fn make_monic(p: &MPoly) -> MPoly {
+    match p.lc() {
+        Some(lc) if !lc.is_zero() => p.scalar_mul(&(MCoeff::one() / lc.clone())),
+        _ => p.clone(),
+    }
+}
+
+/// Multivariate GCD over Q via Kronecker substitution + univariate `poly_gcd`,
+/// verified by exact division. Returns the monic gcd when it divides both
+/// inputs (then it is provably the gcd, by a degree argument); otherwise the
+/// constant 1 — a safe, possibly-incomplete answer, never a wrong one.
+pub fn mpoly_gcd(a: &MPoly, b: &MPoly) -> MPoly {
+    assert_eq!(a.vars, b.vars, "mpoly_gcd: variable mismatch");
+    let one = MPoly::constant(a.vars.clone(), a.order, MCoeff::one());
+    if a.is_zero() { return make_monic(b); }
+    if b.is_zero() { return make_monic(a); }
+    // gcd with a constant is a unit → 1
+    if a.lm().map_or(true, |m| m.is_one()) || b.lm().map_or(true, |m| m.is_one()) {
+        return one;
+    }
+    let d = 1 + max_var_exp(a).max(max_var_exp(b));
+    let var = a.vars[0];
+    let (Some(ka), Some(kb)) = (to_kronecker(a, d, var), to_kronecker(b, d, var)) else {
+        return one;
+    };
+    let g_uni = poly_gcd(&ka, &kb);
+    if g_uni.terms.is_empty() { return one; }
+    let g = make_monic(&from_kronecker(&g_uni, d, a.nvars(), a.vars.clone(), a.order));
+    if g.lm().map_or(true, |m| m.is_one()) { return one; }
+    if a.exact_div(&g).is_some() && b.exact_div(&g).is_some() {
+        g
+    } else {
+        one
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -466,5 +581,49 @@ mod tests {
         let v = vars2();
         let bad = Expr::mul(Expr::Float(0.5), Expr::sym("x"));
         assert!(expr_to_mpoly(&bad, &v, MonomialOrder::Lex).is_none());
+    }
+
+    // ---- exact division & multivariate GCD ----
+
+    fn mp(e: &Expr) -> MPoly {
+        expr_to_mpoly(e, &vars2(), MonomialOrder::Grevlex).unwrap()
+    }
+    fn x() -> Expr { Expr::sym("x") }
+    fn y() -> Expr { Expr::sym("y") }
+    fn sq(e: Expr) -> Expr { Expr::pow(e, Expr::int(2)) }
+
+    #[test] fn exact_div_divides_and_rejects() {
+        // (x²-y²) / (x-y) = x+y
+        let a = mp(&Expr::sub(sq(x()), sq(y())));
+        let d = mp(&Expr::sub(x(), y()));
+        let q = a.exact_div(&d).expect("x-y divides x^2-y^2");
+        assert_eq!(q, mp(&Expr::add(x(), y())));
+        // (x²-y²) / (x+1) does not divide exactly
+        let nd = mp(&Expr::add(x(), Expr::int(1)));
+        assert!(a.exact_div(&nd).is_none());
+    }
+
+    #[test] fn gcd_difference_of_squares() {
+        let a = mp(&Expr::sub(sq(x()), sq(y())));            // x²-y²
+        let b = mp(&Expr::sub(x(), y()));                    // x-y
+        let g = mpoly_gcd(&a, &b);
+        assert!(a.exact_div(&g).is_some() && b.exact_div(&g).is_some());
+        assert_eq!(g, mp(&Expr::sub(x(), y())));             // gcd = x-y
+    }
+
+    #[test] fn gcd_common_linear_factor() {
+        // gcd(x²-y², x²+2xy+y²) = x+y
+        let a = mp(&Expr::sub(sq(x()), sq(y())));
+        let b = mp(&Expr::add(Expr::add(sq(x()), Expr::mul(Expr::int(2), Expr::mul(x(), y()))), sq(y())));
+        let g = mpoly_gcd(&a, &b);
+        assert!(a.exact_div(&g).is_some() && b.exact_div(&g).is_some());
+        assert_eq!(g, mp(&Expr::add(x(), y())));             // gcd = x+y
+    }
+
+    #[test] fn gcd_coprime_is_one() {
+        let a = mp(&Expr::add(x(), y()));
+        let b = mp(&Expr::sub(x(), y()));
+        let g = mpoly_gcd(&a, &b);
+        assert_eq!(g.total_degree(), 0);                     // coprime → constant
     }
 }
