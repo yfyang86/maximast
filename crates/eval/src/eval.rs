@@ -1132,7 +1132,9 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
                                 let lim = crate::gruntz::gruntz_limit(&result, var);
                                 if let Some(fb) = lim {
                                     if !matches!(&fb, Expr::Symbol(id) if { let n = resolve(*id); n == "inf" || n == "minf" || n == "und" }) {
-                                        return simplify(&Expr::sub(fb, fa));
+                                        // meval (not simplify) so named-function limit
+                                        // values like erf(inf) collapse: ∫₀^∞ exp(-x²)=√π/2.
+                                        return meval(&Expr::sub(fb, fa), env);
                                     }
                                 }
                             } else if is_minf(a) && is_inf(b) {
@@ -1143,7 +1145,7 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
                                 let result_neg = simplify(&subst(&neg_var, var, &result));
                                 let lim_neg = crate::gruntz::gruntz_limit(&result_neg, var);
                                 if let (Some(fp), Some(fn_)) = (lim_pos, lim_neg) {
-                                    return simplify(&Expr::sub(fp, fn_));
+                                    return meval(&Expr::sub(fp, fn_), env);
                                 }
                             } else {
                                 // Finite bounds
@@ -1301,32 +1303,25 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
             Expr::call("limit", evaled_args)
         }
         "taylor" => {
-            // Basic Taylor: evaluate diff repeatedly
             if evaled_args.len() >= 4 {
                 if let (Some(_a), Some(n)) = (to_f64(&evaled_args[2]), to_i64(&evaled_args[3])) {
-                    let f = &evaled_args[0];
-                    let var = &evaled_args[1];
-                    let a_expr = &evaled_args[2];
-                    let mut result = Expr::int(0);
-                    let mut deriv = f.clone();
-                    let mut factorial = 1i64;
-                    for k in 0..=n {
-                        if k > 0 { factorial *= k; }
-                        let coeff = meval(&subst(a_expr, var, &deriv), env);
-                        let term = simplify(&Expr::mul(
-                            Expr::div(coeff, Expr::int(factorial)),
-                            Expr::pow(Expr::sub(var.clone(), a_expr.clone()), Expr::int(k)),
-                        ));
-                        result = simplify(&Expr::add(result, term));
-                        deriv = eval_diff(&[deriv, var.clone()]);
+                    if n >= 0 {
+                        if let Some(r) = taylor_expand(
+                            &evaled_args[0], &evaled_args[1], &evaled_args[2], n, env,
+                        ) {
+                            return r;
+                        }
                     }
-                    return result;
                 }
             }
             Expr::call("taylor", evaled_args)
         }
         "sin" | "cos" | "tan" | "log" | "exp" | "sqrt"
-        | "asin" | "acos" | "atan" | "sinh" | "cosh" | "tanh" => {
+        | "asin" | "acos" | "atan" | "sinh" | "cosh" | "tanh"
+        | "erf" | "erfc" | "erfi"
+        | "expintegral_ei" | "expintegral_li"
+        | "expintegral_si" | "expintegral_ci"
+        | "fresnel_s" | "fresnel_c" => {
             eval_math_func(&func_name, &evaled_args)
         }
         "binomial" => {
@@ -3537,6 +3532,85 @@ pub(crate) fn diff_once_pub(expr: &Expr, var: &Expr) -> Expr {
     diff_once(expr, var)
 }
 
+/// Taylor/Laurent expansion of `f` about `var = a` to order `n`.
+/// Tries the ordinary (analytic) Taylor series; on a pole it falls back to
+/// series division of the numerator/denominator coefficient sequences, which
+/// also avoids the 0/0 removable-singularity trap of the derivative method.
+fn taylor_expand(f: &Expr, var: &Expr, a: &Expr, n: i64, env: &mut Environment) -> Option<Expr> {
+    if let Some(coeffs) = taylor_coeffs(f, var, a, n, env) {
+        return Some(build_series(&coeffs, 0, var, a));
+    }
+    // Laurent path: f = num/den with den vanishing at a.
+    let (num, den) = extract_fraction(f)?;
+    let order = n + 13; // margin so pole order up to ~6 is covered
+    let nc = taylor_coeffs(&num, var, a, order, env)?;
+    let dc = taylor_coeffs(&den, var, a, order, env)?;
+    let m = dc.iter().position(|c| *c != Expr::int(0))?;
+    if m == 0 {
+        return None; // no pole; ordinary path should have handled it
+    }
+    let d0 = dc[m].clone();
+    let kmax = (n + m as i64) as usize;
+    let mut c = vec![Expr::int(0); kmax + 1];
+    for k in 0..=kmax {
+        // c_k = (a_k - Σ_{j=1}^{k} D_j · c_{k-j}) / D_0,  D_j = dc[m+j]
+        let mut s = nc.get(k).cloned().unwrap_or(Expr::int(0));
+        for j in 1..=k {
+            if let Some(dj) = dc.get(m + j) {
+                s = simplify(&Expr::sub(s, Expr::mul(dj.clone(), c[k - j].clone())));
+            }
+        }
+        c[k] = meval(&Expr::div(s, d0.clone()), env);
+    }
+    Some(build_series(&c, -(m as i64), var, a))
+}
+
+/// Taylor coefficients [c_0, …, c_order] of `f` about `var=a`, where the term
+/// is c_k·(var−a)^k. Returns None if any coefficient is undefined/infinite
+/// (signalling a pole, handled by the Laurent path).
+fn taylor_coeffs(f: &Expr, var: &Expr, a: &Expr, order: i64, env: &mut Environment) -> Option<Vec<Expr>> {
+    let mut coeffs = Vec::new();
+    let mut deriv = f.clone();
+    let mut factorial = 1i64;
+    for k in 0..=order {
+        if k > 0 {
+            factorial = factorial.checked_mul(k)?;
+        }
+        let raw = meval(&subst(a, var, &deriv), env);
+        let s = raw.to_string();
+        if s.contains("und") || s.contains("inf") {
+            return None;
+        }
+        coeffs.push(meval(&Expr::div(raw, Expr::int(factorial)), env));
+        deriv = eval_diff(&[deriv, var.clone()]);
+    }
+    Some(coeffs)
+}
+
+/// Build Σ coeffs[k]·(var−a)^(k+shift), dropping zero coefficients.
+fn build_series(coeffs: &[Expr], shift: i64, var: &Expr, a: &Expr) -> Expr {
+    let mut terms = Vec::new();
+    for (k, c) in coeffs.iter().enumerate() {
+        if *c == Expr::int(0) {
+            continue;
+        }
+        let exp = k as i64 + shift;
+        let term = if exp == 0 {
+            c.clone()
+        } else {
+            simplify(&Expr::mul(
+                c.clone(),
+                Expr::pow(Expr::sub(var.clone(), a.clone()), Expr::int(exp)),
+            ))
+        };
+        terms.push(term);
+    }
+    if terms.is_empty() {
+        return Expr::int(0);
+    }
+    simplify(&Expr::List { op: Operator::MPlus, simplified: false, args: terms })
+}
+
 pub(crate) fn diff_once(expr: &Expr, var: &Expr) -> Expr {
     match expr {
         Expr::Integer(_) | Expr::BigInt(_) | Expr::Float(_)
@@ -3699,6 +3773,27 @@ pub(crate) fn diff_once(expr: &Expr, var: &Expr) -> Expr {
                             Expr::int(-1),
                         ),
                         "abs" => Expr::call("signum", vec![x]),
+                        // Named nonelementary special functions.
+                        "erf" => Expr::div(
+                            Expr::mul(Expr::int(2), Expr::call("exp", vec![Expr::neg(Expr::pow(x, Expr::int(2)))])),
+                            Expr::call("sqrt", vec![Expr::sym("%pi")]),
+                        ),
+                        "erfc" => Expr::neg(Expr::div(
+                            Expr::mul(Expr::int(2), Expr::call("exp", vec![Expr::neg(Expr::pow(x, Expr::int(2)))])),
+                            Expr::call("sqrt", vec![Expr::sym("%pi")]),
+                        )),
+                        "erfi" => Expr::div(
+                            Expr::mul(Expr::int(2), Expr::call("exp", vec![Expr::pow(x, Expr::int(2))])),
+                            Expr::call("sqrt", vec![Expr::sym("%pi")]),
+                        ),
+                        "expintegral_ei" => Expr::div(Expr::call("exp", vec![x.clone()]), x),
+                        "expintegral_li" => Expr::pow(Expr::call("log", vec![x]), Expr::int(-1)),
+                        "expintegral_si" => Expr::div(Expr::call("sin", vec![x.clone()]), x),
+                        "expintegral_ci" => Expr::div(Expr::call("cos", vec![x.clone()]), x),
+                        "fresnel_s" => Expr::call("sin", vec![Expr::div(
+                            Expr::mul(Expr::sym("%pi"), Expr::pow(x, Expr::int(2))), Expr::int(2))]),
+                        "fresnel_c" => Expr::call("cos", vec![Expr::div(
+                            Expr::mul(Expr::sym("%pi"), Expr::pow(x, Expr::int(2))), Expr::int(2))]),
                         _ => return Expr::call("diff", vec![expr.clone(), var.clone()]),
                     };
                     simplify_product(&[outer_deriv, dinner])
@@ -3805,6 +3900,11 @@ fn eval_math_func(name: &str, args: &[Expr]) -> Expr {
         return Expr::call(name, args.to_vec());
     }
     let arg = &args[0];
+
+    // Named nonelementary special functions (erf, expintegral_*, fresnel_*).
+    if let Some(r) = crate::special::eval_special(name, arg) {
+        return r;
+    }
 
     // Try numeric evaluation
     if let Some(x) = to_f64(arg) {
@@ -7250,10 +7350,10 @@ mod tests {
         assert!(!r.contains("integrate"), "should be solved, got: {}", r);
     }
     #[test]
-    fn eval_integrate_1_over_log_x_noun() {
-        // ∫ 1/log(x) is non-elementary (logarithmic integral)
+    fn eval_integrate_1_over_log_x_li() {
+        // ∫ 1/log(x) is non-elementary → the logarithmic integral li(x) (S2/V8.0)
         let r = run("integrate(1/log(x), x);");
-        assert!(r.contains("integrate"), "should return noun form, got: {}", r);
+        assert_eq!(r, "expintegral_li(x)");
     }
 
     // --- Limits ---

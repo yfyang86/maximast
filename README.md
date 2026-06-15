@@ -168,8 +168,10 @@ help("factor", "usage");        → just the usage section
 ```
 
 Help pages are stored in `crates/eval/src/help.toml` and embedded into the
-binary. Each entry supports title, description, usage, arguments, details,
-return value, references, authors, and aliases.
+binary. Every built-in function has an entry (295+ functions), with full rich
+pages for the core calculus, algebra, linear-algebra, list/set, and special-
+function commands. Each entry supports title, description, usage, arguments,
+details, return value, references, authors, and aliases.
 
 ## Walkthroughs
 

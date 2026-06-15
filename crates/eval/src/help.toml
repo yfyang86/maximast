@@ -1,30 +1,1086 @@
 [[function]]
-name = "factor"
-title = "Factor a polynomial or integer"
+name = "abs"
+title = "Absolute value"
 description = """
-Factor performs complete factorization of a polynomial or integer into
-irreducible factors over the integers (or rationals).
+Compute the absolute value.
 """
 usage = """
 ```
-factor(expr)
+abs(x)
 ```
 """
 arguments = """
-- `expr`: a polynomial, rational expression, or integer to factor.
+- `x`: expression.
 """
 details = """
-For polynomials the result is a product of irreducible polynomials with
-integer coefficients. For integers the result is a product of primes raised
-to appropriate powers.
+See the usage and arguments above for typical calling patterns.
 """
 value = """
-Returns a factored expression, or the input unchanged if it is already
-irreducible.
+Returns the computed result, or a noun form if evaluation is not possible.
 """
-references = [
-    "https://maxima.sourceforge.io/docs/manual/maxima_48.html#factor",
-]
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "acos"
+title = "Arccosine"
+description = """
+Compute the inverse cosine.
+"""
+usage = """
+```
+acos(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "acosh"
+title = "Inverse hyperbolic cosine"
+description = """
+Compute the inverse hyperbolic cosine.
+"""
+usage = """
+```
+acosh(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "acot"
+title = "Arccotangent"
+description = """
+Compute the inverse cotangent.
+"""
+usage = """
+```
+acot(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "acoth"
+title = "Inverse hyperbolic cotangent"
+description = """
+Compute the inverse hyperbolic cotangent.
+"""
+usage = """
+```
+acoth(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "acsc"
+title = "Arccosecant"
+description = """
+Compute the inverse cosecant.
+"""
+usage = """
+```
+acsc(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "acsch"
+title = "Inverse hyperbolic cosecant"
+description = """
+Compute the inverse hyperbolic cosecant.
+"""
+usage = """
+```
+acsch(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "activate"
+title = "Activate context"
+description = """
+Activate an assumption context.
+"""
+usage = """
+```
+activate(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "all"
+title = "All"
+description = """
+Built-in function.
+"""
+usage = """
+```
+all(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "append"
+title = "Append lists"
+description = """
+Concatenate lists.
+"""
+usage = """
+```
+append(list1, list2, ...)
+```
+"""
+arguments = """
+- `list*`: lists.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "apply"
+title = "Apply a function"
+description = """
+Apply a function to a list of arguments.
+"""
+usage = """
+```
+apply(f, [a1, a2, ...])
+```
+"""
+arguments = """
+- `f`: function.\n- `[a1, ...]`: argument list.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "apply1"
+title = "Apply rules"
+description = """
+Apply pattern rules once.
+"""
+usage = """
+```
+apply1(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "applyb1"
+title = "Apply rules bottom-up"
+description = """
+Apply pattern rules bottom-up.
+"""
+usage = """
+```
+applyb1(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "args"
+title = "Arguments"
+description = """
+Return the arguments of a function call.
+"""
+usage = """
+```
+args(expr)
+```
+"""
+arguments = """
+- `expr`: expression.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "asec"
+title = "Arcsecant"
+description = """
+Compute the inverse secant.
+"""
+usage = """
+```
+asec(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "asech"
+title = "Inverse hyperbolic secant"
+description = """
+Compute the inverse hyperbolic secant.
+"""
+usage = """
+```
+asech(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "asin"
+title = "Arcsine"
+description = """
+Compute the inverse sine.
+"""
+usage = """
+```
+asin(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "asinh"
+title = "Inverse hyperbolic sine"
+description = """
+Compute the inverse hyperbolic sine.
+"""
+usage = """
+```
+asinh(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "asksign"
+title = "Ask sign"
+description = """
+Determine the sign of an expression from assumptions.
+"""
+usage = """
+```
+asksign(x)
+```
+"""
+arguments = """
+- `x`: expression.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "assume"
+title = "Assume facts"
+description = """
+Add assumptions to the environment.
+"""
+usage = """
+```
+assume(pred)
+```
+"""
+arguments = """
+- `pred`: predicate.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "assuming"
+title = "Evaluate under assumptions"
+description = """
+Evaluate an expression under temporary assumptions.
+"""
+usage = """
+```
+assuming(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "at"
+title = "Evaluate at a point"
+description = """
+Evaluate an expression with substituted values.
+"""
+usage = """
+```
+at(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "atan"
+title = "Arctangent"
+description = """
+Compute the inverse tangent.
+"""
+usage = """
+```
+atan(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "atanh"
+title = "Inverse hyperbolic tangent"
+description = """
+Compute the inverse hyperbolic tangent.
+"""
+usage = """
+```
+atanh(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "atom"
+title = "Atom predicate"
+description = """
+Return true if the argument is atomic.
+"""
+usage = """
+```
+atom(x)
+```
+"""
+arguments = """
+- `x`: expression.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "batch"
+title = "Batch file"
+description = """
+Load and evaluate a file.
+"""
+usage = """
+```
+batch(filename)
+```
+"""
+arguments = """
+- `filename`: file path or name.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "bc2"
+title = "Boundary condition"
+description = """
+Apply boundary conditions to an ODE solution.
+"""
+usage = """
+```
+bc2(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "bessel_i"
+title = "Modified Bessel I function"
+description = """
+Compute the modified Bessel function of the first kind.
+"""
+usage = """
+```
+bessel_i(n, x)
+```
+"""
+arguments = """
+- `n`: order.\n- `x`: argument.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "bessel_j"
+title = "Bessel J function"
+description = """
+Compute the Bessel function of the first kind.
+"""
+usage = """
+```
+bessel_j(n, x)
+```
+"""
+arguments = """
+- `n`: order.\n- `x`: argument.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "bessel_k"
+title = "Modified Bessel K function"
+description = """
+Compute the modified Bessel function of the second kind.
+"""
+usage = """
+```
+bessel_k(n, x)
+```
+"""
+arguments = """
+- `n`: order.\n- `x`: argument.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "bessel_y"
+title = "Bessel Y function"
+description = """
+Compute the Bessel function of the second kind.
+"""
+usage = """
+```
+bessel_y(n, x)
+```
+"""
+arguments = """
+- `n`: order.\n- `x`: argument.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "beta"
+title = "Beta function"
+description = """
+Compute the beta function.
+"""
+usage = """
+```
+beta(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "bfloat"
+title = "Big float"
+description = """
+Convert to big float evaluation.
+"""
+usage = """
+```
+bfloat(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "bfloat_approx_equal"
+title = "Big float approximate equality"
+description = """
+Test approximate equality of big floats.
+"""
+usage = """
+```
+bfloat_approx_equal(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "binomial"
+title = "Binomial coefficient"
+description = """
+Compute the binomial coefficient.
+"""
+usage = """
+```
+binomial(n, k)
+```
+"""
+arguments = """
+- `n`, `k`: integers.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "cabs"
+title = "Complex absolute value"
+description = """
+Compute the complex absolute value.
+"""
+usage = """
+```
+cabs(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "cardinality"
+title = "Set cardinality"
+description = """
+Count the elements of a set.
+"""
+usage = """
+```
+cardinality(set)
+```
+"""
+arguments = """
+- `set`: set.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "ceiling"
+title = "Ceiling"
+description = """
+Round up to the nearest integer.
+"""
+usage = """
+```
+ceiling(x)
+```
+"""
+arguments = """
+- `x`: numeric expression.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "charat"
+title = "Character at index"
+description = """
+Return the character at a given position.
+"""
+usage = """
+```
+charat(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "charpoly"
+title = "Characteristic polynomial"
+description = """
+Compute the characteristic polynomial of a matrix.
+"""
+usage = """
+```
+charpoly(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "chebyshev_t"
+title = "Chebyshev T polynomial"
+description = """
+Compute the Chebyshev polynomial of the first kind.
+"""
+usage = """
+```
+chebyshev_t(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "chebyshev_u"
+title = "Chebyshev U polynomial"
+description = """
+Compute the Chebyshev polynomial of the second kind.
+"""
+usage = """
+```
+chebyshev_u(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "chinese"
+title = "Chinese remainder"
+description = """
+Solve a system using the Chinese remainder theorem.
+"""
+usage = """
+```
+chinese(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "coeff"
+title = "Coefficient"
+description = """
+Extract a coefficient from a polynomial.
+"""
+usage = """
+```
+coeff(expr, x, n)
+```
+"""
+arguments = """
+- `expr`: polynomial.\n- `x`: variable.\n- `n`: power.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "collectterms"
+title = "Collect terms"
+description = """
+Collect coefficients of like terms.
+"""
+usage = """
+```
+collectterms(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "concat"
+title = "Concatenate strings/symbols"
+description = """
+Concatenate arguments into a name or string.
+"""
+usage = """
+```
+concat(a, b, ...)
+```
+"""
+arguments = """
+- `a`, `b`, ...: atoms.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "conjugate"
+title = "Complex conjugate"
+description = """
+Compute the complex conjugate.
+"""
+usage = """
+```
+conjugate(z)
+```
+"""
+arguments = """
+- `z`: expression.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "cons"
+title = "Prepend to list"
+description = """
+Prepend an element to a list.
+"""
+usage = """
+```
+cons(item, list)
+```
+"""
+arguments = """
+- `item`: element.\n- `list`: list.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "constantp"
+title = "Constant predicate"
+description = """
+Return true if the argument is constant.
+"""
+usage = """
+```
+constantp(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "content"
+title = "Content of a polynomial"
+description = """
+Compute the integer content of a polynomial.
+"""
+usage = """
+```
+content(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "cos"
+title = "Cosine"
+description = """
+Compute the cosine of an expression.
+"""
+usage = """
+```
+cos(x)
+```
+"""
+arguments = """
+- `x`: angle in radians.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "cosh"
+title = "Hyperbolic cosine"
+description = """
+Compute the hyperbolic cosine.
+"""
+usage = """
+```
+cosh(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "cot"
+title = "Cotangent"
+description = """
+Compute the cotangent of an expression.
+"""
+usage = """
+```
+cot(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "coth"
+title = "Hyperbolic cotangent"
+description = """
+Compute the hyperbolic cotangent.
+"""
+usage = """
+```
+coth(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "csc"
+title = "Cosecant"
+description = """
+Compute the cosecant of an expression.
+"""
+usage = """
+```
+csc(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "csch"
+title = "Hyperbolic cosecant"
+description = """
+Compute the hyperbolic cosecant.
+"""
+usage = """
+```
+csch(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "deactivate"
+title = "Deactivate context"
+description = """
+Deactivate an assumption context.
+"""
+usage = """
+```
+deactivate(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "declare"
+title = "Declare properties"
+description = """
+Declare mathematical properties of symbols.
+"""
+usage = """
+```
+declare(x, property)
+```
+"""
+arguments = """
+- `x`: symbol.\n- `property`: property name.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "defrule"
+title = "Define rule"
+description = """
+Define a pattern rewrite rule.
+"""
+usage = """
+```
+defrule(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "delete"
+title = "Delete elements"
+description = """
+Delete matching elements from a list.
+"""
+usage = """
+```
+delete(item, list)
+```
+"""
+arguments = """
+- `item`: element to remove.\n- `list`: list.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "denom"
+alias = ["ratdenom"]
+title = "Denominator"
+description = """
+Extract the denominator of a rational expression.
+"""
+usage = """
+```
+denom(expr)
+```
+"""
+arguments = """
+- `expr`: rational expression.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "determinant"
+title = "Determinant"
+description = """
+Compute the determinant of a matrix.
+"""
+usage = """
+```
+determinant(m)
+```
+"""
+arguments = """
+- `m`: square matrix.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
 authors = ["Maxima project"]
 
 [[function]]
@@ -61,6 +1117,1256 @@ references = [
 authors = ["Maxima project"]
 
 [[function]]
+name = "discriminant"
+title = "Discriminant of a polynomial"
+description = """
+Compute the discriminant of a polynomial.
+"""
+usage = """
+```
+discriminant(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "disjointp"
+title = "Disjoint predicate"
+description = """
+Test whether two sets are disjoint.
+"""
+usage = """
+```
+disjointp(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "display"
+title = "Display expressions"
+description = """
+Display expressions with labels.
+"""
+usage = """
+```
+display(a, b, ...)
+```
+"""
+arguments = """
+- `a`, `b`, ...: expressions.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "divide"
+title = "Polynomial division"
+description = """
+Divide two polynomials.
+"""
+usage = """
+```
+divide(p, q, x)
+```
+"""
+arguments = """
+- `p`, `q`: polynomials.\n- `x`: variable.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "divisors"
+title = "Divisors"
+description = """
+Return the divisors of an integer.
+"""
+usage = """
+```
+divisors(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "eigenvalues"
+title = "Eigenvalues"
+description = """
+Compute the eigenvalues of a matrix.
+"""
+usage = """
+```
+eigenvalues(m)
+```
+"""
+arguments = """
+- `m`: square matrix.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "eigenvectors"
+title = "Eigenvectors"
+description = """
+Compute the eigenvectors of a matrix.
+"""
+usage = """
+```
+eigenvectors(m)
+```
+"""
+arguments = """
+- `m`: square matrix.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "elementp"
+title = "Element predicate"
+description = """
+Test set membership.
+"""
+usage = """
+```
+elementp(x, set)
+```
+"""
+arguments = """
+- `x`: element.\n- `set`: set.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "eliminate"
+title = "Eliminate variables"
+description = """
+Eliminate variables from polynomial equations.
+"""
+usage = """
+```
+eliminate(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "emptyp"
+title = "Test empty list"
+description = """
+Return true if a list is empty.
+"""
+usage = """
+```
+emptyp(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "endcons"
+title = "Append to list"
+description = """
+Append an element to the end of a list.
+"""
+usage = """
+```
+endcons(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "equal"
+title = "Equal"
+description = """
+Construct an equality equation.
+"""
+usage = """
+```
+equal(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "erf"
+title = "Error function"
+description = """
+Compute the error function.
+"""
+usage = """
+```
+erf(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "erfc"
+title = "Complementary error function"
+description = """
+Compute the complementary error function.
+"""
+usage = """
+```
+erfc(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "erfi"
+title = "Imaginary error function"
+description = """
+Compute the imaginary error function, erfi(x) = -%i*erf(%i*x). Its
+derivative is 2*exp(x^2)/sqrt(%pi). Arises as the antiderivative of
+exp(x^2).
+"""
+usage = """
+```
+erfi(x)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "expintegral_ei"
+title = "Exponential integral Ei"
+description = """
+Exponential integral Ei(x) = integrate(exp(t)/t, t, -inf, x) (principal
+value). Its derivative is exp(x)/x.
+"""
+usage = """
+```
+expintegral_ei(x)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "expintegral_li"
+title = "Logarithmic integral"
+description = """
+Logarithmic integral li(x) = integrate(1/log(t), t, 0, x) (principal
+value), equal to expintegral_ei(log(x)). Its derivative is 1/log(x).
+"""
+usage = """
+```
+expintegral_li(x)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "expintegral_si"
+title = "Sine integral"
+description = """
+Sine integral Si(x) = integrate(sin(t)/t, t, 0, x). Its derivative is
+sin(x)/x.
+"""
+usage = """
+```
+expintegral_si(x)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "expintegral_ci"
+title = "Cosine integral"
+description = """
+Cosine integral Ci(x) = %gamma + log(x) + integrate((cos(t)-1)/t, t, 0, x).
+Its derivative is cos(x)/x.
+"""
+usage = """
+```
+expintegral_ci(x)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "fresnel_s"
+title = "Fresnel sine integral"
+description = """
+Fresnel sine integral fresnel_s(x) = integrate(sin(%pi*t^2/2), t, 0, x).
+Its derivative is sin(%pi*x^2/2).
+"""
+usage = """
+```
+fresnel_s(x)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "fresnel_c"
+title = "Fresnel cosine integral"
+description = """
+Fresnel cosine integral fresnel_c(x) = integrate(cos(%pi*t^2/2), t, 0, x).
+Its derivative is cos(%pi*x^2/2).
+"""
+usage = """
+```
+fresnel_c(x)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "errcatch"
+title = "Catch errors"
+description = """
+Evaluate and catch runtime errors.
+"""
+usage = """
+```
+errcatch(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "ev"
+title = "Evaluate with flags"
+description = """
+Evaluate an expression with local flags.
+"""
+usage = """
+```
+ev(expr, x=val, ...)
+```
+"""
+arguments = """
+- `expr`: expression.\n- substitutions or flags.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "evenp"
+title = "Even predicate"
+description = """
+Return true if the argument is even.
+"""
+usage = """
+```
+evenp(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "every"
+title = "Test every element"
+description = """
+Test whether a predicate holds for every element.
+"""
+usage = """
+```
+every(pred, list)
+```
+"""
+arguments = """
+- `pred`: predicate.\n- `list`: list.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "exp"
+title = "Exponential"
+description = """
+Compute the exponential function.
+"""
+usage = """
+```
+exp(x)
+```
+"""
+arguments = """
+- `x`: exponent.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "expand"
+title = "Expand an expression"
+description = """
+Expand products and powers into a sum of terms.
+"""
+usage = """
+```
+expand(expr)
+```
+"""
+arguments = """
+- `expr`: an algebraic expression.
+"""
+details = """
+`expand` distributes products over sums and expands integer powers of sums.
+It is the inverse of `factor` in many common cases.
+"""
+value = """
+Returns the expanded expression.
+"""
+references = [
+    "https://maxima.sourceforge.io/docs/manual/maxima_48.html#expand",
+]
+authors = ["Maxima project"]
+
+[[function]]
+name = "factor"
+title = "Factor a polynomial or integer"
+description = """
+Factor performs complete factorization of a polynomial or integer into
+irreducible factors over the integers (or rationals).
+"""
+usage = """
+```
+factor(expr)
+```
+"""
+arguments = """
+- `expr`: a polynomial, rational expression, or integer to factor.
+"""
+details = """
+For polynomials the result is a product of irreducible polynomials with
+integer coefficients. For integers the result is a product of primes raised
+to appropriate powers.
+"""
+value = """
+Returns a factored expression, or the input unchanged if it is already
+irreducible.
+"""
+references = [
+    "https://maxima.sourceforge.io/docs/manual/maxima_48.html#factor",
+]
+authors = ["Maxima project"]
+
+[[function]]
+name = "factor_multivariate"
+title = "Factor multivariate polynomial"
+description = """
+Factor a multivariate polynomial.
+"""
+usage = """
+```
+factor_multivariate(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "factorial"
+title = "Factorial"
+description = """
+Compute the factorial of an integer.
+"""
+usage = """
+```
+factorial(n)\nn!
+```
+"""
+arguments = """
+- `n`: non-negative integer.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "facts"
+title = "List facts"
+description = """
+List current assumptions.
+"""
+usage = """
+```
+facts()\nfacts(x)
+```
+"""
+arguments = """
+- `x`: optional symbol.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "featurep"
+title = "Feature predicate"
+description = """
+Test whether an object has a declared property.
+"""
+usage = """
+```
+featurep(x, property)
+```
+"""
+arguments = """
+- `x`: symbol.\n- `property`: property name.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "fibonacci"
+title = "Fibonacci number"
+description = """
+Compute a Fibonacci number.
+"""
+usage = """
+```
+fibonacci(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "fifth"
+title = "Fifth element"
+description = """
+Return the fifth element of a list.
+"""
+usage = """
+```
+fifth(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "file_search"
+title = "File search"
+description = """
+Search for a file in the load path.
+"""
+usage = """
+```
+file_search(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "file_search_maxima"
+title = "Search Maxima files"
+description = """
+Search for Maxima source files.
+"""
+usage = """
+```
+file_search_maxima(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "first"
+title = "First element"
+description = """
+Return the first element of a list.
+"""
+usage = """
+```
+first(list)
+```
+"""
+arguments = """
+- `list`: list expression.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "flatten"
+title = "Flatten nested lists"
+description = """
+Flatten nested list structure.
+"""
+usage = """
+```
+flatten(list)
+```
+"""
+arguments = """
+- `list`: list.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "float"
+title = "Convert to float"
+description = """
+Convert an expression to floating point.
+"""
+usage = """
+```
+float(x)
+```
+"""
+arguments = """
+- `x`: expression.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "float_approx_equal"
+title = "Float approximate equality"
+description = """
+Test approximate equality of floats.
+"""
+usage = """
+```
+float_approx_equal(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "floatnump"
+title = "Float predicate"
+description = """
+Return true if the argument is a float.
+"""
+usage = """
+```
+floatnump(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "floor"
+title = "Floor"
+description = """
+Round down to the nearest integer.
+"""
+usage = """
+```
+floor(x)
+```
+"""
+arguments = """
+- `x`: numeric expression.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "forget"
+title = "Forget facts"
+description = """
+Remove assumptions from the environment.
+"""
+usage = """
+```
+forget(pred)
+```
+"""
+arguments = """
+- `pred`: predicate.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "fourth"
+title = "Fourth element"
+description = """
+Return the fourth element of a list.
+"""
+usage = """
+```
+fourth(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "fpprec"
+title = "Float precision"
+description = """
+Set or return big-float precision.
+"""
+usage = """
+```
+fpprec(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "freeof"
+title = "Free of predicate"
+description = """
+Return true if an expression is free of a variable.
+"""
+usage = """
+```
+freeof(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "fullmap"
+title = "Full map"
+description = """
+Map a function over all subexpressions.
+"""
+usage = """
+```
+fullmap(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "funapply"
+title = "Function application"
+description = """
+Apply a function or subscripted function.
+"""
+usage = """
+```
+funapply(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "gamma"
+title = "Gamma function"
+description = """
+Compute the gamma function.
+"""
+usage = """
+```
+gamma(x)
+```
+"""
+arguments = """
+- `x`: expression.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "gcd"
+title = "Greatest common divisor"
+description = """
+Compute the GCD of polynomials or integers.
+"""
+usage = """
+```
+gcd(a, b)
+```
+"""
+arguments = """
+- `a`, `b`: polynomials or integers.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "gen_laguerre"
+title = "Generalized Laguerre polynomial"
+description = """
+Compute the generalized Laguerre polynomial.
+"""
+usage = """
+```
+gen_laguerre(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "get"
+title = "Get property"
+description = """
+Retrieve a property from a symbol.
+"""
+usage = """
+```
+get(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "gnuplot_script"
+title = "Gnuplot script"
+description = """
+Generate a gnuplot script.
+"""
+usage = """
+```
+gnuplot_script(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "grind"
+title = "Grind output"
+description = """
+Convert an expression to grind-readable format.
+"""
+usage = """
+```
+grind(expr)
+```
+"""
+arguments = """
+- `expr`: expression.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "groebner_basis"
+title = "Gröbner basis"
+description = """
+Compute a Gröbner basis.
+"""
+usage = """
+```
+groebner_basis(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "halfangles"
+title = "Half-angle simplification"
+description = """
+Apply half-angle identities.
+"""
+usage = """
+```
+halfangles(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "help"
+title = "Help"
+description = """
+Built-in function.
+"""
+usage = """
+```
+help(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "hermite"
+title = "Hermite polynomial"
+description = """
+Compute the Hermite polynomial.
+"""
+usage = """
+```
+hermite(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "hipow"
+title = "Highest power"
+description = """
+Highest power of a variable in a polynomial.
+"""
+usage = """
+```
+hipow(expr, x)
+```
+"""
+arguments = """
+- `expr`: polynomial.\n- `x`: variable.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "ic1"
+title = "Initial condition for first-order ODE"
+description = """
+Apply initial condition to an ODE solution.
+"""
+usage = """
+```
+ic1(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "ic2"
+title = "Initial condition for second-order ODE"
+description = """
+Apply initial condition to a second-order ODE solution.
+"""
+usage = """
+```
+ic2(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "ideal_contains"
+title = "Ideal membership"
+description = """
+Test ideal membership.
+"""
+usage = """
+```
+ideal_contains(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "ideal_intersect"
+title = "Intersect ideals"
+description = """
+Compute the intersection of polynomial ideals.
+"""
+usage = """
+```
+ideal_intersect(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "ideal_product"
+title = "Product of ideals"
+description = """
+Compute the product of polynomial ideals.
+"""
+usage = """
+```
+ideal_product(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "ideal_sum"
+title = "Sum of ideals"
+description = """
+Compute the sum of polynomial ideals.
+"""
+usage = """
+```
+ideal_sum(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "ident"
+title = "Identity matrix"
+description = """
+Create an identity matrix.
+"""
+usage = """
+```
+ident(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "identity"
+title = "Identity function"
+description = """
+Return its argument unchanged.
+"""
+usage = """
+```
+identity(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "ifactors"
+title = "Integer factorization"
+description = """
+Factor an integer into primes.
+"""
+usage = """
+```
+ifactors(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "ilt"
+title = "Inverse Laplace transform"
+description = """
+Compute the inverse Laplace transform.
+"""
+usage = """
+```
+ilt(expr, s, t)
+```
+"""
+arguments = """
+- `expr`: expression in `s`.\n- `s`: transform variable.\n- `t`: time variable.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "imagpart"
+title = "Imaginary part"
+description = """
+Return the imaginary part of an expression.
+"""
+usage = """
+```
+imagpart(z)
+```
+"""
+arguments = """
+- `z`: expression.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "infix"
+title = "Define infix operator"
+description = """
+Define a new infix operator.
+"""
+usage = """
+```
+infix(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "integerp"
+title = "Integer predicate"
+description = """
+Return true if the argument is an integer.
+"""
+usage = """
+```
+integerp(x)
+```
+"""
+arguments = """
+- `x`: expression.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
 name = "integrate"
 title = "Integrate an expression"
 description = """
@@ -92,82 +2398,331 @@ references = [
 authors = ["Maxima project"]
 
 [[function]]
-name = "expand"
-title = "Expand an expression"
+name = "intersection"
+title = "Set intersection"
 description = """
-Expand products and powers into a sum of terms.
+Compute the intersection of sets.
 """
 usage = """
 ```
-expand(expr)
+intersection(set1, set2, ...)
 ```
 """
 arguments = """
-- `expr`: an algebraic expression.
+- `set*`: sets.
 """
 details = """
-`expand` distributes products over sums and expands integer powers of sums.
-It is the inverse of `factor` in many common cases.
+See the usage and arguments above for typical calling patterns.
 """
 value = """
-Returns the expanded expression.
-"""
-references = [
-    "https://maxima.sourceforge.io/docs/manual/maxima_48.html#expand",
-]
-authors = ["Maxima project"]
-
-[[function]]
-name = "simplify"
-title = "Simplify an expression"
-description = """
-Apply the built-in simplifier to an expression.
-"""
-usage = """
-```
-simplify(expr)
-```
-"""
-arguments = """
-- `expr`: any expression.
-"""
-details = """
-Simplification combines like terms, normalizes rational expressions, and
-applies basic identities. It is applied automatically by the evaluator, but
-`simplify` can be called explicitly when needed.
-"""
-value = """
-Returns a simplified expression.
+Returns the computed result, or a noun form if evaluation is not possible.
 """
 references = []
 authors = ["Maxima project"]
 
 [[function]]
-name = "solve"
-title = "Solve equations"
+name = "inv_mod"
+title = "Modular inverse"
 description = """
-Find solutions of one or more equations.
+Compute the modular inverse.
 """
 usage = """
 ```
-solve(eqn, x)
-solve([eqn1, eqn2], [x, y])
+inv_mod(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "invert"
+title = "Matrix inverse"
+description = """
+Compute the inverse of a matrix.
+"""
+usage = """
+```
+invert(m)
 ```
 """
 arguments = """
-- `eqn`: an equation or list of equations.
-- `x`: the variable or list of variables to solve for.
+- `m`: square matrix.
 """
 details = """
-`solve` returns symbolic solutions when possible. Systems may be linear or
-non-linear; if no closed-form solution exists the noun form is returned.
+See the usage and arguments above for typical calling patterns.
 """
 value = """
-Returns a list of solutions.
+Returns the computed result, or a noun form if evaluation is not possible.
 """
-references = [
-    "https://maxima.sourceforge.io/docs/manual/maxima_24.html#solve",
-]
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "invert_by_adjoint"
+title = "Matrix inverse by adjoint"
+description = """
+Compute the inverse using the adjoint.
+"""
+usage = """
+```
+invert_by_adjoint(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "is"
+title = "Predicate evaluation"
+description = """
+Evaluate a predicate to true or false.
+"""
+usage = """
+```
+is(pred)
+```
+"""
+arguments = """
+- `pred`: predicate expression.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "jacobi"
+title = "Jacobi symbol"
+description = """
+Compute the Jacobi symbol.
+"""
+usage = """
+```
+jacobi(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "jacobi_p"
+title = "Jacobi polynomial"
+description = """
+Compute the Jacobi polynomial.
+"""
+usage = """
+```
+jacobi_p(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "kill"
+title = "Remove bindings"
+description = """
+Remove variables, functions, or properties.
+"""
+usage = """
+```
+kill(x)\nkill(all)
+```
+"""
+arguments = """
+- `x`: symbol, function, or `all`.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "killcontext"
+title = "Kill context"
+description = """
+Remove an assumption context.
+"""
+usage = """
+```
+killcontext(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "laguerre"
+title = "Laguerre polynomial"
+description = """
+Compute the Laguerre polynomial.
+"""
+usage = """
+```
+laguerre(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "laplace"
+title = "Laplace transform"
+description = """
+Compute the Laplace transform.
+"""
+usage = """
+```
+laplace(expr, t, s)
+```
+"""
+arguments = """
+- `expr`: expression in `t`.\n- `t`: time variable.\n- `s`: transform variable.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "last"
+title = "Last element"
+description = """
+Return the last element of a list.
+"""
+usage = """
+```
+last(list)
+```
+"""
+arguments = """
+- `list`: list expression.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "legendre_p"
+title = "Legendre P function"
+description = """
+Compute the Legendre polynomial of the first kind.
+"""
+usage = """
+```
+legendre_p(n, x)
+```
+"""
+arguments = """
+- `n`: degree.\n- `x`: argument.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "legendre_q"
+title = "Legendre Q function"
+description = """
+Compute the Legendre function of the second kind.
+"""
+usage = """
+```
+legendre_q(n, x)
+```
+"""
+arguments = """
+- `n`: degree.\n- `x`: argument.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "length"
+title = "Length of a list"
+description = """
+Return the number of elements.
+"""
+usage = """
+```
+length(list)
+```
+"""
+arguments = """
+- `list`: list, set, or string.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "lfreeof"
+title = "Linear free of"
+description = """
+Test whether an expression is linearly free of a variable.
+"""
+usage = """
+```
+lfreeof(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "lhs"
+title = "Left-hand side"
+description = """
+Return the left-hand side of an equation.
+"""
+usage = """
+```
+lhs(eqn)
+```
+"""
+arguments = """
+- `eqn`: equation.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
 authors = ["Maxima project"]
 
 [[function]]
@@ -201,6 +2756,2212 @@ references = [
 authors = ["Maxima project"]
 
 [[function]]
+name = "linsolve"
+title = "Solve linear equations"
+description = """
+Solve a system of linear equations.
+"""
+usage = """
+```
+linsolve(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "listify"
+title = "Convert to list"
+description = """
+Convert a set to a list.
+"""
+usage = """
+```
+listify(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "listp"
+title = "List predicate"
+description = """
+Return true if the argument is a list.
+"""
+usage = """
+```
+listp(x)
+```
+"""
+arguments = """
+- `x`: expression.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "lmax"
+title = "Maximum of a list"
+description = """
+Return the largest element of a list.
+"""
+usage = """
+```
+lmax(list)
+```
+"""
+arguments = """
+- `list`: list.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "lmin"
+title = "Minimum of a list"
+description = """
+Return the smallest element of a list.
+"""
+usage = """
+```
+lmin(list)
+```
+"""
+arguments = """
+- `list`: list.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "load"
+alias = ["batchload"]
+title = "Load file"
+description = """
+Load a Maxima source file.
+"""
+usage = """
+```
+load(filename)
+```
+"""
+arguments = """
+- `filename`: file path or name.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "load_pathname"
+title = "Load pathname"
+description = """
+Return the pathname of the current load.
+"""
+usage = """
+```
+load_pathname(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "load_plugin"
+title = "Load plugin"
+description = """
+Load a dynamic plugin.
+"""
+usage = """
+```
+load_plugin(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "loaded_files"
+title = "Loaded files"
+description = """
+Return the list of loaded files.
+"""
+usage = """
+```
+loaded_files(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "loaded_plugins"
+title = "Loaded plugins"
+description = """
+Return the list of loaded plugins.
+"""
+usage = """
+```
+loaded_plugins(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "log"
+title = "Natural logarithm"
+description = """
+Compute the natural logarithm.
+"""
+usage = """
+```
+log(x)
+```
+"""
+arguments = """
+- `x`: positive expression.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "log_gamma"
+title = "Log gamma function"
+description = """
+Compute the log of the gamma function.
+"""
+usage = """
+```
+log_gamma(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "logcontract"
+title = "Contract logarithms"
+description = """
+Combine sums of logs into logs of products.
+"""
+usage = """
+```
+logcontract(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "logexpand"
+title = "Expand logarithms"
+description = """
+Expand logs of products and powers.
+"""
+usage = """
+```
+logexpand(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "lopow"
+title = "Lowest power"
+description = """
+Lowest power of a variable in a polynomial.
+"""
+usage = """
+```
+lopow(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "makelist"
+alias = ["create_list"]
+title = "Make a list"
+description = """
+Create a list by evaluating an expression over an index range.
+"""
+usage = """
+```
+makelist(expr, i, lo, hi)\nmakelist(expr, x, list)
+```
+"""
+arguments = """
+- `expr`: expression.\n- `i`/`x`: index variable.\n- `lo`, `hi`: bounds, or `list`: values.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "map"
+title = "Map a function"
+description = """
+Apply a function to each element of a list.
+"""
+usage = """
+```
+map(f, list1, list2, ...)
+```
+"""
+arguments = """
+- `f`: function.\n- `list*`: lists.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "maplist"
+title = "Map to list"
+description = """
+Apply a function and return a list of results.
+"""
+usage = """
+```
+maplist(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "matchdeclare"
+title = "Declare match variable"
+description = """
+Declare a variable for pattern matching.
+"""
+usage = """
+```
+matchdeclare(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "matchfix"
+title = "Define matchfix operator"
+description = """
+Define a new matchfix operator.
+"""
+usage = """
+```
+matchfix(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "matrix"
+title = "Construct a matrix"
+description = """
+Create a matrix from row lists.
+"""
+usage = """
+```
+matrix([row1], [row2], ...)
+```
+"""
+arguments = """
+- `row*`: lists of matrix entries.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "max"
+title = "Maximum"
+description = """
+Return the largest of the arguments.
+"""
+usage = """
+```
+max(a, b, ...)
+```
+"""
+arguments = """
+- `a`, `b`, ...: numeric expressions.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "member"
+title = "Test membership"
+description = """
+Test whether an element is in a list.
+"""
+usage = """
+```
+member(item, list)
+```
+"""
+arguments = """
+- `item`: element to search for.\n- `list`: list or set.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "meval"
+title = "Evaluate expression"
+description = """
+Evaluate an expression in the current environment.
+"""
+usage = """
+```
+meval(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "min"
+title = "Minimum"
+description = """
+Return the smallest of the arguments.
+"""
+usage = """
+```
+min(a, b, ...)
+```
+"""
+arguments = """
+- `a`, `b`, ...: numeric expressions.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "minus"
+title = "Minus"
+description = """
+Built-in function.
+"""
+usage = """
+```
+minus(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "mod"
+title = "Modulo"
+description = """
+Compute the remainder of integer division.
+"""
+usage = """
+```
+mod(a, b)
+```
+"""
+arguments = """
+- `a`, `b`: integers.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "mqapply"
+title = "Subscripted application"
+description = """
+Subscripted function application.
+"""
+usage = """
+```
+mqapply(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "multthru"
+title = "Multiply through"
+description = """
+Multiply a factor through a sum.
+"""
+usage = """
+```
+multthru(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "nargs"
+title = "Number of arguments"
+description = """
+Count arguments of a function call.
+"""
+usage = """
+```
+nargs(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "nary"
+title = "Define n-ary operator"
+description = """
+Define a new n-ary operator.
+"""
+usage = """
+```
+nary(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "ncexpt"
+title = "Non-commutative exponentiation"
+description = """
+Non-commutative power operator.
+"""
+usage = """
+```
+ncexpt(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "negative"
+title = "Negative"
+description = """
+Built-in function.
+"""
+usage = """
+```
+negative(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "newcontext"
+title = "New context"
+description = """
+Create a new assumption context.
+"""
+usage = """
+```
+newcontext(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "next_prime"
+title = "Next prime"
+description = """
+Return the next prime number.
+"""
+usage = """
+```
+next_prime(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "nofix"
+title = "Define nofix operator"
+description = """
+Define a new nofix operator.
+"""
+usage = """
+```
+nofix(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "nonnegintegerp"
+title = "Non-negative integer predicate"
+description = """
+Return true if the argument is a non-negative integer.
+"""
+usage = """
+```
+nonnegintegerp(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "notequal"
+title = "Not equal"
+description = """
+Construct an inequality.
+"""
+usage = """
+```
+notequal(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "nroots"
+title = "Numeric polynomial roots"
+description = """
+Find all roots of a polynomial numerically.
+"""
+usage = """
+```
+nroots(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "nterms"
+title = "Number of terms"
+description = """
+Count terms of a sum.
+"""
+usage = """
+```
+nterms(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "num"
+alias = ["ratnumer"]
+title = "Numerator"
+description = """
+Extract the numerator of a rational expression.
+"""
+usage = """
+```
+num(expr)
+```
+"""
+arguments = """
+- `expr`: rational expression.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "numberp"
+title = "Number predicate"
+description = """
+Return true if the argument is a number.
+"""
+usage = """
+```
+numberp(x)
+```
+"""
+arguments = """
+- `x`: expression.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "oddp"
+title = "Odd predicate"
+description = """
+Return true if the argument is odd.
+"""
+usage = """
+```
+oddp(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "ode2"
+title = "Solve ODE"
+description = """
+Solve a first or second order ordinary differential equation.
+"""
+usage = """
+```
+ode2(eqn, y, x)
+```
+"""
+arguments = """
+- `eqn`: differential equation.\n- `y`: dependent variable.\n- `x`: independent variable.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "op"
+title = "Operator"
+description = """
+Return the operator of an expression.
+"""
+usage = """
+```
+op(expr)
+```
+"""
+arguments = """
+- `expr`: expression.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "ordergreatp"
+title = "Order greater predicate"
+description = """
+Compare two expressions for canonical order.
+"""
+usage = """
+```
+ordergreatp(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "orderlessp"
+title = "Order less predicate"
+description = """
+Compare two expressions for canonical order.
+"""
+usage = """
+```
+orderlessp(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "parse_string"
+title = "Parse string"
+description = """
+Parse a string as a Maxima expression.
+"""
+usage = """
+```
+parse_string(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "part"
+title = "Part extraction"
+description = """
+Extract a part of an expression by indices.
+"""
+usage = """
+```
+part(expr, i, j, ...)
+```
+"""
+arguments = """
+- `expr`: expression.\n- `i`, `j`, ...: part indices.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "partfrac"
+title = "Partial fraction decomposition"
+description = """
+Decompose a rational expression into partial fractions.
+"""
+usage = """
+```
+partfrac(expr, x)
+```
+"""
+arguments = """
+- `expr`: rational expression.\n- `x`: variable.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "plot2d"
+title = "2D plot"
+description = """
+Generate a 2D plot.
+"""
+usage = """
+```
+plot2d(expr, [x, xmin, xmax])
+```
+"""
+arguments = """
+- `expr`: expression to plot.\n- `x`: variable.\n- `xmin`, `xmax`: plot range.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "plus"
+title = "Plus"
+description = """
+Built-in function.
+"""
+usage = """
+```
+plus(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "polysys_solve"
+title = "Solve polynomial system"
+description = """
+Solve a system of polynomial equations.
+"""
+usage = """
+```
+polysys_solve(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "positive"
+title = "Positive"
+description = """
+Built-in function.
+"""
+usage = """
+```
+positive(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "postfix"
+title = "Define postfix operator"
+description = """
+Define a new postfix operator.
+"""
+usage = """
+```
+postfix(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "power_mod"
+title = "Modular exponentiation"
+description = """
+Compute a power modulo an integer.
+"""
+usage = """
+```
+power_mod(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "powerset"
+title = "Power set"
+description = """
+Compute the power set.
+"""
+usage = """
+```
+powerset(set)
+```
+"""
+arguments = """
+- `set`: set.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "prefix"
+title = "Define prefix operator"
+description = """
+Define a new prefix operator.
+"""
+usage = """
+```
+prefix(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "prev_prime"
+title = "Previous prime"
+description = """
+Return the previous prime number.
+"""
+usage = """
+```
+prev_prime(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "primep"
+title = "Prime predicate"
+description = """
+Test whether an integer is prime.
+"""
+usage = """
+```
+primep(n)
+```
+"""
+arguments = """
+- `n`: integer.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "primpart"
+title = "Primitive part"
+description = """
+Compute the primitive part of a polynomial.
+"""
+usage = """
+```
+primpart(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "print"
+title = "Print expressions"
+description = """
+Print arguments to standard output.
+"""
+usage = """
+```
+print(a, b, ...)
+```
+"""
+arguments = """
+- `a`, `b`, ...: expressions.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "printfile"
+title = "Print file"
+description = """
+Display the contents of a file.
+"""
+usage = """
+```
+printfile(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "product"
+title = "Product"
+description = """
+Compute finite or symbolic products.
+"""
+usage = """
+```
+product(expr, i, lo, hi)
+```
+"""
+arguments = """
+- `expr`: factor.\n- `i`: index variable.\n- `lo`, `hi`: lower and upper bounds.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "properties"
+title = "List properties"
+description = """
+List properties of a symbol.
+"""
+usage = """
+```
+properties(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "push"
+title = "Push onto list"
+description = """
+Push an element onto a list in-place.
+"""
+usage = """
+```
+push(item, list)
+```
+"""
+arguments = """
+- `item`: element.\n- `list`: list variable.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "put"
+title = "Put property"
+description = """
+Store a property on a symbol.
+"""
+usage = """
+```
+put(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "quotient"
+title = "Polynomial quotient"
+description = """
+Compute the quotient of polynomial division.
+"""
+usage = """
+```
+quotient(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "radcan"
+title = "Canonical radical simplification"
+description = """
+Simplify radicals, logs, and exponentials.
+"""
+usage = """
+```
+radcan(expr)
+```
+"""
+arguments = """
+- `expr`: expression.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "rank"
+title = "Matrix rank"
+description = """
+Compute the rank of a matrix.
+"""
+usage = """
+```
+rank(m)
+```
+"""
+arguments = """
+- `m`: matrix.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "rat"
+title = "Convert to canonical rational form"
+description = """
+Convert an expression to CRE form.
+"""
+usage = """
+```
+rat(expr, x)
+```
+"""
+arguments = """
+- `expr`: expression.\n- `x`: main variable.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "ratdisrep"
+title = "Disrep rational form"
+description = """
+Convert CRE form back to general expression.
+"""
+usage = """
+```
+ratdisrep(expr)
+```
+"""
+arguments = """
+- `expr`: rational form.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "ratexpand"
+title = "Expand a rational expression"
+description = """
+Expand rational expressions.
+"""
+usage = """
+```
+ratexpand(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "ratsimp"
+title = "Simplify a rational expression"
+description = """
+Simplify rational expressions.
+"""
+usage = """
+```
+ratsimp(expr)
+```
+"""
+arguments = """
+- `expr`: rational expression.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "ratsubst"
+title = "Rational substitution"
+description = """
+Substitute and simplify a rational expression.
+"""
+usage = """
+```
+ratsubst(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "realpart"
+title = "Real part"
+description = """
+Return the real part of an expression.
+"""
+usage = """
+```
+realpart(z)
+```
+"""
+arguments = """
+- `z`: expression.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "realroots"
+title = "Real polynomial roots"
+description = """
+Find real roots of a polynomial.
+"""
+usage = """
+```
+realroots(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "rectform"
+title = "Rectangular form"
+description = """
+Convert a complex expression to rectangular form.
+"""
+usage = """
+```
+rectform(z)
+```
+"""
+arguments = """
+- `z`: expression.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "remainder"
+title = "Polynomial remainder"
+description = """
+Compute the remainder of polynomial division.
+"""
+usage = """
+```
+remainder(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "remove"
+title = "Remove properties"
+description = """
+Remove declared properties.
+"""
+usage = """
+```
+remove(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "remvalue"
+title = "Remove values"
+description = """
+Remove variable values.
+"""
+usage = """
+```
+remvalue(x, ...)
+```
+"""
+arguments = """
+- `x`: symbol.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "require"
+title = "Require package"
+description = """
+Require a package or file.
+"""
+usage = """
+```
+require(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "residue"
+title = "Complex residue"
+description = """
+Compute the residue of an expression at a pole.
+"""
+usage = """
+```
+residue(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "rest"
+title = "Rest of a list"
+description = """
+Return all but the first element of a list.
+"""
+usage = """
+```
+rest(list)
+```
+"""
+arguments = """
+- `list`: list expression.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "resultant"
+title = "Resultant of polynomials"
+description = """
+Compute the resultant of two polynomials.
+"""
+usage = """
+```
+resultant(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "reverse"
+title = "Reverse a list"
+description = """
+Reverse the elements of a list.
+"""
+usage = """
+```
+reverse(list)
+```
+"""
+arguments = """
+- `list`: list.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "rhs"
+title = "Right-hand side"
+description = """
+Return the right-hand side of an equation.
+"""
+usage = """
+```
+rhs(eqn)
+```
+"""
+arguments = """
+- `eqn`: equation.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "round"
+title = "Round"
+description = """
+Round to the nearest integer.
+"""
+usage = """
+```
+round(x)
+```
+"""
+arguments = """
+- `x`: numeric expression.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "save"
+title = "Save session"
+description = """
+Save variables and functions to a file.
+"""
+usage = """
+```
+save(filename, x, ...)
+```
+"""
+arguments = """
+- `filename`: file path.\n- `x`: symbols to save.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "sconcat"
+title = "String concatenation"
+description = """
+Concatenate arguments into a string.
+"""
+usage = """
+```
+sconcat(a, b, ...)
+```
+"""
+arguments = """
+- `a`, `b`, ...: expressions.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "sdowncase"
+title = "Lower case"
+description = """
+Convert a string to lower case.
+"""
+usage = """
+```
+sdowncase(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "sec"
+title = "Secant"
+description = """
+Compute the secant of an expression.
+"""
+usage = """
+```
+sec(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "sech"
+title = "Hyperbolic secant"
+description = """
+Compute the hyperbolic secant.
+"""
+usage = """
+```
+sech(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "second"
+title = "Second element"
+description = """
+Return the second element of a list.
+"""
+usage = """
+```
+second(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "sequal"
+title = "String equality"
+description = """
+Test string equality.
+"""
+usage = """
+```
+sequal(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "set"
+title = "Construct a set"
+description = """
+Create a set from arguments.
+"""
+usage = """
+```
+set(a, b, ...)
+```
+"""
+arguments = """
+- `a`, `b`, ...: elements.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "setdifference"
+title = "Set difference"
+description = """
+Compute the set difference.
+"""
+usage = """
+```
+setdifference(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "setify"
+title = "Convert to set"
+description = """
+Convert a list to a set.
+"""
+usage = """
+```
+setify(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "setup_autoload"
+title = "Setup autoload"
+description = """
+Configure a file to autoload functions.
+"""
+usage = """
+```
+setup_autoload(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "signum"
+alias = ["sign"]
+title = "Sign function"
+description = """
+Return the sign of an expression.
+"""
+usage = """
+```
+signum(x)
+```
+"""
+arguments = """
+- `x`: expression.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "simp"
+title = "Simplification flag"
+description = """
+Toggle or apply simplification.
+"""
+usage = """
+```
+simp(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "simplify"
+title = "Simplify an expression"
+description = """
+Apply the built-in simplifier to an expression.
+"""
+usage = """
+```
+simplify(expr)
+```
+"""
+arguments = """
+- `expr`: any expression.
+"""
+details = """
+Simplification combines like terms, normalizes rational expressions, and
+applies basic identities. It is applied automatically by the evaluator, but
+`simplify` can be called explicitly when needed.
+"""
+value = """
+Returns a simplified expression.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "sin"
+title = "Sine"
+description = """
+Compute the sine of an expression.
+"""
+usage = """
+```
+sin(x)
+```
+"""
+arguments = """
+- `x`: angle in radians.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "sinh"
+title = "Hyperbolic sine"
+description = """
+Compute the hyperbolic sine.
+"""
+usage = """
+```
+sinh(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "slength"
+title = "String length"
+description = """
+Return the length of a string.
+"""
+usage = """
+```
+slength(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "solve"
+title = "Solve equations"
+description = """
+Find solutions of one or more equations.
+"""
+usage = """
+```
+solve(eqn, x)
+solve([eqn1, eqn2], [x, y])
+```
+"""
+arguments = """
+- `eqn`: an equation or list of equations.
+- `x`: the variable or list of variables to solve for.
+"""
+details = """
+`solve` returns symbolic solutions when possible. Systems may be linear or
+non-linear; if no closed-form solution exists the noun form is returned.
+"""
+value = """
+Returns a list of solutions.
+"""
+references = [
+    "https://maxima.sourceforge.io/docs/manual/maxima_24.html#solve",
+]
+authors = ["Maxima project"]
+
+[[function]]
+name = "some"
+title = "Test some element"
+description = """
+Test whether a predicate holds for at least one element.
+"""
+usage = """
+```
+some(pred, list)
+```
+"""
+arguments = """
+- `pred`: predicate.\n- `list`: list.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "sort"
+title = "Sort a list"
+description = """
+Sort a list according to an optional predicate.
+"""
+usage = """
+```
+sort(list)\nsort(list, p)
+```
+"""
+arguments = """
+- `list`: list.\n- `p`: optional ordering predicate.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "split"
+title = "Split string"
+description = """
+Split a string into a list of substrings.
+"""
+usage = """
+```
+split(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "sqfr"
+title = "Square-free factorization"
+description = """
+Factor a polynomial into square-free factors.
+"""
+usage = """
+```
+sqfr(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "sqrt"
+title = "Square root"
+description = """
+Compute the square root.
+"""
+usage = """
+```
+sqrt(x)
+```
+"""
+arguments = """
+- `x`: expression.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "ssearch"
+title = "Search string"
+description = """
+Search for a substring.
+"""
+usage = """
+```
+ssearch(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "ssubst"
+title = "Substitute in string"
+description = """
+Substitute a substring in a string.
+"""
+usage = """
+```
+ssubst(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "strim"
+title = "Trim characters"
+description = """
+Trim characters from both ends of a string.
+"""
+usage = """
+```
+strim(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "striml"
+title = "Trim left"
+description = """
+Trim characters from the left of a string.
+"""
+usage = """
+```
+striml(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "strimr"
+title = "Trim right"
+description = """
+Trim characters from the right of a string.
+"""
+usage = """
+```
+strimr(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "string"
+title = "Convert to string"
+description = """
+Convert an expression to a string.
+"""
+usage = """
+```
+string(expr)
+```
+"""
+arguments = """
+- `expr`: expression.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "stringout"
+title = "String output"
+description = """
+Write expressions to a file as strings.
+"""
+usage = """
+```
+stringout(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "stringp"
+title = "String predicate"
+description = """
+Return true if the argument is a string.
+"""
+usage = """
+```
+stringp(x)
+```
+"""
+arguments = """
+- `x`: expression.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "sublist"
+title = "Sublist"
+description = """
+Select elements satisfying a predicate.
+"""
+usage = """
+```
+sublist(list, pred)
+```
+"""
+arguments = """
+- `list`: list.\n- `pred`: predicate.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "subset"
+title = "Subsets by predicate"
+description = """
+Return subsets satisfying a predicate.
+"""
+usage = """
+```
+subset(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "subsetp"
+title = "Subset predicate"
+description = """
+Test whether one set is a subset of another.
+"""
+usage = """
+```
+subsetp(a, b)
+```
+"""
+arguments = """
+- `a`, `b`: sets.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "subst"
+title = "Substitute into an expression"
+description = """
+Replace variables by values in an expression.
+"""
+usage = """
+```
+subst(a, x, expr)
+```
+"""
+arguments = """
+- `a`: replacement value.\n- `x`: variable to replace.\n- `expr`: expression.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "substring"
+title = "Extract substring"
+description = """
+Return a substring by indices.
+"""
+usage = """
+```
+substring(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
 name = "sum"
 title = "Summation"
 description = """
@@ -226,4 +4987,440 @@ Returns the sum or a noun form.
 references = [
     "https://maxima.sourceforge.io/docs/manual/maxima_29.html#sum",
 ]
+authors = ["Maxima project"]
+
+[[function]]
+name = "supcase"
+title = "Upper case"
+description = """
+Convert a string to upper case.
+"""
+usage = """
+```
+supcase(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "supcontext"
+title = "Super context"
+description = """
+Create a subordinate assumption context.
+"""
+usage = """
+```
+supcontext(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "symbolp"
+title = "Symbol predicate"
+description = """
+Return true if the argument is a symbol.
+"""
+usage = """
+```
+symbolp(x)
+```
+"""
+arguments = """
+- `x`: expression.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "symdifference"
+title = "Symmetric difference"
+description = """
+Compute the symmetric difference of sets.
+"""
+usage = """
+```
+symdifference(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "tan"
+title = "Tangent"
+description = """
+Compute the tangent of an expression.
+"""
+usage = """
+```
+tan(x)
+```
+"""
+arguments = """
+- `x`: angle in radians.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "tanh"
+title = "Hyperbolic tangent"
+description = """
+Compute the hyperbolic tangent.
+"""
+usage = """
+```
+tanh(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "taylor"
+title = "Taylor series expansion"
+description = """
+Expand an expression as a Taylor series around a point.
+"""
+usage = """
+```
+taylor(expr, x, a, n)
+```
+"""
+arguments = """
+- `expr`: expression.\n- `x`: variable.\n- `a`: expansion point.\n- `n`: order.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "tellsimp"
+title = "Simplification rule"
+description = """
+Define a simplification rule.
+"""
+usage = """
+```
+tellsimp(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "tellsimpafter"
+title = "Simplification rule after"
+description = """
+Define a rule applied after built-in simplification.
+"""
+usage = """
+```
+tellsimpafter(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "tex"
+alias = ["tex1"]
+title = "TeX output"
+description = """
+Convert an expression to TeX format.
+"""
+usage = """
+```
+tex(expr)
+```
+"""
+arguments = """
+- `expr`: expression.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "third"
+title = "Third element"
+description = """
+Return the third element of a list.
+"""
+usage = """
+```
+third(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "totient"
+title = "Euler's totient"
+description = """
+Compute Euler's totient function.
+"""
+usage = """
+```
+totient(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "transpose"
+title = "Transpose a matrix"
+description = """
+Transpose a matrix.
+"""
+usage = """
+```
+transpose(m)
+```
+"""
+arguments = """
+- `m`: matrix.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "trigexpand"
+title = "Expand trigonometric expressions"
+description = """
+Expand sums and multiple angles in trig functions.
+"""
+usage = """
+```
+trigexpand(expr)
+```
+"""
+arguments = """
+- `expr`: expression.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "trigrat"
+title = "Trigonometric rational simplification"
+description = """
+Simplify trigonometric rational expressions.
+"""
+usage = """
+```
+trigrat(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "trigreduce"
+title = "Reduce trigonometric powers"
+description = """
+Reduce powers of trig functions to multiple angles.
+"""
+usage = """
+```
+trigreduce(expr)
+```
+"""
+arguments = """
+- `expr`: expression.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "trigsimp"
+title = "Simplify trigonometric expressions"
+description = """
+Simplify expressions containing trig functions.
+"""
+usage = """
+```
+trigsimp(expr)
+```
+"""
+arguments = """
+- `expr`: expression.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "truncate"
+title = "Truncate"
+description = """
+Round toward zero.
+"""
+usage = """
+```
+truncate(x)
+```
+"""
+arguments = """
+- `x`: numeric expression.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "ultraspherical"
+title = "Ultraspherical polynomial"
+description = """
+Compute the ultraspherical (Gegenbauer) polynomial.
+"""
+usage = """
+```
+ultraspherical(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "union"
+title = "Set union"
+description = """
+Compute the union of sets.
+"""
+usage = """
+```
+union(set1, set2, ...)
+```
+"""
+arguments = """
+- `set*`: sets.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "unique"
+title = "Unique elements"
+description = """
+Remove duplicates from a list.
+"""
+usage = """
+```
+unique(list)
+```
+"""
+arguments = """
+- `list`: list.
+"""
+details = """
+See the usage and arguments above for typical calling patterns.
+"""
+value = """
+Returns the computed result, or a noun form if evaluation is not possible.
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "xreduce"
+title = "Reduce a list"
+description = """
+Left-reduce a list with a binary function.
+"""
+usage = """
+```
+xreduce(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "xthru"
+title = "Cross multiply"
+description = """
+Combine terms over a common denominator.
+"""
+usage = """
+```
+xthru(...)
+```
+"""
+references = []
+authors = ["Maxima project"]
+
+[[function]]
+name = "zeromatrix"
+title = "Zero matrix"
+description = """
+Create a zero matrix.
+"""
+usage = """
+```
+zeromatrix(...)
+```
+"""
+references = []
 authors = ["Maxima project"]

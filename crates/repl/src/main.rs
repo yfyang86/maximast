@@ -9,7 +9,7 @@ use rustyline::hint::Hinter;
 use rustyline::validate::Validator;
 use rustyline::{Context, Editor, Helper};
 
-const VERSION: &str = "5.0.0";
+const VERSION: &str = "8.0.0";
 
 const RESET: &str = "\x1b[0m";
 const BOLD: &str = "\x1b[1m";
@@ -29,6 +29,9 @@ const BUILTIN_FUNCTIONS: &[&str] = &[
     "ceiling", "charpoly", "coeff", "concat", "cos", "cosh", "cot", "coth", "csc", "csch",
     "declare", "determinant", "diff", "display",
     "eigenvalues", "eigenvectors", "endcons", "ev", "expand", "exp",
+    "erf", "erfc", "erfi",
+    "expintegral_ei", "expintegral_li", "expintegral_si", "expintegral_ci",
+    "fresnel_s", "fresnel_c",
     "eliminate", "factor", "factor_multivariate", "facts", "file_search",
     "file_search_maxima", "first", "float",
     "floor", "forget", "fourth",

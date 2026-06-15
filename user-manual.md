@@ -55,9 +55,12 @@ echo "diff(sin(x), x);" | maxima-repl
 
 ## Help System
 
-The built-in `help(...)` command displays documentation for supported
-functions. Help pages are stored in `crates/eval/src/help.toml` and embedded
-into the binary.
+The built-in `help(...)` command displays documentation for every built-in
+function (295+ entries). Core commands such as `integrate`, `diff`, `solve`,
+`limit`, `matrix`, and the special functions have full rich pages with usage,
+arguments, details, and return-value descriptions; the remaining built-ins have
+concise title/description/usage stubs. Help pages are stored in
+`crates/eval/src/help.toml` and embedded into the binary.
 
 ```
 help();                         → list documented functions
@@ -542,7 +545,7 @@ maxima-kernel/
 | v6.0 | 1008 | AC pattern matching, residues, advanced trig, ODE (variation of parameters, ic2/bc2) |
 | v7.0 | 1021 | Dynamic Rust plugin toolchain (load_plugin); orthopoly + specfun plugins |
 | v7.1 | 1116 | `legendre_q` in orthopoly; `bessel_y`/`bessel_k` in specfun; `cargo test` warning-free |
-| v7.2 | 1116 | Built-in `help(...)` documentation system; 41 walkthroughs with Sudoku demos |
+| v7.2 | 1116 | Built-in `help(...)` documentation system; full coverage for all ~295 built-in functions; 41 walkthroughs with Sudoku demos |
 
 ## License
 

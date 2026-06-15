@@ -274,6 +274,149 @@ pub(crate) fn coeff_to_expr(c: &maxima_poly::Coeff) -> Expr {
     }
 }
 
+/// Lazard–Rioboo–Trager logarithmic part for a proper, square-free rational
+/// function num/den (Bronstein, Symbolic Integration I, ch. 2). Computes the
+/// log part as Σ c_i·log(v_i) from a resultant, without factoring the
+/// denominator over an extension field.
+///
+/// Fires only when the rational-residue logs account for the entire
+/// denominator degree (i.e. the antiderivative is purely logarithmic with
+/// rational residues) and the result differentiates back to the integrand.
+/// Otherwise returns None, leaving the existing partfrac/atan path in charge —
+/// so this can never regress a case the older code already handled.
+fn try_lrt_log_integrate(
+    num: &maxima_poly::Poly,
+    den: &maxima_poly::Poly,
+    var: &Expr,
+) -> Option<Expr> {
+    let deg_den = den.degree().unwrap_or(0);
+    if deg_den < 1 || num.degree().unwrap_or(0) >= deg_den {
+        return None;
+    }
+    // Require a square-free denominator (Hermite reduction has run upstream).
+    if !maxima_poly::poly_gcd(den, &den.derivative()).is_constant() {
+        return None;
+    }
+
+    let logs = maxima_poly::lazard_rioboo_trager(num, den);
+    if logs.is_empty() {
+        return None;
+    }
+    // Full logarithmic coverage: rational residues span the whole denominator.
+    let cover: u32 = logs.iter().map(|(_, v)| v.degree().unwrap_or(0)).sum();
+    if cover != deg_den {
+        return None;
+    }
+
+    let mut terms = Vec::new();
+    for (c, v) in &logs {
+        let log_term = Expr::call("log", vec![maxima_poly::poly_to_expr(v)]);
+        terms.push(simplify(&Expr::mul(coeff_to_expr(c), log_term)));
+    }
+    let result = simplify(&Expr::List {
+        op: Operator::MPlus,
+        simplified: false,
+        args: terms,
+    });
+
+    let integrand = simplify(&Expr::div(
+        maxima_poly::poly_to_expr(num),
+        maxima_poly::poly_to_expr(den),
+    ));
+    if verify_antiderivative(&result, &integrand, var) {
+        Some(result)
+    } else {
+        None
+    }
+}
+
+/// Numeric check that d/dx(antideriv) ≈ integrand at several sample points.
+/// Used as the mandatory verification gate before returning a closed form.
+fn verify_antiderivative(antideriv: &Expr, integrand: &Expr, var: &Expr) -> bool {
+    let var_id = match var {
+        Expr::Symbol(id) => *id,
+        _ => return false,
+    };
+    let d = diff_once(antideriv, var);
+    // A wide spread so that domain-restricted integrands (e.g. √(x²-1),
+    // √(2x-x²)) still land enough valid points to verify.
+    let samples = [
+        0.23f64, 0.37, 0.6, 0.85, 1.3, 1.7, 2.1, 2.6, 3.4, 4.3,
+        -0.4, -0.8, -1.3, -1.7, -2.6, -3.4,
+    ];
+    let mut checked = 0;
+    for &v in &samples {
+        let (Some(dv), Some(iv)) = (num_eval(&d, var_id, v), num_eval(integrand, var_id, v)) else {
+            continue;
+        };
+        if !dv.is_finite() || !iv.is_finite() {
+            continue;
+        }
+        if (dv - iv).abs() > 1e-6 * (1.0 + iv.abs()) {
+            return false;
+        }
+        checked += 1;
+    }
+    checked >= 2
+}
+
+/// Minimal numeric evaluator for verification (handles the operators that
+/// appear in elementary antiderivatives).
+fn num_eval(e: &Expr, var: maxima_core::SymbolId, val: f64) -> Option<f64> {
+    match e {
+        Expr::Integer(n) => Some(*n as f64),
+        Expr::Float(f) => Some(*f),
+        Expr::Rational { num, den } => Some(*num as f64 / *den as f64),
+        Expr::Symbol(id) => {
+            if *id == var {
+                Some(val)
+            } else {
+                match resolve(*id).as_str() {
+                    "%pi" => Some(std::f64::consts::PI),
+                    "%e" => Some(std::f64::consts::E),
+                    _ => None,
+                }
+            }
+        }
+        Expr::List { op, args, .. } => match op {
+            Operator::MPlus => {
+                let mut s = 0.0;
+                for a in args {
+                    s += num_eval(a, var, val)?;
+                }
+                Some(s)
+            }
+            Operator::MTimes => {
+                let mut p = 1.0;
+                for a in args {
+                    p *= num_eval(a, var, val)?;
+                }
+                Some(p)
+            }
+            Operator::MExpt if args.len() == 2 => {
+                let b = num_eval(&args[0], var, val)?;
+                let ex = num_eval(&args[1], var, val)?;
+                Some(b.powf(ex))
+            }
+            Operator::Named(id) if args.len() == 1 => {
+                let a = num_eval(&args[0], var, val)?;
+                match resolve(*id).as_str() {
+                    "log" => Some(a.ln()),
+                    "exp" => Some(a.exp()),
+                    "sin" => Some(a.sin()),
+                    "cos" => Some(a.cos()),
+                    "tan" => Some(a.tan()),
+                    "atan" => Some(a.atan()),
+                    "sqrt" => Some(a.sqrt()),
+                    _ => None,
+                }
+            }
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
 /// Integrate A(x) / (product of linear and irreducible quadratic factors).
 /// Uses partial fractions: for each linear factor (x-r), compute residue → log.
 /// For each quadratic factor (ax²+bx+c), determine (Px+Q)/(ax²+bx+c) coefficients
@@ -632,7 +775,12 @@ fn try_factor_match(
                 // All remaining must be free of var after subst
                 if rem_subst.iter().all(|f| !contains_var(f, var)) {
                     let mut final_u_parts = u_parts.to_vec();
-                    final_u_parts.extend(rem_subst);
+                    // u' = var_product * remaining, and dx = du/u'. Thus
+                    // ∫ u_parts·var_product dx = ∫ u_parts / remaining du, so the
+                    // leftover factors enter as reciprocals (not multiplied in).
+                    final_u_parts.extend(
+                        rem_subst.into_iter().map(|f| simplify(&Expr::pow(f, Expr::int(-1)))),
+                    );
                     return Some((Expr::int(1), final_u_parts));
                 }
             }
@@ -2805,6 +2953,14 @@ pub(crate) fn table_integrate(f: &Expr, var: &Expr) -> Expr {
                             return result;
                         }
                     }
+                    // Lazard–Rioboo–Trager: purely-logarithmic part with rational
+                    // residues over a square-free denominator (handles irreducible
+                    // factors of degree ≥ 3 that the partfrac path above misses).
+                    if factors.iter().all(|(_, m)| *m == 1) {
+                        if let Some(result) = try_lrt_log_integrate(&np, &dp, var) {
+                            return result;
+                        }
+                    }
                     // Try algebraic factoring for irreducible polynomials of degree >= 4
                     for (fi, mi) in &factors {
                         if fi.degree().unwrap_or(0) >= 4 && *mi == 1 {
@@ -3102,6 +3258,419 @@ pub(crate) fn table_integrate(f: &Expr, var: &Expr) -> Expr {
         return result;
     }
 
+    // Named nonelementary antiderivatives (erf/erfi, li, Ei, Si, Ci).
+    if let Some(result) = try_named_nonelementary(f, var) {
+        return result;
+    }
+
+    // Quadratic-radical integrands ∫ R(x, √(ax²+bx+c)) dx (S3).
+    if let Some(result) = try_quadratic_radical_integrate(f, var) {
+        return result;
+    }
+
     // Can't integrate — return noun form
     Expr::call("integrate", vec![f.clone(), var.clone()])
 }
+
+/// Map canonical provably-nonelementary integrands to the named special
+/// functions introduced in S7. Every returned form is differentiated back and
+/// checked numerically before being accepted (noun form beats a wrong answer).
+fn try_named_nonelementary(f: &Expr, var: &Expr) -> Option<Expr> {
+    let var_id = match var {
+        Expr::Symbol(id) => *id,
+        _ => return None,
+    };
+
+    // Separate constant factors from var-dependent factors.
+    let mut factors = Vec::new();
+    collect_mult_factors(f, &mut factors);
+    let mut konst = Expr::int(1);
+    let mut rest: Vec<Expr> = Vec::new();
+    for fac in &factors {
+        if contains_var(fac, var) {
+            rest.push(fac.clone());
+        } else {
+            konst = simplify(&Expr::mul(konst, fac.clone()));
+        }
+    }
+
+    let candidate = match rest.len() {
+        1 => named_single(&rest[0], var, var_id),
+        2 => named_ratio(&rest[0], &rest[1], var, var_id),
+        _ => None,
+    }?;
+
+    let scaled = simplify(&Expr::mul(konst, candidate));
+    if verify_antiderivative(&scaled, f, var) {
+        Some(scaled)
+    } else {
+        None
+    }
+}
+
+/// Single var-dependent factor: exp(quadratic) → erf/erfi, 1/log(x) → li.
+fn named_single(g: &Expr, var: &Expr, var_id: maxima_core::SymbolId) -> Option<Expr> {
+    // 1/log(x) = log(x)^(-1)  → expintegral_li(x)
+    if let Expr::List { op: Operator::MExpt, args, .. } = g {
+        if args.len() == 2 && args[1] == Expr::int(-1) {
+            if let Expr::List { op: Operator::Named(id), args: la, .. } = &args[0] {
+                if resolve(*id) == "log" && la.len() == 1 && la[0] == *var {
+                    return Some(Expr::call("expintegral_li", vec![var.clone()]));
+                }
+            }
+        }
+    }
+    // exp(quadratic(x)) → erf/erfi via completing the square.
+    if let Expr::List { op: Operator::Named(id), args, .. } = g {
+        if resolve(*id) == "exp" && args.len() == 1 {
+            return gaussian_integral(&args[0], var, var_id);
+        }
+    }
+    None
+}
+
+/// ∫ exp(a*x^2 + b*x + c) dx via completing the square → erf (a<0) / erfi (a>0).
+fn gaussian_integral(exponent: &Expr, var: &Expr, var_id: maxima_core::SymbolId) -> Option<Expr> {
+    let poly = maxima_poly::expr_to_poly(exponent, var_id)?;
+    if poly.degree()? != 2 {
+        return None;
+    }
+    let a = get_coeff(&poly, 2);
+    let b = get_coeff(&poly, 1);
+    let c = get_coeff(&poly, 0);
+    let a_sign = to_f64(&coeff_to_expr(&a))?;
+    if a_sign == 0.0 {
+        return None;
+    }
+
+    let a_expr = coeff_to_expr(&a);
+    let b_expr = coeff_to_expr(&b);
+    let c_expr = coeff_to_expr(&c);
+    // shift = b/(2a), s = x + shift
+    let shift = simplify(&Expr::div(b_expr.clone(), Expr::mul(Expr::int(2), a_expr.clone())));
+    let s = simplify(&Expr::add(var.clone(), shift));
+    // K = c - b^2/(4a)
+    let k = simplify(&Expr::sub(
+        c_expr,
+        Expr::div(Expr::pow(b_expr, Expr::int(2)), Expr::mul(Expr::int(4), a_expr.clone())),
+    ));
+    let exp_k = if k == Expr::int(0) {
+        Expr::int(1)
+    } else {
+        Expr::call("exp", vec![k])
+    };
+    let pi = Expr::sym("%pi");
+
+    if a_sign > 0.0 {
+        // ∫ exp(a s^2) ds = (1/2) sqrt(pi/a) erfi(sqrt(a) s)
+        let sqrt_a = simplify(&Expr::call("sqrt", vec![a_expr]));
+        let coeff = simplify(&Expr::div(
+            Expr::call("sqrt", vec![pi]),
+            Expr::mul(Expr::int(2), sqrt_a.clone()),
+        ));
+        let arg = simplify(&Expr::mul(sqrt_a, s));
+        Some(simplify(&Expr::mul(
+            Expr::mul(coeff, exp_k),
+            Expr::call("erfi", vec![arg]),
+        )))
+    } else {
+        // a<0: ∫ exp(-|a| s^2) ds = (1/2) sqrt(pi/|a|) erf(sqrt(|a|) s)
+        let neg_a = simplify(&Expr::neg(a_expr));
+        let sqrt_a = simplify(&Expr::call("sqrt", vec![neg_a]));
+        let coeff = simplify(&Expr::div(
+            Expr::call("sqrt", vec![pi]),
+            Expr::mul(Expr::int(2), sqrt_a.clone()),
+        ));
+        let arg = simplify(&Expr::mul(sqrt_a, s));
+        Some(simplify(&Expr::mul(
+            Expr::mul(coeff, exp_k),
+            Expr::call("erf", vec![arg]),
+        )))
+    }
+}
+
+/// Two var-dependent factors: g(k*x) * x^(-1) → Ei / Si / Ci.
+fn named_ratio(p: &Expr, q: &Expr, var: &Expr, var_id: maxima_core::SymbolId) -> Option<Expr> {
+    // Identify which factor is x^(-1) and which is the numerator function.
+    let is_inv_x = |e: &Expr| {
+        matches!(e, Expr::List { op: Operator::MExpt, args, .. }
+            if args.len() == 2 && args[0] == *var && args[1] == Expr::int(-1))
+    };
+    let (numer, _) = if is_inv_x(q) {
+        (p, q)
+    } else if is_inv_x(p) {
+        (q, p)
+    } else {
+        return None;
+    };
+
+    if let Expr::List { op: Operator::Named(id), args, .. } = numer {
+        if args.len() != 1 {
+            return None;
+        }
+        // argument must be linear k*x with k constant (k=1 included)
+        let inner = &args[0];
+        let lin = maxima_poly::expr_to_poly(inner, var_id)?;
+        if lin.degree()? != 1 || !get_coeff(&lin, 0).is_zero() {
+            return None;
+        }
+        let name = resolve(*id);
+        let mapped = match name.as_str() {
+            "exp" => "expintegral_ei",
+            "sin" => "expintegral_si",
+            "cos" => "expintegral_ci",
+            _ => return None,
+        };
+        return Some(Expr::call(mapped, vec![inner.clone()]));
+    }
+    None
+}
+
+fn get_coeff(poly: &maxima_poly::Poly, deg: u32) -> maxima_poly::Coeff {
+    poly.terms
+        .iter()
+        .find(|(e, _)| *e == deg)
+        .map(|(_, c)| c.clone())
+        .unwrap_or(maxima_poly::Coeff::zero())
+}
+
+/// Fully evaluate a purely numeric (constant) expression to a reduced
+/// Integer/Rational. `simplify`/`ratsimp` leave forms like `4/4` as `4·4⁻¹`
+/// which `to_f64` cannot read; `meval` reduces them.
+fn rat_eval(e: &Expr) -> Expr {
+    meval(e, &mut crate::Environment::new())
+}
+
+/// ∫ R(x, √(ax²+bx+c)) dx for the common rational forms R, via
+/// completing-the-square (→ asinh/asin/log) plus the Euler reduction
+/// u = 1/(x+r) for ∫ 1/((x+r)√Q). Every result is differentiated back and
+/// checked numerically before it is returned (noun form beats a wrong answer).
+fn try_quadratic_radical_integrate(f: &Expr, var: &Expr) -> Option<Expr> {
+    let var_id = match var {
+        Expr::Symbol(id) => *id,
+        _ => return None,
+    };
+
+    // Locate the √(quadratic) factor and its sign (+1 = numerator, -1 = denominator).
+    let mut factors = Vec::new();
+    collect_mult_factors(f, &mut factors);
+    let mut radicand: Option<Expr> = None;
+    let mut rad_sign = 0i32;
+    let mut rest_factors: Vec<Expr> = Vec::new();
+    for fac in &factors {
+        if radicand.is_none() {
+            if let Some((q, s)) = match_sqrt_factor(fac) {
+                radicand = Some(q);
+                rad_sign = s;
+                continue;
+            }
+        }
+        rest_factors.push(fac.clone());
+    }
+    let q = radicand?;
+    let qpoly = maxima_poly::expr_to_poly(&q, var_id)?;
+    if qpoly.degree()? != 2 {
+        return None;
+    }
+    let a = coeff_to_expr(&get_coeff(&qpoly, 2));
+    let b = coeff_to_expr(&get_coeff(&qpoly, 1));
+    let c = coeff_to_expr(&get_coeff(&qpoly, 0));
+
+    let rest = if rest_factors.is_empty() {
+        Expr::int(1)
+    } else if rest_factors.len() == 1 {
+        simplify(&rest_factors[0])
+    } else {
+        simplify(&Expr::List { op: Operator::MTimes, simplified: false, args: rest_factors })
+    };
+
+    let candidate = if rad_sign == 1 {
+        // √Q in the numerator: only the constant-multiple case ∫ k·√Q.
+        if contains_var(&rest, var) {
+            return None;
+        }
+        simplify(&Expr::mul(rest, integrate_sqrt_quadratic(&a, &b, &c, var)?))
+    } else {
+        // 1/√Q times a rational rest.
+        if !contains_var(&rest, var) {
+            // ∫ k/√Q
+            simplify(&Expr::mul(rest, integrate_inv_sqrt_quadratic(&a, &b, &c, var)?))
+        } else if let Some(rp) = maxima_poly::expr_to_poly(&rest, var_id) {
+            // ∫ P(x)/√Q for a polynomial numerator P (any degree ≥ 1).
+            let d = rp.degree()? as usize;
+            let p_coeffs: Vec<Expr> = (0..=d).map(|k| coeff_to_expr(&get_coeff(&rp, k as u32))).collect();
+            integrate_poly_over_sqrt(&a, &b, &c, &p_coeffs, &q, var)?
+        } else {
+            // ∫ 1/((x+r)√Q) (Euler substitution) deferred — returns noun.
+            return None;
+        }
+    };
+
+    // Accept the candidate or its negation (the Euler reduction leaves a sign
+    // ambiguity), whichever differentiates back to the integrand.
+    if verify_antiderivative(&candidate, f, var) {
+        Some(candidate)
+    } else {
+        let neg = simplify(&Expr::neg(candidate));
+        if verify_antiderivative(&neg, f, var) {
+            Some(neg)
+        } else {
+            None
+        }
+    }
+}
+
+/// Match a √(quadratic) factor: sqrt(Q), Q^(1/2), 1/sqrt(Q), Q^(-1/2).
+/// Returns (radicand, +1 for numerator / -1 for denominator).
+fn match_sqrt_factor(fac: &Expr) -> Option<(Expr, i32)> {
+    match fac {
+        Expr::List { op: Operator::Named(id), args, .. } if args.len() == 1 && resolve(*id) == "sqrt" => {
+            Some((args[0].clone(), 1))
+        }
+        Expr::List { op: Operator::MExpt, args, .. } if args.len() == 2 => {
+            // sqrt(Q)^(-1)
+            if args[1] == Expr::int(-1) {
+                if let Expr::List { op: Operator::Named(id), args: inner, .. } = &args[0] {
+                    if inner.len() == 1 && resolve(*id) == "sqrt" {
+                        return Some((inner[0].clone(), -1));
+                    }
+                }
+            }
+            // Q^(1/2) or Q^(-1/2)
+            match &args[1] {
+                Expr::Rational { num: 1, den: 2 } => Some((args[0].clone(), 1)),
+                Expr::Rational { num: -1, den: 2 } => Some((args[0].clone(), -1)),
+                _ => None,
+            }
+        }
+        _ => None,
+    }
+}
+
+/// ∫ 1/√(a x² + b x + c) dx using the discriminant form
+///   a>0, disc>0: (1/√a)·asinh((2ax+b)/√disc)
+///   a>0, disc<0: (1/√a)·log(2ax+b + 2√a·√Q)
+///   a<0, disc<0: (1/√(-a))·asin((2ax+b)/√(-disc))
+/// where disc = 4ac − b² (an integer for integer coefficients, so √disc is
+/// clean — avoiding the sqrt-of-fraction pitfall of the completing-square form).
+fn integrate_inv_sqrt_quadratic(a: &Expr, b: &Expr, c: &Expr, var: &Expr) -> Option<Expr> {
+    let af = to_f64(a)?;
+    if af == 0.0 {
+        return None;
+    }
+    // disc = 4ac − b²
+    let disc = rat_eval(&Expr::sub(
+        Expr::mul(Expr::mul(Expr::int(4), a.clone()), c.clone()),
+        Expr::pow(b.clone(), Expr::int(2)),
+    ));
+    let discf = to_f64(&disc)?;
+    // lin = 2a·x + b
+    let lin = simplify(&Expr::add(Expr::mul(Expr::mul(Expr::int(2), a.clone()), var.clone()), b.clone()));
+    let q = simplify(&Expr::add(
+        Expr::add(Expr::mul(a.clone(), Expr::pow(var.clone(), Expr::int(2))), Expr::mul(b.clone(), var.clone())),
+        c.clone(),
+    ));
+
+    if af > 0.0 {
+        let sqrt_a = simplify(&Expr::call("sqrt", vec![a.clone()]));
+        let inner = if discf > 0.0 {
+            let arg = simplify(&Expr::div(lin, Expr::call("sqrt", vec![disc])));
+            Expr::call("asinh", vec![arg])
+        } else if discf < 0.0 {
+            // log(2ax+b + 2√a·√Q)
+            let radit = simplify(&Expr::mul(
+                Expr::mul(Expr::int(2), sqrt_a.clone()),
+                Expr::call("sqrt", vec![q]),
+            ));
+            Expr::call("log", vec![simplify(&Expr::add(lin, radit))])
+        } else {
+            Expr::call("log", vec![lin])
+        };
+        Some(simplify(&Expr::div(inner, sqrt_a)))
+    } else {
+        // a<0 needs disc<0 (i.e. b²−4ac > 0) for a real integral.
+        if discf >= 0.0 {
+            return None;
+        }
+        // ∫1/√(ax²+bx+c) = (1/√(-a))·asin(-(2ax+b)/√(b²-4ac)) for a<0.
+        let sqrt_na = simplify(&Expr::call("sqrt", vec![Expr::neg(a.clone())]));
+        let neg_disc = simplify(&Expr::neg(disc));
+        let arg = simplify(&Expr::div(Expr::neg(lin), Expr::call("sqrt", vec![neg_disc])));
+        Some(simplify(&Expr::div(Expr::call("asin", vec![arg]), sqrt_na)))
+    }
+}
+
+/// ∫ P(x)/√(a x² + b x + c) dx for a polynomial numerator P, via the reduction
+/// ∫P/√Q = R(x)·√Q + λ·∫1/√Q, where deg R = deg P − 1. Matching coefficients of
+/// R'·Q + ½·R·Q' + λ = P gives the top-down recurrence
+///   [x^k]:  a·k·r_{k-1} + b·(k+½)·r_k + c·(k+1)·r_{k+1} = p_k
+/// solved from k = d (r_{d-1} = p_d/(a·d)) down to k = 1, then λ from [x^0].
+/// `p` holds the numerator coefficients, p[i] = coefficient of x^i.
+fn integrate_poly_over_sqrt(
+    a: &Expr, b: &Expr, c: &Expr, p: &[Expr], q_expr: &Expr, var: &Expr,
+) -> Option<Expr> {
+    let d = p.len().checked_sub(1)?;
+    let inv = integrate_inv_sqrt_quadratic(a, b, c, var)?;
+
+    // r[j] = coefficient of x^j in R, for j = 0..d-1 (empty if d == 0).
+    let mut r = vec![Expr::int(0); d];
+    let get_r = |r: &Vec<Expr>, idx: usize| -> Expr { r.get(idx).cloned().unwrap_or(Expr::int(0)) };
+    // Solve r_{k-1} from the x^k equation, k = d .. 1.
+    for k in (1..=d).rev() {
+        let rk = get_r(&r, k);
+        let rk1 = get_r(&r, k + 1);
+        // half = b·(2k+1)/2
+        let bterm = Expr::mul(Expr::mul(b.clone(), Expr::Rational { num: (2 * k as i64 + 1), den: 2 }), rk);
+        let cterm = Expr::mul(Expr::mul(c.clone(), Expr::int(k as i64 + 1)), rk1);
+        let numer = Expr::sub(Expr::sub(p[k].clone(), bterm), cterm);
+        let rkm1 = rat_eval(&Expr::div(numer, Expr::mul(a.clone(), Expr::int(k as i64))));
+        r[k - 1] = rkm1;
+    }
+    // λ = p_0 − (b/2)·r_0 − c·r_1
+    let lambda = rat_eval(&Expr::sub(
+        Expr::sub(
+            p[0].clone(),
+            Expr::mul(Expr::div(b.clone(), Expr::int(2)), get_r(&r, 0)),
+        ),
+        Expr::mul(c.clone(), get_r(&r, 1)),
+    ));
+
+    // R(x) = Σ r_j x^j
+    let mut r_terms = Vec::new();
+    for (j, rj) in r.iter().enumerate() {
+        if *rj == Expr::int(0) { continue; }
+        let term = if j == 0 { rj.clone() } else { Expr::mul(rj.clone(), Expr::pow(var.clone(), Expr::int(j as i64))) };
+        r_terms.push(term);
+    }
+    let r_poly = if r_terms.is_empty() {
+        Expr::int(0)
+    } else {
+        simplify(&Expr::List { op: Operator::MPlus, simplified: false, args: r_terms })
+    };
+
+    let sqrt_q = simplify(&Expr::call("sqrt", vec![q_expr.clone()]));
+    let rational_part = simplify(&Expr::mul(r_poly, sqrt_q));
+    Some(simplify(&Expr::add(rational_part, Expr::mul(lambda, inv))))
+}
+
+/// ∫ √(a x² + b x + c) dx
+/// = (2a x + b)/(4a)·√Q + ((4ac − b²)/(8a))·∫ 1/√Q dx.
+fn integrate_sqrt_quadratic(a: &Expr, b: &Expr, c: &Expr, var: &Expr) -> Option<Expr> {
+    let inv = integrate_inv_sqrt_quadratic(a, b, c, var)?;
+    let q_expr = simplify(&Expr::add(
+        Expr::add(Expr::mul(a.clone(), Expr::pow(var.clone(), Expr::int(2))), Expr::mul(b.clone(), var.clone())),
+        c.clone(),
+    ));
+    let sqrt_q = simplify(&Expr::call("sqrt", vec![q_expr]));
+    let lin = simplify(&Expr::div(
+        Expr::add(Expr::mul(Expr::mul(Expr::int(2), a.clone()), var.clone()), b.clone()),
+        rat_eval(&Expr::mul(Expr::int(4), a.clone())),
+    ));
+    let term1 = simplify(&Expr::mul(lin, sqrt_q));
+    let k = rat_eval(&Expr::div(
+        Expr::sub(Expr::mul(Expr::mul(Expr::int(4), a.clone()), c.clone()), Expr::pow(b.clone(), Expr::int(2))),
+        Expr::mul(Expr::int(8), a.clone()),
+    ));
+    Some(simplify(&Expr::add(term1, Expr::mul(k, inv))))
+}
+
