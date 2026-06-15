@@ -3436,6 +3436,77 @@ fn get_coeff(poly: &maxima_poly::Poly, deg: u32) -> maxima_poly::Coeff {
         .unwrap_or(maxima_poly::Coeff::zero())
 }
 
+/// Match `rest = 1/(lead·(x + r))`: a reciprocal of a linear factor.
+/// Returns (r, lead) so the integrand is 1/(lead·(x+r)·√Q).
+fn match_inverse_linear(rest: &Expr, var: &Expr, var_id: maxima_core::SymbolId) -> Option<(Expr, Expr)> {
+    if let Expr::List { op: Operator::MExpt, args, .. } = rest {
+        if args.len() == 2 && args[1] == Expr::int(-1) {
+            let lin = maxima_poly::expr_to_poly(&args[0], var_id)?;
+            if lin.degree()? == 1 {
+                let lead = coeff_to_expr(&get_coeff(&lin, 1));
+                let r = rat_eval(&Expr::div(coeff_to_expr(&get_coeff(&lin, 0)), lead.clone()));
+                return Some((r, lead));
+            }
+        }
+    }
+    None
+}
+
+/// Verify d/dx(antideriv) ≈ integrand on the single branch x > lo (used for the
+/// Euler substitution, whose result has a branch cut at the excluded point).
+fn verify_on_branch(antideriv: &Expr, integrand: &Expr, var: &Expr, lo: f64) -> bool {
+    let var_id = match var {
+        Expr::Symbol(id) => *id,
+        _ => return false,
+    };
+    let d = diff_once(antideriv, var);
+    let mut checked = 0;
+    for off in [0.3f64, 0.7, 1.5, 3.0, 6.0, 11.0] {
+        let v = lo + off;
+        let (Some(dv), Some(iv)) = (num_eval(&d, var_id, v), num_eval(integrand, var_id, v)) else {
+            continue;
+        };
+        if !dv.is_finite() || !iv.is_finite() {
+            continue;
+        }
+        if (dv - iv).abs() > 1e-6 * (1.0 + iv.abs()) {
+            return false;
+        }
+        checked += 1;
+    }
+    checked >= 2
+}
+
+/// ∫ 1/((x+r)·√(a x²+b x+c)) dx via the Euler substitution u = 1/(x+r), which
+/// rationalises to ∓∫ 1/√(P(u)) du with
+///   P(u) = (a r² − b r + c)·u² + (b − 2 a r)·u + a.
+/// The leading sign (from sign(u)) is resolved by the caller's both-sign verify.
+fn euler_inverse_linear(a: &Expr, b: &Expr, c: &Expr, r: &Expr, var: &Expr) -> Option<Expr> {
+    let pa = rat_eval(&Expr::add(
+        Expr::sub(Expr::mul(a.clone(), Expr::pow(r.clone(), Expr::int(2))), Expr::mul(b.clone(), r.clone())),
+        c.clone(),
+    ));
+    let pb = rat_eval(&Expr::sub(b.clone(), Expr::mul(Expr::mul(Expr::int(2), a.clone()), r.clone())));
+    let pc = a.clone();
+    let u = Expr::sym("%euler_u");
+    let inv_u = if to_f64(&pa) == Some(0.0) {
+        // Degenerate: r is a root of Q, so P(u) = pb·u + pc is linear.
+        // ∫ 1/√(pb·u+pc) du = 2·√(pb·u+pc)/pb.
+        if to_f64(&pb)? == 0.0 {
+            return None;
+        }
+        let radicand = simplify(&Expr::add(Expr::mul(pb.clone(), u.clone()), pc.clone()));
+        simplify(&Expr::div(
+            Expr::mul(Expr::int(2), Expr::call("sqrt", vec![radicand])),
+            pb.clone(),
+        ))
+    } else {
+        integrate_inv_sqrt_quadratic(&pa, &pb, &pc, &u)?
+    };
+    let u_of_x = simplify(&Expr::pow(Expr::add(var.clone(), r.clone()), Expr::int(-1)));
+    Some(simplify(&subst(&u_of_x, &u, &inv_u)))
+}
+
 /// Fully evaluate a purely numeric (constant) expression to a reduced
 /// Integer/Rational. `simplify`/`ratsimp` leave forms like `4/4` as `4·4⁻¹`
 /// which `to_f64` cannot read; `meval` reduces them.
@@ -3502,8 +3573,20 @@ fn try_quadratic_radical_integrate(f: &Expr, var: &Expr) -> Option<Expr> {
             let d = rp.degree()? as usize;
             let p_coeffs: Vec<Expr> = (0..=d).map(|k| coeff_to_expr(&get_coeff(&rp, k as u32))).collect();
             integrate_poly_over_sqrt(&a, &b, &c, &p_coeffs, &q, var)?
+        } else if let Some((r, lead)) = match_inverse_linear(&rest, var, var_id) {
+            // ∫ 1/((x+r)√Q) via Euler substitution u = 1/(x+r). The result has a
+            // branch cut at x = -r (sign(u) flips), so verify on the single
+            // branch x > -r and pick the sign valid there.
+            let res = euler_inverse_linear(&a, &b, &c, &r, var)?;
+            let base = simplify(&Expr::div(res, lead));
+            let lo = -to_f64(&r)?;
+            for cand in [base.clone(), simplify(&Expr::neg(base))] {
+                if verify_on_branch(&cand, f, var, lo) {
+                    return Some(cand);
+                }
+            }
+            return None;
         } else {
-            // ∫ 1/((x+r)√Q) (Euler substitution) deferred — returns noun.
             return None;
         }
     };
