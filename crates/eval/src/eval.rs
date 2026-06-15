@@ -1357,6 +1357,18 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
                     let g = maxima_poly::poly_gcd(&pa, &pb);
                     return maxima_poly::poly_to_expr(&g);
                 }
+                // Multivariate GCD (Kronecker + exact-division verification).
+                let mut vars: Vec<maxima_core::SymbolId> = Vec::new();
+                crate::groebner::collect_symbols(&evaled_args[0], &mut vars);
+                crate::groebner::collect_symbols(&evaled_args[1], &mut vars);
+                if !vars.is_empty() {
+                    if let (Some(ma), Some(mb)) = (
+                        maxima_poly::expr_to_mpoly(&evaled_args[0], &vars, maxima_poly::MonomialOrder::Grevlex),
+                        maxima_poly::expr_to_mpoly(&evaled_args[1], &vars, maxima_poly::MonomialOrder::Grevlex),
+                    ) {
+                        return maxima_poly::mpoly_to_expr(&maxima_poly::mpoly_gcd(&ma, &mb));
+                    }
+                }
             }
             Expr::call("gcd", evaled_args)
         }

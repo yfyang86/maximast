@@ -235,7 +235,7 @@ fn eval_ideal_contains(args: &[Expr]) -> Expr {
     if r.is_zero() { Expr::sym("true") } else { Expr::sym("false") }
 }
 
-fn collect_symbols(e: &Expr, out: &mut Vec<SymbolId>) {
+pub(crate) fn collect_symbols(e: &Expr, out: &mut Vec<SymbolId>) {
     match e {
         Expr::Symbol(id) => {
             if !out.contains(id) { out.push(*id); }
