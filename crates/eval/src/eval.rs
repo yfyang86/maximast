@@ -3537,14 +3537,33 @@ pub(crate) fn diff_once_pub(expr: &Expr, var: &Expr) -> Expr {
 /// series division of the numerator/denominator coefficient sequences, which
 /// also avoids the 0/0 removable-singularity trap of the derivative method.
 fn taylor_expand(f: &Expr, var: &Expr, a: &Expr, n: i64, env: &mut Environment) -> Option<Expr> {
+    // Puiseux path (about 0): f = x^q · g(x) with q rational, g analytic. Tried
+    // first so an explicit fractional x-power isn't swallowed by the ordinary
+    // method (where a zero factor like sin(0) can mask the x^(neg) blowup and
+    // yield a spurious all-zero series).
+    if *a == Expr::int(0) {
+        if let Some(res) = puiseux_expand(f, var, n, env) {
+            return Some(res);
+        }
+    }
     if let Some(coeffs) = taylor_coeffs(f, var, a, n, env) {
         return Some(build_series(&coeffs, 0, var, a));
     }
     // Laurent path: f = num/den with den vanishing at a.
-    let (num, den) = extract_fraction(f)?;
+    if let Some((num, den)) = extract_fraction(f) {
+        if let Some(res) = laurent_expand(&num, &den, var, a, n, env) {
+            return Some(res);
+        }
+    }
+    None
+}
+
+/// Laurent expansion of num/den about `a` via series division with pole
+/// extraction. Returns None if `den` does not vanish at `a` (no pole).
+fn laurent_expand(num: &Expr, den: &Expr, var: &Expr, a: &Expr, n: i64, env: &mut Environment) -> Option<Expr> {
     let order = n + 13; // margin so pole order up to ~6 is covered
-    let nc = taylor_coeffs(&num, var, a, order, env)?;
-    let dc = taylor_coeffs(&den, var, a, order, env)?;
+    let nc = taylor_coeffs(num, var, a, order, env)?;
+    let dc = taylor_coeffs(den, var, a, order, env)?;
     let m = dc.iter().position(|c| *c != Expr::int(0))?;
     if m == 0 {
         return None; // no pole; ordinary path should have handled it
@@ -3563,6 +3582,89 @@ fn taylor_expand(f: &Expr, var: &Expr, a: &Expr, n: i64, env: &mut Environment) 
         c[k] = meval(&Expr::div(s, d0.clone()), env);
     }
     Some(build_series(&c, -(m as i64), var, a))
+}
+
+/// Puiseux expansion about 0: factor f = x^q · g(x) with q a rational power of
+/// x (from `sqrt(x)` / `x^(p/q)` factors) and g analytic, expand g, and shift
+/// each exponent by q. e.g. taylor(sqrt(x)*cos(x)) = x^(1/2) - x^(5/2)/2 + …
+fn puiseux_expand(f: &Expr, var: &Expr, n: i64, env: &mut Environment) -> Option<Expr> {
+    let (q, g) = extract_x_power(f, var, env)?;
+    let qf = to_f64(&q)?;
+    let order_g = (n as f64 - qf).floor();
+    if order_g < 0.0 {
+        return Some(Expr::int(0));
+    }
+    let coeffs = taylor_coeffs(&g, var, &Expr::int(0), order_g as i64, env)?;
+    let mut terms = Vec::new();
+    for (k, ck) in coeffs.iter().enumerate() {
+        if *ck == Expr::int(0) {
+            continue;
+        }
+        let exp = meval(&Expr::add(Expr::int(k as i64), q.clone()), env);
+        terms.push(simplify(&Expr::mul(ck.clone(), Expr::pow(var.clone(), exp))));
+    }
+    if terms.is_empty() {
+        return Some(Expr::int(0));
+    }
+    Some(simplify(&Expr::List { op: Operator::MPlus, simplified: false, args: terms }))
+}
+
+/// Split f into (q, g) where f = x^q · g(x), q the summed rational power of x
+/// drawn from `sqrt(x)` and `x^(rational)` factors, g the analytic remainder.
+/// Returns None if f has no fractional power of x.
+fn extract_x_power(f: &Expr, var: &Expr, env: &mut Environment) -> Option<(Expr, Expr)> {
+    let mut factors = Vec::new();
+    collect_factors(f, &mut factors);
+    let mut exps: Vec<Expr> = Vec::new();
+    let mut rest: Vec<Expr> = Vec::new();
+    let mut found_frac = false;
+    for fac in factors {
+        match &fac {
+            Expr::List { op: Operator::Named(id), args, .. }
+                if args.len() == 1 && resolve(*id) == "sqrt" && args[0] == *var =>
+            {
+                exps.push(Expr::Rational { num: 1, den: 2 });
+                found_frac = true;
+            }
+            Expr::List { op: Operator::MExpt, args, .. }
+                if args.len() == 2 && args[0] == *var =>
+            {
+                if let Expr::Rational { .. } = &args[1] {
+                    exps.push(args[1].clone());
+                    found_frac = true;
+                } else {
+                    rest.push(fac);
+                }
+            }
+            _ => rest.push(fac),
+        }
+    }
+    if !found_frac {
+        return None;
+    }
+    let q = if exps.len() == 1 {
+        exps.remove(0)
+    } else {
+        meval(&Expr::List { op: Operator::MPlus, simplified: false, args: exps }, env)
+    };
+    let g = if rest.is_empty() {
+        Expr::int(1)
+    } else if rest.len() == 1 {
+        rest.remove(0)
+    } else {
+        simplify(&Expr::List { op: Operator::MTimes, simplified: false, args: rest })
+    };
+    Some((q, g))
+}
+
+fn collect_factors(expr: &Expr, out: &mut Vec<Expr>) {
+    if let Expr::List { op: Operator::MTimes, args, .. } = expr {
+        for a in args {
+            collect_factors(a, out);
+        }
+    } else {
+        out.push(expr.clone());
+    }
 }
 
 /// Taylor coefficients [c_0, …, c_order] of `f` about `var=a`, where the term
