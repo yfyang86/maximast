@@ -1366,7 +1366,10 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
                         maxima_poly::expr_to_mpoly(&evaled_args[0], &vars, maxima_poly::MonomialOrder::Grevlex),
                         maxima_poly::expr_to_mpoly(&evaled_args[1], &vars, maxima_poly::MonomialOrder::Grevlex),
                     ) {
-                        return maxima_poly::mpoly_to_expr(&maxima_poly::mpoly_gcd(&ma, &mb));
+                        // Only when provably correct; else fall through to noun.
+                        if let Some(g) = maxima_poly::mpoly_gcd(&ma, &mb) {
+                            return maxima_poly::mpoly_to_expr(&g);
+                        }
                     }
                 }
             }
