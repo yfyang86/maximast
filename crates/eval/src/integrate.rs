@@ -2604,8 +2604,10 @@ pub(crate) fn table_integrate(f: &Expr, var: &Expr) -> Expr {
                                                 ]);
                                             }
                                         }
-                                        // #72: ∫ 1/sqrt(a²+u²) = log(u + sqrt(a²+u²))
-                                        if *ai > 0 && *ci > 0 {
+                                        // #72: ∫ 1/sqrt(1+u²) = asinh / log (monic only;
+                                        // non-monic leading coeff handled by the verified
+                                        // quadratic-radical path, which accounts for √a).
+                                        if *ai == 1 && *ci > 0 {
                                             if *ai == 1 && *ci == 1 {
                                                 return Expr::call("asinh", vec![var.clone()]);
                                             }
@@ -2615,8 +2617,8 @@ pub(crate) fn table_integrate(f: &Expr, var: &Expr) -> Expr {
                                                         Expr::add(Expr::int(*ci), Expr::pow(var.clone(), Expr::int(2)))]))
                                             ]);
                                         }
-                                        // #81: ∫ 1/sqrt(u²-a²) = log|u + sqrt(u²-a²)|
-                                        if *ai > 0 && *ci < 0 {
+                                        // #81: ∫ 1/sqrt(u²-a²) = log|u + sqrt(u²-a²)| (monic only)
+                                        if *ai == 1 && *ci < 0 {
                                             if *ai == 1 && *ci == -1 {
                                                 return Expr::call("acosh", vec![var.clone()]);
                                             }
@@ -3574,7 +3576,7 @@ fn integrate_inv_sqrt_quadratic(a: &Expr, b: &Expr, c: &Expr, var: &Expr) -> Opt
     if af > 0.0 {
         let sqrt_a = simplify(&Expr::call("sqrt", vec![a.clone()]));
         let inner = if discf > 0.0 {
-            let arg = simplify(&Expr::div(lin, Expr::call("sqrt", vec![disc])));
+            let arg = rat_eval(&Expr::div(lin, Expr::call("sqrt", vec![disc])));
             Expr::call("asinh", vec![arg])
         } else if discf < 0.0 {
             // log(2ax+b + 2√a·√Q)
@@ -3595,7 +3597,7 @@ fn integrate_inv_sqrt_quadratic(a: &Expr, b: &Expr, c: &Expr, var: &Expr) -> Opt
         // ∫1/√(ax²+bx+c) = (1/√(-a))·asin(-(2ax+b)/√(b²-4ac)) for a<0.
         let sqrt_na = simplify(&Expr::call("sqrt", vec![Expr::neg(a.clone())]));
         let neg_disc = simplify(&Expr::neg(disc));
-        let arg = simplify(&Expr::div(Expr::neg(lin), Expr::call("sqrt", vec![neg_disc])));
+        let arg = rat_eval(&Expr::div(Expr::neg(lin), Expr::call("sqrt", vec![neg_disc])));
         Some(simplify(&Expr::div(Expr::call("asin", vec![arg]), sqrt_na)))
     }
 }
