@@ -3270,8 +3270,181 @@ pub(crate) fn table_integrate(f: &Expr, var: &Expr) -> Expr {
         return result;
     }
 
+    // ∫ R(x)·exp(c·x) dx with rational R — Risch DE with a rational solution.
+    if let Some(result) = try_exp_rational_integrate(f, var) {
+        return result;
+    }
+
     // Can't integrate — return noun form
     Expr::call("integrate", vec![f.clone(), var.clone()])
+}
+
+/// ∫ (P(x)/Q(x))·exp(c·x) dx when an elementary antiderivative B(x)·exp(c·x)
+/// with B rational exists. Solves the Risch differential equation B' + c·B = R
+/// (R = P/Q) using the ansatz B = M/Q (deg M < deg Q), which reduces to the
+/// polynomial identity  M'·Q − M·Q' + c·M·Q = P·Q  — a linear system in the
+/// coefficients of M. Verified by differentiate-back; noun otherwise.
+fn try_exp_rational_integrate(f: &Expr, var: &Expr) -> Option<Expr> {
+    use maxima_poly::Coeff;
+    let var_id = match var {
+        Expr::Symbol(id) => *id,
+        _ => return None,
+    };
+
+    // Split off a single exp(c·x) factor (c constant, no constant term in the arg).
+    let mut factors = Vec::new();
+    collect_mult_factors(f, &mut factors);
+    let mut c_expr: Option<Expr> = None;
+    let mut rest: Vec<Expr> = Vec::new();
+    for fac in &factors {
+        if c_expr.is_none() {
+            if let Expr::List { op: Operator::Named(id), args, .. } = fac {
+                if resolve(*id) == "exp" && args.len() == 1 {
+                    let ap = maxima_poly::expr_to_poly(&args[0], var_id)?;
+                    if ap.degree() == Some(1) && get_coeff(&ap, 0).is_zero() {
+                        c_expr = Some(coeff_to_expr(&get_coeff(&ap, 1)));
+                        continue;
+                    }
+                    return None; // non-linear exp argument
+                }
+            }
+        }
+        rest.push(fac.clone());
+    }
+    let c = c_expr?;
+    let c_coeff = expr_to_coeff(&c)?;
+
+    // R = product(rest) = P/Q.
+    let r_expr = if rest.is_empty() {
+        Expr::int(1)
+    } else if rest.len() == 1 {
+        rest.remove(0)
+    } else {
+        simplify(&Expr::List { op: Operator::MTimes, simplified: false, args: rest })
+    };
+    let (p_e, q_e) = extract_fraction(&r_expr).unwrap_or((r_expr.clone(), Expr::int(1)));
+    // expand so powers of sums like (x+1)^2 become polynomials
+    let p = maxima_poly::expr_to_poly(&expand(&p_e), var_id)?;
+    let q = maxima_poly::expr_to_poly(&expand(&q_e), var_id)?;
+    let dq = q.degree()? as usize;
+    if dq == 0 {
+        return None; // polynomial × exp — handled by the Risch tower elsewhere
+    }
+
+    // Columns: coefficient vectors of L(x^j) = (x^j)'·Q − x^j·Q' + c·x^j·Q.
+    let q_prime = q.derivative();
+    let mut columns = Vec::new();
+    for j in 0..dq {
+        let xj = maxima_poly::Poly { var: var_id, terms: vec![(j as u32, Coeff::one())] };
+        let l = xj.derivative().mul(&q)
+            .sub(&xj.mul(&q_prime))
+            .add(&xj.mul(&q).scale(&c_coeff));
+        columns.push(l);
+    }
+    let rhs = p.mul(&q);
+
+    let maxdeg = columns.iter().filter_map(|c| c.degree())
+        .chain(rhs.degree())
+        .max()
+        .unwrap_or(0) as usize;
+    let nrows = maxdeg + 1;
+    let mut mat = vec![vec![Coeff::zero(); dq]; nrows];
+    let mut b = vec![Coeff::zero(); nrows];
+    for (j, col) in columns.iter().enumerate() {
+        for (e, co) in &col.terms {
+            mat[*e as usize][j] = co.clone();
+        }
+    }
+    for (e, co) in &rhs.terms {
+        b[*e as usize] = co.clone();
+    }
+
+    let m = solve_linear_coeff(mat, b)?;
+    let m_poly = maxima_poly::Poly {
+        var: var_id,
+        terms: m.iter().enumerate()
+            .filter(|(_, c)| !c.is_zero())
+            .map(|(j, c)| (j as u32, c.clone()))
+            .collect(),
+    };
+    let b_expr = ratsimp(&Expr::div(maxima_poly::poly_to_expr(&m_poly), maxima_poly::poly_to_expr(&q)));
+    let result = simplify(&Expr::mul(
+        b_expr,
+        Expr::call("exp", vec![simplify(&Expr::mul(c, var.clone()))]),
+    ));
+    if verify_antiderivative(&result, f, var) {
+        Some(result)
+    } else {
+        None
+    }
+}
+
+fn expr_to_coeff(e: &Expr) -> Option<maxima_poly::Coeff> {
+    match e {
+        Expr::Integer(n) => Some(maxima_poly::Coeff::Int(*n)),
+        Expr::Rational { num, den } => Some(maxima_poly::Coeff::Rat(*num, *den)),
+        _ => None,
+    }
+}
+
+/// Solve mat·m = b over the rationals (possibly over-determined) by Gaussian
+/// elimination; returns the unique solution if the system is consistent.
+fn solve_linear_coeff(mut mat: Vec<Vec<maxima_poly::Coeff>>, mut b: Vec<maxima_poly::Coeff>) -> Option<Vec<maxima_poly::Coeff>> {
+    use maxima_poly::Coeff;
+    let nrows = mat.len();
+    if nrows == 0 {
+        return None;
+    }
+    let ncols = mat[0].len();
+    let mut pivot_row = 0;
+    let mut where_pivot = vec![usize::MAX; ncols];
+    for col in 0..ncols {
+        // find a nonzero pivot at or below pivot_row
+        let mut sel = None;
+        for r in pivot_row..nrows {
+            if !mat[r][col].is_zero() {
+                sel = Some(r);
+                break;
+            }
+        }
+        let Some(sel) = sel else { continue };
+        mat.swap(sel, pivot_row);
+        b.swap(sel, pivot_row);
+        where_pivot[col] = pivot_row;
+        // normalize pivot row
+        let piv = mat[pivot_row][col].clone();
+        for j in 0..ncols {
+            mat[pivot_row][j] = mat[pivot_row][j].div(&piv)?;
+        }
+        b[pivot_row] = b[pivot_row].div(&piv)?;
+        // eliminate this column from all other rows
+        for r in 0..nrows {
+            if r != pivot_row && !mat[r][col].is_zero() {
+                let factor = mat[r][col].clone();
+                for j in 0..ncols {
+                    mat[r][j] = mat[r][j].sub(&factor.mul(&mat[pivot_row][j]));
+                }
+                b[r] = b[r].sub(&factor.mul(&b[pivot_row]));
+            }
+        }
+        pivot_row += 1;
+    }
+    // consistency: every all-zero row must have zero RHS
+    for r in 0..nrows {
+        if mat[r].iter().all(|c| c.is_zero()) && !b[r].is_zero() {
+            return None;
+        }
+    }
+    // require a pivot in every column (unique solution)
+    let mut sol = vec![Coeff::zero(); ncols];
+    for col in 0..ncols {
+        let pr = where_pivot[col];
+        if pr == usize::MAX {
+            return None; // free variable — not a unique rational solution
+        }
+        sol[col] = b[pr].clone();
+    }
+    Some(sol)
 }
 
 /// Map canonical provably-nonelementary integrands to the named special

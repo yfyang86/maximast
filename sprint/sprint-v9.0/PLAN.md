@@ -1,5 +1,7 @@
 # Maxima Rust Kernel v9.0 — Completion & Hardening
 
+**Status: ✅ All sprints (V1–V4) complete and merged.**
+
 ## Theme
 
 Close out the items deferred during v8.0 and fix bugs surfaced along the way.
@@ -18,7 +20,7 @@ PR to `dev`, merged when green.
 | **V1** | Fix `∫1/√(ax²+bx+c)` leading-coefficient bug; clean inverse-fn arg display | Small | ✅ Done |
 | **V2** | Euler substitution `∫1/((x+r)√Q)` (v8.0 S3 Family D) — branch-restricted verify | Medium | ✅ Done |
 | **V3** | Puiseux (fractional-exponent) series — v8.0 S4 deferral | Medium | ✅ Done |
-| **V4** | Risch RDE rational-`B` case (`∫x·exp(x)/(x+1)²`) — v8.0 S2 deferral | Medium | 📋 |
+| **V4** | Risch RDE rational-`B` case (`∫x·exp(x)/(x+1)²`) — v8.0 S2 deferral | Medium | ✅ Done |
 
 ## Carried-forward backlog (beyond v9.0)
 
@@ -46,3 +48,9 @@ engine · Reduce/CAD. See `sprint/sprint-v8.0/SPRINT_INDEX.md`.
   fractional power isn't swallowed (a zero factor like `sin(0)` had masked the
   `x^(neg)` blowup, giving a spurious `0` for `x^(1/3)*sin(x)` → now `x^(4/3)`).
   Composition cases (`cos(√x)`) remain deferred.
+- **V4** — Risch DE with a rational solution: `∫(P/Q)·exp(c·x)` via the ansatz
+  `B=M/Q`, reducing to the linear identity `M'Q − MQ' + cMQ = PQ` (exact
+  Gaussian solve over Q). `∫x·exp(x)/(x+1)² = exp(x)/(x+1)`,
+  `∫(x-1)·exp(x)/x² = exp(x)/x`. Nonelementary cases (`exp(x)/(x+1)²` → Ei)
+  correctly stay noun. Limited to `exp(c·x)` with `c` constant; general
+  exponential towers remain future work.
