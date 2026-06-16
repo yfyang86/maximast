@@ -582,6 +582,57 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
             }
             Expr::call("factorial", evaled_args)
         }
+        "pochhammer" => {
+            // (a)_m = a(a+1)…(a+m−1) for nonneg integer m.
+            if evaled_args.len() == 2 {
+                if let Expr::Integer(m) = &evaled_args[1] {
+                    if *m >= 0 && *m <= 200 {
+                        let a = &evaled_args[0];
+                        let mut prod = Expr::int(1);
+                        for i in 0..*m {
+                            prod = Expr::mul(prod, Expr::add(a.clone(), Expr::int(i)));
+                        }
+                        return meval(&prod, env);
+                    }
+                }
+            }
+            Expr::call("pochhammer", evaled_args)
+        }
+        "gamma" => {
+            if let Some(arg) = evaled_args.first() {
+                match arg {
+                    // Γ(m) = (m−1)! for positive integer m.
+                    Expr::Integer(m) if *m >= 1 => {
+                        return meval(&Expr::call("factorial", vec![Expr::int(*m - 1)]), env);
+                    }
+                    // Γ(p+1/2) = (2p)!/(4^p p!)·√π  for integer p ≥ 0.
+                    Expr::Rational { num, den } if *den == 2 && num % 2 != 0 && *num > 0 => {
+                        let p = (*num - 1) / 2;
+                        let fact = |m: i64| Expr::call("factorial", vec![Expr::int(m)]);
+                        let sqrt_pi = Expr::pow(Expr::sym("%pi"), Expr::Rational { num: 1, den: 2 });
+                        let expr = Expr::mul(
+                            Expr::div(fact(2 * p), Expr::mul(Expr::pow(Expr::int(4), Expr::int(p)), fact(p))),
+                            sqrt_pi,
+                        );
+                        return meval(&expr, env);
+                    }
+                    _ => {}
+                }
+            }
+            Expr::call("gamma", evaled_args)
+        }
+        "makefact" => {
+            if let Some(arg) = evaled_args.first() {
+                return meval(&crate::gammafn::makefact(arg), env);
+            }
+            Expr::call("makefact", evaled_args)
+        }
+        "minfactorial" => {
+            if let Some(arg) = evaled_args.first() {
+                return meval(&crate::gammafn::minfactorial(arg), env);
+            }
+            Expr::call("minfactorial", evaled_args)
+        }
         "is" => {
             if let Some(val) = evaled_args.first() {
                 eval_is_with_db(val, &env.assumptions)
