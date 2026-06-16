@@ -31,7 +31,7 @@ Zeilberger → AZ (integrals) → Trager.
 |--------|---------|------|------------|--------|
 | **R1** | **Gosper's algorithm** — indefinite hypergeometric summation. Hypergeometric shift-ratio (powers/factorials), Gosper–Petkovšek normal form, key-equation solve, telescoping-verified. Wired into `nusum` and definite `sum`. | Large | §1.5/§3.2 | ✅ |
 | **R2** | **Definite hypergeometric summation** — order-1 recurrence detection + closed forms (integer & half-integer shifts), plus a Pochhammer/Gamma/factorial-ratio simplification layer. | Large | §3.2 | ✅ |
-| **R3** | **Almkvist–Zeilberger** — the integral analog: hyperexponential integrand → linear ODE for the parameter integral → solve (reuse `ode.rs`). | Large | §1.5 | 📋 |
+| **R3** | **Parametric definite integration** (Almkvist–Zeilberger, order-1) — sample I(n), detect the recurrence ratio, telescope to a verified closed form. Unified with R2's engine. | Large | §1.5 | ✅ |
 | **R4** | **Trager** algebraic integration: integral basis + Hermite reduction on `y²=r(x)`, algebraic LRT log part; decide elementarity. | Large | §1.3 | 📋 |
 
 ### Phasing
@@ -106,3 +106,12 @@ towers · Reduce/CAD quantifier elimination · 3rd-gen trait architecture.
   it cancels: `sum(binomial(n,k)^2,k,0,n)=factorial(2n)/factorial(n)^2`
   (= binomial(2n,n); verified). Deferred to V12+: order ≥2 recurrences and full
   certificate-based Zeilberger.
+
+- **R3** — ✅ (order-1) Parametric definite integration, unified with R2 into one
+  sampler-based engine (`hypersum.rs`): a parametric quantity T(n) — sum
+  Σ_k F(n,k) or integral ∫F(n,x)dx — is sampled at integer n, its ratio
+  T(n+1)/T(n) reconstructed numerically (so common irrational factors like √π
+  cancel), matched to c·(n+a)/(n+b) (integer or half-integer shifts, each factor
+  optional), telescoped to a closed form, and symbolically verified. Example:
+  `integrate(x^(2n)*exp(-x^2),x,0,inf) = (2n)!√π/(2·4^n·n!)` (= Γ(n+1/2)/2).
+  Deferred to V12+: order ≥2 and certificate-based AZ.

@@ -1225,6 +1225,11 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
                             }
                         }
                     }
+                    // Parametric definite integral: detect an order-1 recurrence
+                    // in the free parameter (samples the integral at integer n).
+                    if let Some(res) = crate::hypersum::try_parametric_integral(f, var, a, b, env) {
+                        return res;
+                    }
                 }
                 return result;
             }
