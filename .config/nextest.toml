@@ -1,10 +1,11 @@
-# cargo-nextest configuration.
+# cargo-nextest configuration (OPTIONAL).
 #
-# Run tests with a per-test timeout:  `cargo nextest run`
-# (Install once with: `cargo install cargo-nextest --locked`, or via
-#  taiki-e/install-action@nextest in CI.)
-#
-# Plain `cargo test` has no per-test timeout — use nextest to get the 60s guard.
+# The rtest harness already enforces a 60s-per-case timeout under plain
+# `cargo test` (see crates/eval/tests/rtest_runner.rs). This config additionally
+# bounds EVERY test to 60s when run via nextest:
+#     cargo install cargo-nextest --locked   # one-time
+#     cargo nextest run
+# It is not required — `cargo test` works without nextest installed.
 
 [profile.default]
 # Mark a test "slow" after 60s and TERMINATE it (fail) after the first such

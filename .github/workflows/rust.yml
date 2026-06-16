@@ -18,9 +18,9 @@ jobs:
     - uses: actions/checkout@v4
     - name: Build
       run: cargo build --verbose
-    - name: Install nextest
-      uses: taiki-e/install-action@nextest
-    - name: Run tests (60s per-test timeout)
-      run: cargo nextest run --profile ci
-    - name: Run doctests
-      run: cargo test --doc --verbose
+    # The rtest harness has a built-in 60s-per-case watchdog, so a hung case
+    # aborts loudly instead of blocking. `cargo test` needs no extra tooling.
+    # (For an all-tests per-test timeout locally, `cargo nextest run` honours
+    #  .config/nextest.toml — install with `cargo install cargo-nextest`.)
+    - name: Run tests
+      run: cargo test --verbose
