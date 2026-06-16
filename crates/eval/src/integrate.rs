@@ -3611,7 +3611,7 @@ fn get_coeff(poly: &maxima_poly::Poly, deg: u32) -> maxima_poly::Coeff {
 
 /// Match `rest = 1/(lead·(x + r))`: a reciprocal of a linear factor.
 /// Returns (r, lead) so the integrand is 1/(lead·(x+r)·√Q).
-fn match_inverse_linear(rest: &Expr, var: &Expr, var_id: maxima_core::SymbolId) -> Option<(Expr, Expr)> {
+fn match_inverse_linear(rest: &Expr, _var: &Expr, var_id: maxima_core::SymbolId) -> Option<(Expr, Expr)> {
     if let Expr::List { op: Operator::MExpt, args, .. } = rest {
         if args.len() == 2 && args[1] == Expr::int(-1) {
             let lin = maxima_poly::expr_to_poly(&args[0], var_id)?;

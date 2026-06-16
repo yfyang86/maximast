@@ -418,32 +418,50 @@ fn make_monic(p: &MPoly) -> MPoly {
     }
 }
 
-/// Multivariate GCD over Q via Kronecker substitution + univariate `poly_gcd`,
-/// verified by exact division. Returns the monic gcd when it divides both
-/// inputs (then it is provably the gcd, by a degree argument); otherwise the
-/// constant 1 — a safe, possibly-incomplete answer, never a wrong one.
-pub fn mpoly_gcd(a: &MPoly, b: &MPoly) -> MPoly {
+/// Multivariate GCD over Q via Kronecker substitution + univariate `poly_gcd`.
+///
+/// Returns:
+/// - `Some(g)` only when the result is **provably correct**: either the
+///   inputs are genuinely coprime (the Kronecker image gcd is constant — which
+///   forces gcd(a,b)=1), or the inverted candidate `g` is verified to divide
+///   both inputs by exact division (then it is the gcd, by a degree argument).
+/// - `None` when the answer is **undetermined** — the Kronecker image would be
+///   too large (degree cap) or it produced a *spurious* common factor that
+///   doesn't verify. Callers should fall back to the noun form. This is the
+///   key correctness guard: Kronecker routinely invents spurious common
+///   factors (e.g. for x+y, x−y), so we must never report `1` unless coprimality
+///   is actually proven.
+pub fn mpoly_gcd(a: &MPoly, b: &MPoly) -> Option<MPoly> {
     assert_eq!(a.vars, b.vars, "mpoly_gcd: variable mismatch");
     let one = MPoly::constant(a.vars.clone(), a.order, MCoeff::one());
-    if a.is_zero() { return make_monic(b); }
-    if b.is_zero() { return make_monic(a); }
-    // gcd with a constant is a unit → 1
+    if a.is_zero() { return Some(make_monic(b)); }
+    if b.is_zero() { return Some(make_monic(a)); }
+    // gcd with a (nonzero) constant is a unit → 1
     if a.lm().map_or(true, |m| m.is_one()) || b.lm().map_or(true, |m| m.is_one()) {
-        return one;
+        return Some(one);
     }
     let d = 1 + max_var_exp(a).max(max_var_exp(b));
+    // Guard against Kronecker blow-up: the univariate image has degree < d^nvars,
+    // and `poly_gcd` on a very high-degree image is prohibitively slow.
+    const KRON_DEGREE_CAP: u64 = 1024;
+    match (d as u64).checked_pow(a.nvars() as u32) {
+        Some(kd) if kd <= KRON_DEGREE_CAP => {}
+        _ => return None,
+    }
     let var = a.vars[0];
-    let (Some(ka), Some(kb)) = (to_kronecker(a, d, var), to_kronecker(b, d, var)) else {
-        return one;
-    };
+    let (ka, kb) = (to_kronecker(a, d, var)?, to_kronecker(b, d, var)?);
     let g_uni = poly_gcd(&ka, &kb);
-    if g_uni.terms.is_empty() { return one; }
+    if g_uni.terms.is_empty() { return None; }
     let g = make_monic(&from_kronecker(&g_uni, d, a.nvars(), a.vars.clone(), a.order));
-    if g.lm().map_or(true, |m| m.is_one()) { return one; }
+    // Constant image gcd ⇒ gcd(K(a),K(b))=1 ⇒ gcd(a,b)=1 (proven coprime).
+    if g.lm().map_or(true, |m| m.is_one()) {
+        return Some(one);
+    }
+    // Otherwise accept only if it verifiably divides both (else spurious).
     if a.exact_div(&g).is_some() && b.exact_div(&g).is_some() {
-        g
+        Some(g)
     } else {
-        one
+        None
     }
 }
 
@@ -606,7 +624,7 @@ mod tests {
     #[test] fn gcd_difference_of_squares() {
         let a = mp(&Expr::sub(sq(x()), sq(y())));            // x²-y²
         let b = mp(&Expr::sub(x(), y()));                    // x-y
-        let g = mpoly_gcd(&a, &b);
+        let g = mpoly_gcd(&a, &b).expect("verifiable gcd");
         assert!(a.exact_div(&g).is_some() && b.exact_div(&g).is_some());
         assert_eq!(g, mp(&Expr::sub(x(), y())));             // gcd = x-y
     }
@@ -615,15 +633,29 @@ mod tests {
         // gcd(x²-y², x²+2xy+y²) = x+y
         let a = mp(&Expr::sub(sq(x()), sq(y())));
         let b = mp(&Expr::add(Expr::add(sq(x()), Expr::mul(Expr::int(2), Expr::mul(x(), y()))), sq(y())));
-        let g = mpoly_gcd(&a, &b);
+        let g = mpoly_gcd(&a, &b).expect("verifiable gcd");
         assert!(a.exact_div(&g).is_some() && b.exact_div(&g).is_some());
         assert_eq!(g, mp(&Expr::add(x(), y())));             // gcd = x+y
     }
 
-    #[test] fn gcd_coprime_is_one() {
+    #[test] fn gcd_never_falsely_coprime() {
+        // x+y, x-y ARE coprime, but Kronecker invents a spurious factor that
+        // fails verification — so we must return None (→ noun), never a wrong 1.
         let a = mp(&Expr::add(x(), y()));
         let b = mp(&Expr::sub(x(), y()));
-        let g = mpoly_gcd(&a, &b);
-        assert_eq!(g.total_degree(), 0);                     // coprime → constant
+        match mpoly_gcd(&a, &b) {
+            None => {}                                       // undetermined → noun (acceptable)
+            Some(g) => assert_eq!(g.total_degree(), 0),      // if determined, must be the unit 1
+        }
+    }
+
+    #[test] fn gcd_genuinely_coprime_constant_image() {
+        // gcd(x+1, y+1) = 1: Kronecker images t+1, t^d+1 are coprime → proven 1.
+        // (gcd(x,y) by contrast maps to t, t^d which share t, so it is *not*
+        // provable this way and would return None — a known Kronecker limitation.)
+        let a = mp(&Expr::add(x(), Expr::int(1)));
+        let b = mp(&Expr::add(y(), Expr::int(1)));
+        let g = mpoly_gcd(&a, &b).expect("coprime is provable here");
+        assert_eq!(g.total_degree(), 0);
     }
 }
