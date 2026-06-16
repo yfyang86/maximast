@@ -1,4 +1,36 @@
 use maxima_eval::{Environment, eval_str_with_env};
+use std::sync::{Arc, Mutex, OnceLock};
+use std::time::{Duration, Instant};
+
+/// Per-case watchdog. `cargo test` has no native per-test timeout, and the eval
+/// `Environment` isn't `Send` (it owns plugin `Library` handles), so we can't
+/// run a case in a killable worker thread. Instead a single background thread
+/// watches the currently-evaluating case; if any one case exceeds 60s it prints
+/// the offending input and aborts the process — turning a runaway/hung case
+/// into a loud, identifiable failure instead of an indefinite hang.
+const CASE_TIMEOUT: Duration = Duration::from_secs(60);
+
+fn watchdog() -> Arc<Mutex<Option<(String, Instant)>>> {
+    static WATCH: OnceLock<Arc<Mutex<Option<(String, Instant)>>>> = OnceLock::new();
+    WATCH.get_or_init(|| {
+        let w = Arc::new(Mutex::new(None::<(String, Instant)>));
+        let w2 = Arc::clone(&w);
+        std::thread::spawn(move || loop {
+            std::thread::sleep(Duration::from_secs(1));
+            if let Some((input, start)) = &*w2.lock().unwrap() {
+                if start.elapsed() > CASE_TIMEOUT {
+                    eprintln!("\n*** rtest case exceeded {}s — aborting: {} ***",
+                              CASE_TIMEOUT.as_secs(), input);
+                    std::process::abort();
+                }
+            }
+        });
+        w
+    }).clone()
+}
+
+fn watch_begin(input: &str) { *watchdog().lock().unwrap() = Some((input.to_string(), Instant::now())); }
+fn watch_end() { *watchdog().lock().unwrap() = None; }
 
 struct RtestResult {
     total: usize,
@@ -101,6 +133,7 @@ fn run_rtest(path: &str) -> RtestResult {
     };
 
     for (i, (input, expected)) in pairs.iter().enumerate() {
+        watch_begin(input);
         let actual = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             eval_str_with_env(&format!("{};", input), &mut env)
         }));
@@ -136,6 +169,7 @@ fn run_rtest(path: &str) -> RtestResult {
             }
         }
     }
+    watch_end();
 
     result
 }
