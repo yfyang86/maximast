@@ -31,6 +31,7 @@ pub mod tex;
 pub mod zeilberger;
 pub mod gosper;
 pub mod hypersum;
+pub mod gammafn;
 
 pub use env::{Environment, NativeFn, NativeFuncDef};
 pub use eval::{eval_str, eval_str_with_env, eval_expr_with_env, meval};

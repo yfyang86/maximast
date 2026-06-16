@@ -27,7 +27,6 @@ impl Rat {
         Some(Rat { n, d })
     }
     fn from_i(v: i128) -> Rat { Rat { n: v, d: 1 } }
-    fn mul(self, o: Rat) -> Option<Rat> { Rat::new(self.n * o.n, self.d * o.d) }
     fn eq(self, o: Rat) -> bool { self.n == o.n && self.d == o.d }
 }
 
@@ -79,6 +78,9 @@ pub fn try_hyper_sum_order1(body: &Expr, k_id: SymbolId, lo: &Expr, hi: &Expr, e
     let n = Expr::Symbol(n_id);
     let k = Expr::Symbol(k_id);
 
+    // S(0), used to anchor half-integer closed forms (Pochhammer from 0).
+    let s0 = sample_sum(body, &k, lo, hi, &n, 0, env);
+
     // Sample S(n0) for a window of n0; require nonzero, distinct, exact values.
     let mut samples: Vec<(i64, Rat)> = Vec::new();
     for n0 in 1..=12i64 {
@@ -100,21 +102,29 @@ pub fn try_hyper_sum_order1(body: &Expr, k_id: SymbolId, lo: &Expr, hi: &Expr, e
     }
     if ratios.len() < 4 { return None; }
 
-    // Search integer shifts a,b (numerator/denominator) and derive c, then
-    // verify R(m) = c·(m+a)/(m+b) on every sampled ratio.
+    // Search shifts in halves: R(m) = c·(m + ha/2)/(m + hb/2). ha=hb parity even
+    // ⇒ integer shifts (clean factorial-free closed form); odd ⇒ half-integer
+    // shifts (Pochhammer→factorial, anchored at n=0 via S(0)). Derive c from the
+    // first ratio and verify against every sampled ratio exactly.
     let (m0, r0) = ratios[0];
-    for a in -12..=12i64 {
-        for b in -12..=12i64 {
-            if m0 + a == 0 { continue; }
-            // c = R(m0)·(m0+b)/(m0+a)
-            let Some(c) = Rat::new(r0.n * (m0 + b) as i128, r0.d * (m0 + a) as i128) else { continue };
+    for ha in -24..=24i64 {
+        for hb in -24..=24i64 {
+            let (na, da) = (2 * m0 + ha, 2 * m0 + hb); // 2(m0)+h
+            if na == 0 { continue; }
+            // c = R(m0)·(2m0+hb)/(2m0+ha)
+            let Some(c) = Rat::new(r0.n * da as i128, r0.d * na as i128) else { continue };
             let ok = ratios.iter().all(|&(m, r)| {
-                // r == c·(m+a)/(m+b)  ⇔  r.n·(m+b)·c.d == c.n·(m+a)·r.d
-                (m + b) != 0
-                    && (r.n * (m + b) as i128 * c.d) == (c.n * (m + a) as i128 * r.d)
+                let (nm, dm) = (2 * m + ha, 2 * m + hb);
+                dm != 0 && (r.n * dm as i128 * c.d) == (c.n * nm as i128 * r.d)
             });
             if !ok { continue; }
-            if let Some(closed) = build_closed_form(&samples, c, a, b, &n) {
+
+            let closed = if ha % 2 == 0 && hb % 2 == 0 {
+                build_closed_form(&samples, c, ha / 2, hb / 2, &n)
+            } else {
+                s0.filter(|s| s.n != 0).and_then(|s| build_half(s, c, ha, hb, &n))
+            };
+            if let Some(closed) = closed {
                 if verify(&closed, &samples, &n, env) {
                     return Some(crate::eval::meval(&closed, env));
                 }
@@ -122,6 +132,43 @@ pub fn try_hyper_sum_order1(body: &Expr, k_id: SymbolId, lo: &Expr, hi: &Expr, e
         }
     }
     None
+}
+
+/// ∏_{m=0}^{n−1}(m + h/2) = (h/2)_n, returned as (factorial-expr, e) meaning the
+/// value is `expr · 4^(e·n)`. Pulling the 4^n out lets `build_half` fold it into
+/// the geometric base so it cancels (the simplifier won't combine 4^n·4^(−n)).
+/// Integer a=h/2≥1: ((n+a−1)!/(a−1)!, 0). Half-integer (h=2j+1, j≥0):
+/// ((2(n+j))!·j!/((n+j)!·(2j)!), −1) via the Gamma duplication formula.
+fn pochhammer_fact(h: i64, n: &Expr) -> Option<(Expr, i64)> {
+    let fact = |x: Expr| Expr::call("factorial", vec![x]);
+    if h % 2 == 0 {
+        let a = h / 2;
+        if a < 1 { return None; }
+        Some((Expr::div(fact(Expr::add(n.clone(), Expr::int(a - 1))), fact(Expr::int(a - 1))), 0))
+    } else {
+        let j = (h - 1) / 2;
+        if j < 0 { return None; }
+        let nj = Expr::add(n.clone(), Expr::int(j));
+        let numer = Expr::mul(fact(Expr::mul(Expr::int(2), nj.clone())), fact(Expr::int(j)));
+        let denom = Expr::mul(fact(nj), fact(Expr::int(2 * j)));
+        Some((Expr::div(numer, denom), -1))
+    }
+}
+
+/// S(n) = S(0)·c^n·(ha/2)_n / (hb/2)_n, with the 4^n powers folded into the base.
+fn build_half(s0: Rat, c: Rat, ha: i64, hb: i64, n: &Expr) -> Option<Expr> {
+    let (pa, fa) = pochhammer_fact(ha, n)?;
+    let (pb, fb) = pochhammer_fact(hb, n)?;
+    // base = c · 4^(fa − fb)
+    let d = fa - fb;
+    if d.abs() > 8 { return None; }
+    let base = if d >= 0 {
+        Rat::new(c.n * 4i128.pow(d as u32), c.d)?
+    } else {
+        Rat::new(c.n, c.d * 4i128.pow((-d) as u32))?
+    };
+    let shape = Expr::div(Expr::mul(Expr::pow(rat_expr(base), n.clone()), pa), pb);
+    Some(Expr::mul(rat_expr(s0), shape))
 }
 
 /// S(n) = K · c^(n−n0) · ∏(n+i),  the telescoped order-1 closed form.
@@ -194,5 +241,19 @@ mod tests {
     #[test] fn non_hypergeometric_is_noun() {
         // 1/k^2 has no elementary closed form → noun (never a wrong answer).
         assert!(run("sum(1/k^2,k,1,n);").contains("sum("));
+    }
+}
+
+#[cfg(test)]
+mod tests2 {
+    use crate::eval::eval_str;
+    fn run(s: &str) -> String { eval_str(s) }
+
+    #[test] fn sum_binomial_squared() {
+        // Σ_{k=0}^n C(n,k)^2 = C(2n,n) = (2n)!/(n!)^2; closed form found…
+        let s = run("sum(binomial(n,k)^2,k,0,n);");
+        assert!(!s.contains("sum("), "got noun: {s}");
+        // …and numerically C(12,6)=924.
+        assert_eq!(run("sum(binomial(6,k)^2,k,0,6);"), "924");
     }
 }

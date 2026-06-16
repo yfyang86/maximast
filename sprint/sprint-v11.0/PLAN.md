@@ -30,7 +30,7 @@ Zeilberger → AZ (integrals) → Trager.
 | Sprint | Content | Size | Survey ref | Status |
 |--------|---------|------|------------|--------|
 | **R1** | **Gosper's algorithm** — indefinite hypergeometric summation. Hypergeometric shift-ratio (powers/factorials), Gosper–Petkovšek normal form, key-equation solve, telescoping-verified. Wired into `nusum` and definite `sum`. | Large | §1.5/§3.2 | ✅ |
-| **R2** | **Definite hypergeometric summation** — order-1 recurrence detection (exact sampling) + telescoped factorial-free closed form, verified. Installment 1 of creative telescoping. | Large | §3.2 | 🚧 |
+| **R2** | **Definite hypergeometric summation** — order-1 recurrence detection + closed forms (integer & half-integer shifts), plus a Pochhammer/Gamma/factorial-ratio simplification layer. | Large | §3.2 | ✅ |
 | **R3** | **Almkvist–Zeilberger** — the integral analog: hyperexponential integrand → linear ODE for the parameter integral → solve (reuse `ode.rs`). | Large | §1.5 | 📋 |
 | **R4** | **Trager** algebraic integration: integral basis + Hermite reduction on `y²=r(x)`, algebraic LRT log part; decide elementarity. | Large | §1.3 | 📋 |
 
@@ -95,3 +95,14 @@ towers · Reduce/CAD quantifier elimination · 3rd-gen trait architecture.
   `sum(binomial(n,k)^2)=binomial(2n,n)` needs Pochhammer(1/2) — returns noun for
   now, never wrong). Those need a Pochhammer/Gamma + factorial-ratio
   simplification layer (currently absent), planned as R2 installment 2.
+
+- **R2** — ✅ (installment 2) Pochhammer/Gamma/factorial simplification layer
+  (`crates/eval/src/gammafn.rs` + builtins): `pochhammer(a,m)` expansion,
+  `gamma` at integers and half-integers (Γ(p+1/2)=(2p)!/(4^p p!)·√π),
+  `makefact` (binomial/pochhammer/gamma → factorial), `minfactorial` (factorial
+  ratios with integer-differing args → finite products, incl. product
+  denominators). Extended `hypersum` to half-integer shifts via a
+  Pochhammer→factorial duplication formula with the 4^n folded into the base so
+  it cancels: `sum(binomial(n,k)^2,k,0,n)=factorial(2n)/factorial(n)^2`
+  (= binomial(2n,n); verified). Deferred to V12+: order ≥2 recurrences and full
+  certificate-based Zeilberger.
