@@ -3061,6 +3061,12 @@ fn eval_sum(args: &[Expr], env: &mut Environment) -> Expr {
         return meval(&result, env);
     }
 
+    // Order-1 creative telescoping: detect S(n+1)/S(n) by sampling, closed form
+    // verified numerically (handles binomial-type sums Gosper can't telescope).
+    if let Some(result) = crate::hypersum::try_hyper_sum_order1(&body_evaled, var, &lo, &hi, env) {
+        return result;
+    }
+
     let evaled: Vec<Expr> = args.iter().map(|a| meval(a, env)).collect();
     Expr::call("sum", evaled)
 }
