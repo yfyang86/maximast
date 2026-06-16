@@ -36,6 +36,14 @@ integrate((x^2+1)/sqrt(x^3+x), x)                     → elementary
 integrate(1/sqrt(x^3+1), x)                           → NONELEMENTARY (noun)
 ```
 
+- **P2** — ✅ Recursive multivariate GCD (primitive PRS over Q) in
+  `crates/poly/src/mpoly_recgcd.rs`, replacing the incomplete Kronecker GCD:
+  `gcd(x^2-y^2,(x+y)^2)=x+y`, `gcd(x+y,x-y)=1` (coprime detected). Wired into
+  `gcd` and into multivariate `ratsimp` cancellation (v10 M3):
+  `ratsimp((x^2-y^2)/(x-y))=x+y`, `ratsimp((x^3-y^3)/(x-y))=x^2+x*y+y^2`.
+- **P1** — ✅ binomial → BigInt (i64-overflow fix). Deeper simplifier-`Coef`
+  BigRational refactor (rational-sum overflow) remains, guarded.
+
 ## Carried-forward backlog
 
 Recursive multivariate GCD + v10 M3 · Meijer-G · Karr/Schneider ΠΣ · Reduce/CAD
