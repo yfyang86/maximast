@@ -401,6 +401,19 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
             }
             return Expr::call("nusum", evaled);
         }
+        "find_recurrence" => {
+            // find_recurrence(expr, n): minimal linear P-recurrence of the
+            // sequence expr(n), as the coefficient list [c_0(n),…,c_J(n)].
+            let evaled: Vec<Expr> = args.iter().map(|a| meval(a, env)).collect();
+            if evaled.len() == 2 {
+                if let Expr::Symbol(nid) = &evaled[1] {
+                    if let Some(coeffs) = crate::recurrence::find_recurrence(&evaled[0], *nid, env) {
+                        return Expr::list(coeffs);
+                    }
+                }
+            }
+            return Expr::call("find_recurrence", evaled);
+        }
         "product" => return eval_product(args, env),
         // makelist/create_list bind a loop var; the body must NOT be eagerly
         // evaluated in the outer scope (where the loop var is unbound). Doing
