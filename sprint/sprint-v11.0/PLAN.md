@@ -30,7 +30,7 @@ Zeilberger → AZ (integrals) → Trager.
 | Sprint | Content | Size | Survey ref | Status |
 |--------|---------|------|------------|--------|
 | **R1** | **Gosper's algorithm** — indefinite hypergeometric summation. Hypergeometric shift-ratio (powers/factorials), Gosper–Petkovšek normal form, key-equation solve, telescoping-verified. Wired into `nusum` and definite `sum`. | Large | §1.5/§3.2 | ✅ |
-| **R2** | **Zeilberger** creative telescoping — definite hypergeometric sums (binomial identities) via parametrised Gosper; recurrence + solver. | Large | §3.2 | 📋 |
+| **R2** | **Definite hypergeometric summation** — order-1 recurrence detection (exact sampling) + telescoped factorial-free closed form, verified. Installment 1 of creative telescoping. | Large | §3.2 | 🚧 |
 | **R3** | **Almkvist–Zeilberger** — the integral analog: hyperexponential integrand → linear ODE for the parameter integral → solve (reuse `ode.rs`). | Large | §1.5 | 📋 |
 | **R4** | **Trager** algebraic integration: integral basis + Hermite reduction on `y²=r(x)`, algebraic LRT log part; decide elementarity. | Large | §1.3 | 📋 |
 
@@ -83,3 +83,15 @@ towers · Reduce/CAD quantifier elimination · 3rd-gen trait architecture.
   bases under integer powers (e.g. `(k+1)^2`). Examples:
   `nusum(k*k!)=(n+1)!-1`, `nusum(2^k)=2^(n+1)-2`, `sum(1/(k*(k+1)))=1-1/(n+1)`,
   `sum(k^3)=(n*(n+1)/2)^2`.
+
+- **R2** — 🚧 (installment 1) `crates/eval/src/hypersum.rs`: definite
+  hypergeometric sums via order-1 recurrence detection. Samples S(n) *exactly*,
+  detects the ratio S(n+1)/S(n) = c·(n+a)/(n+b) (integer shifts) by search, and
+  telescopes it to a factorial-free closed form S(n)=K·c^n·∏(n+i), numerically
+  verified before returning (correct-or-noun). Wired into `sum`. Examples:
+  `sum(k*binomial(n,k),k,0,n)=n*2^(n-1)`,
+  `sum(k^2*binomial(n,k),k,0,n)=n*(n+1)*2^(n-2)`. Deferred: order ≥2 recurrences,
+  certificate-based Zeilberger, and half-integer/Gamma closed forms (e.g.
+  `sum(binomial(n,k)^2)=binomial(2n,n)` needs Pochhammer(1/2) — returns noun for
+  now, never wrong). Those need a Pochhammer/Gamma + factorial-ratio
+  simplification layer (currently absent), planned as R2 installment 2.
