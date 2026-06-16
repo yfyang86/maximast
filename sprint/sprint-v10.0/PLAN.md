@@ -29,8 +29,8 @@ check** as the correctness gate:
 
 | Sprint | Content | Size | Status |
 |--------|---------|------|--------|
-| **M1** | `MPoly` exact division + verified multivariate GCD (Kronecker); wire `gcd` | Medium | 🚧 |
-| **M2** | Multivariate factoring (Kronecker: factor the image, recombine via exact-div); wire `factor` | Large | 📋 |
+| **M1** | `MPoly` exact division + verified multivariate GCD (Kronecker); wire `gcd` | Medium | ✅ |
+| **M2** | Multivariate factoring (Kronecker: factor the image, recombine via exact-div); wire `factor` | Large | ✅ |
 | **M3** | Multivariate `ratsimp`/cancellation using the new GCD; `content`/`primpart` over many vars | Medium | 📋 |
 
 ## Targets
@@ -50,6 +50,18 @@ summation · general exponential towers · Reduce/CAD.
 
 ## Progress notes
 
-- **M1** — (in progress) `MPoly::exact_div` (multivariate division with
-  quotient, exact iff remainder vanishes) and `mpoly_gcd` via Kronecker
-  substitution + exact-division verification.
+- **M1** — ✅ `MPoly::exact_div` (multivariate division, exact iff remainder
+  vanishes) and `mpoly_gcd` via Kronecker substitution + exact-division
+  verification (correct-or-noun, never wrong). Wired into `gcd`. Known limit:
+  Kronecker is not gcd-preserving, so some cases (e.g. `gcd(x²−y²,(x+y)²)`)
+  return noun. A proper recursive multivariate GCD is deferred to a later
+  sprint (its verification is weaker, so it needs its own careful build).
+- **M2** — ✅ `mpoly_factor`: Kronecker substitution → univariate `factor_poly`
+  → greedy recombination, each candidate accepted only when it exactly divides.
+  Wired into `factor`. Works: `factor(a²−b²)=(a−b)(a+b)`, `x²+2xy+y²=(x+y)²`,
+  `x³−y³=(x−y)(x²+xy+y²)`, `ab+a+b+1=(a+1)(b+1)`, numeric content
+  (`2x²−2y²=2(x−y)(x+y)`). Known limit: completeness is bounded by the
+  univariate `factor_poly` (rational-roots + sqfree only), so cases needing
+  higher-degree univariate splitting (e.g. `factor(x⁴−y⁴)` needs `x²+y²`)
+  return unfactored — safe, never wrong. A full Zassenhaus univariate
+  factorizer would lift this.
