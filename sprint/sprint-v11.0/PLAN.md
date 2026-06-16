@@ -1,0 +1,136 @@
+# Maxima Rust Kernel v11.0 — Research-Grade Symbolic Engines
+
+## Theme
+
+Finish the hard symbolic deferrals from v8.0 — the genuine FriCAS-class
+frontier where Maxima is weakest and no Rust competitor exists
+(`research/survey/ALGORITHM_SURVEY.md` §1.3, §1.5, §3.2–3.4, §5.1):
+
+1. **Holonomic / D-finite closure + Almkvist–Zeilberger** — definite
+   integrals and sums of D-finite functions via creative telescoping.
+2. **Trager algebraic integration** — elementary integrals of algebraic
+   functions (radicals) over curves.
+
+Prerequisite (v10.0): the multivariate polynomial engine — holonomic work
+needs multivariate / Ore-algebra arithmetic, and Trager needs polynomials
+over algebraic extensions.
+
+**Discipline unchanged:** every closed form numerically verified before it is
+returned; noun (or a correct "nonelementary"/recurrence) beats a wrong answer.
+These are research-grade (survey effort: AZ ≈4 PM, holonomic 3–5 PM, Trager
+6–10 PM), so each sprint may ship a **scoped** subset — flagged honestly, as
+v8.0 S5/S6 were.
+
+## Sprints
+
+Revised to lead with the **summation** half (the most tractable, concrete
+research-grade win, and the foundation Almkvist–Zeilberger mirrors): Gosper →
+Zeilberger → AZ (integrals) → Trager.
+
+| Sprint | Content | Size | Survey ref | Status |
+|--------|---------|------|------------|--------|
+| **R1** | **Gosper's algorithm** — indefinite hypergeometric summation. Hypergeometric shift-ratio (powers/factorials), Gosper–Petkovšek normal form, key-equation solve, telescoping-verified. Wired into `nusum` and definite `sum`. | Large | §1.5/§3.2 | ✅ |
+| **R2** | **Definite hypergeometric summation** — order-1 recurrence detection + closed forms (integer & half-integer shifts), plus a Pochhammer/Gamma/factorial-ratio simplification layer. | Large | §3.2 | ✅ |
+| **R3** | **Parametric definite integration** (Almkvist–Zeilberger, order-1) — sample I(n), detect the recurrence ratio, telescope to a verified closed form. Unified with R2's engine. | Large | §1.5 | ✅ |
+| **R4** | **Algebraic integration** (Trager, quadratic case): Hermite-reduction ansatz for ∫P(x)/Q^(m+1/2) (Q quadratic), verified. Cubic+/genus≥1 deferred. | Large | §1.3 | ✅ |
+
+### Phasing
+
+| Phase | Sprints | Focus |
+|-------|---------|-------|
+| **Phase 1 — Infrastructure** | R1 → R2 | The Ore-algebra + holonomic substrate everything else reuses |
+| **Phase 2 — Definite integration** | R3 | Almkvist–Zeilberger on the holonomic substrate |
+| **Phase 3 — Algebraic frontier** | R4 | Trager, the hardest indefinite case |
+
+## Targets
+
+```
+/* Almkvist–Zeilberger (R3) — general, not table-special-cased */
+integrate(exp(-a*x^2)*x^(2*n), x, 0, inf);     → parametrised Gaussian moments
+integrate(x^s/(1+x), x, 0, inf);               → π/sin(π s) family
+/* Holonomic closure (R2) */
+ode satisfied by  bessel_j(0,x)*exp(x), etc.
+/* Trager (R4) */
+integrate(x/sqrt(x^4+1), x);                   → already via subst; now general
+integrate((x^2+1)/sqrt(x^3+x), x);             → elementary algebraic case
+integrate(1/sqrt(x^3+1), x);                   → correctly NONELEMENTARY (noun)
+```
+
+## Carried-forward backlog (beyond v11.0)
+
+Meijer-G tables · Karr/Schneider ΠΣ summation · general Risch exponential
+towers · Reduce/CAD quantifier elimination · 3rd-gen trait architecture.
+
+## Open questions (resolve before R3/R4)
+
+| # | Topic | Question |
+|---|-------|----------|
+| 1 | R2 representation | Annihilator as a single ODE in `d/dx` only, or full Ore (mixed `∂x`/shift) for sums too? Start ODE-only? |
+| 2 | R3 scope | Hyperexponential integrands only (achievable), or general D-finite (needs full R2)? |
+| 3 | R4 ambition | Radical-quadratic/cubic only this release, or attempt general `y²=r(x)` hyperelliptic? |
+| 4 | bignum | Trager resultants over Q can overflow i64 — stay pure `num::BigInt`, or accept an LGPL FLINT fast path for the heavy algebraic work? |
+
+## Progress notes
+
+- **R1** — ✅ Gosper's algorithm in `crates/eval/src/gosper.rs`. A structural
+  hypergeometric shift-ratio handles polynomial/rational/exponential/factorial
+  terms (the generic simplifier won't reduce `2^(k+1)/2^k` or `(k+1)!/k!`);
+  Gosper–Petkovšek normal form via dispersion + poly GCD; degree-bounded key
+  equation solved over Q (own particular-solution Gaussian elimination — the
+  shared solver rejects the free variables Gosper needs); telescoping-verified
+  numerically before returning (correct-or-noun). Wired into `nusum` and as a
+  fallback in definite `sum`. Also fixed `expr_to_poly` to expand polynomial
+  bases under integer powers (e.g. `(k+1)^2`). Examples:
+  `nusum(k*k!)=(n+1)!-1`, `nusum(2^k)=2^(n+1)-2`, `sum(1/(k*(k+1)))=1-1/(n+1)`,
+  `sum(k^3)=(n*(n+1)/2)^2`.
+
+- **R2** — 🚧 (installment 1) `crates/eval/src/hypersum.rs`: definite
+  hypergeometric sums via order-1 recurrence detection. Samples S(n) *exactly*,
+  detects the ratio S(n+1)/S(n) = c·(n+a)/(n+b) (integer shifts) by search, and
+  telescopes it to a factorial-free closed form S(n)=K·c^n·∏(n+i), numerically
+  verified before returning (correct-or-noun). Wired into `sum`. Examples:
+  `sum(k*binomial(n,k),k,0,n)=n*2^(n-1)`,
+  `sum(k^2*binomial(n,k),k,0,n)=n*(n+1)*2^(n-2)`. Deferred: order ≥2 recurrences,
+  certificate-based Zeilberger, and half-integer/Gamma closed forms (e.g.
+  `sum(binomial(n,k)^2)=binomial(2n,n)` needs Pochhammer(1/2) — returns noun for
+  now, never wrong). Those need a Pochhammer/Gamma + factorial-ratio
+  simplification layer (currently absent), planned as R2 installment 2.
+
+- **R2** — ✅ (installment 2) Pochhammer/Gamma/factorial simplification layer
+  (`crates/eval/src/gammafn.rs` + builtins): `pochhammer(a,m)` expansion,
+  `gamma` at integers and half-integers (Γ(p+1/2)=(2p)!/(4^p p!)·√π),
+  `makefact` (binomial/pochhammer/gamma → factorial), `minfactorial` (factorial
+  ratios with integer-differing args → finite products, incl. product
+  denominators). Extended `hypersum` to half-integer shifts via a
+  Pochhammer→factorial duplication formula with the 4^n folded into the base so
+  it cancels: `sum(binomial(n,k)^2,k,0,n)=factorial(2n)/factorial(n)^2`
+  (= binomial(2n,n); verified). Deferred to V12+: order ≥2 recurrences and full
+  certificate-based Zeilberger.
+
+- **R3** — ✅ (order-1) Parametric definite integration, unified with R2 into one
+  sampler-based engine (`hypersum.rs`): a parametric quantity T(n) — sum
+  Σ_k F(n,k) or integral ∫F(n,x)dx — is sampled at integer n, its ratio
+  T(n+1)/T(n) reconstructed numerically (so common irrational factors like √π
+  cancel), matched to c·(n+a)/(n+b) (integer or half-integer shifts, each factor
+  optional), telescoped to a closed form, and symbolically verified. Example:
+  `integrate(x^(2n)*exp(-x^2),x,0,inf) = (2n)!√π/(2·4^n·n!)` (= Γ(n+1/2)/2).
+  Deferred to V12+: order ≥2 and certificate-based AZ.
+
+- **R4** — ✅ (quadratic case) Algebraic integration of ∫ P(x)/Q^(m+1/2) dx for
+  polynomial P and quadratic Q (m ≥ 1) via a Hermite-reduction ansatz
+  (R'·Q − (m−1/2)·R·Q' + κ·Q^m = P solved over Q), giving R(x)/Q^(m−1/2)+κ·∫1/√Q.
+  Handles split (Q^(-1)·Q^(-1/2)) and nested ((Q^(3/2))^(-1)) factor forms;
+  differentiation-verified, so non-noun ⟹ correct. Fills the radical-in-
+  denominator gap: `integrate(1/(x^2+1)^(3/2),x)=x/√(x²+1)`,
+  `integrate(1/(x^2+4)^(5/2),x)` (m=2), etc. The full Trager algorithm for cubic+
+  radicals / genus ≥ 1 (elliptic, e.g. 1/√(x³+1) — correctly NONELEMENTARY noun)
+  is deferred to V12.
+
+## v11.0 summary
+
+All four research-grade sprints landed as bounded, verified increments:
+R1 Gosper (indefinite hypergeometric sums) · R2 definite hypergeometric
+summation + Pochhammer/Gamma layer · R3 parametric definite integration
+(Almkvist–Zeilberger order-1, unified with R2) · R4 quadratic algebraic
+integration. Deferred to V12+: certificate-based / order-≥2 Zeilberger-AZ, full
+Trager (cubic+), the recursive multivariate GCD, and v10 M3.

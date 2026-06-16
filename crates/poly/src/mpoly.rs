@@ -8,6 +8,10 @@
 use std::cmp::Ordering;
 use num::{BigInt, BigRational, One, Zero, ToPrimitive};
 use maxima_core::{Expr, Operator, SymbolId};
+use crate::poly::Poly;
+use crate::coeff::Coeff;
+use crate::gcd::poly_gcd;
+use crate::factor::factor_poly;
 
 pub type MCoeff = BigRational;
 
@@ -201,6 +205,29 @@ impl MPoly {
         }
         result
     }
+
+    /// Exact division: returns Some(quotient) iff `divisor` divides `self`
+    /// exactly (remainder zero), via repeated leading-term cancellation.
+    /// Coefficients are over the field Q, so this is well-defined.
+    pub fn exact_div(&self, divisor: &MPoly) -> Option<MPoly> {
+        assert_eq!(self.vars, divisor.vars, "MPoly::exact_div: variable mismatch");
+        let (dlm, dlc) = divisor.lt()?;
+        let mut rem = self.clone();
+        let mut quot = MPoly::zero(self.vars.clone(), self.order);
+        loop {
+            let (m, c) = match rem.lt() {
+                None => break,
+                Some((rlm, rlc)) => match Monomial::div(rlm, dlm) {
+                    Some(m) => (m, rlc / dlc),
+                    None => return None, // leading term not divisible
+                },
+            };
+            let term = MPoly { vars: self.vars.clone(), order: self.order, terms: vec![(m.clone(), c.clone())] };
+            quot = quot.add(&term);
+            rem = rem.sub(&divisor.monomial_mul(&c, &m));
+        }
+        if rem.is_zero() { Some(quot) } else { None }
+    }
 }
 
 // ----------- Expr ↔ MPoly --------------------------------------------------
@@ -331,6 +358,217 @@ pub fn mpoly_to_expr(p: &MPoly) -> Expr {
 }
 
 // ----------- Unit tests -----------------------------------------------------
+
+// ----------- Multivariate GCD via Kronecker substitution -------------------
+
+fn mcoeff_to_coeff(r: &MCoeff) -> Option<Coeff> {
+    let n = r.numer().to_i64()?;
+    let d = r.denom().to_i64()?;
+    if d == 1 { Some(Coeff::Int(n)) } else { Some(Coeff::Rat(n, d)) }
+}
+
+fn coeff_to_mcoeff(c: &Coeff) -> MCoeff {
+    match c {
+        Coeff::Int(n) => BigRational::from(BigInt::from(*n)),
+        Coeff::Rat(n, d) => BigRational::new(BigInt::from(*n), BigInt::from(*d)),
+    }
+}
+
+fn max_var_exp(p: &MPoly) -> u32 {
+    p.terms.iter().flat_map(|(m, _)| m.0.iter().copied()).max().unwrap_or(0)
+}
+
+/// Kronecker map: monomial ∏ x_i^{e_i} ↦ t^{Σ e_i·d^i}. None if a coefficient
+/// doesn't fit i64 or a t-exponent overflows u32.
+fn to_kronecker(p: &MPoly, d: u32, var: SymbolId) -> Option<Poly> {
+    let mut terms: Vec<(u32, Coeff)> = Vec::new();
+    for (m, c) in &p.terms {
+        let mut texp: u64 = 0;
+        let mut place: u64 = 1;
+        for &e in &m.0 {
+            texp = texp.checked_add((e as u64).checked_mul(place)?)?;
+            place = place.checked_mul(d as u64)?;
+        }
+        if texp > u32::MAX as u64 { return None; }
+        terms.push((texp as u32, mcoeff_to_coeff(c)?));
+    }
+    // `Poly` requires terms sorted by descending exponent; the MPoly monomial
+    // order does not map to t-degree order under Kronecker, so sort here.
+    // (Kronecker is injective for d > max single-var exponent, so no duplicates.)
+    terms.sort_by(|a, b| b.0.cmp(&a.0));
+    Some(Poly { var, terms })
+}
+
+/// Invert the Kronecker map for `nvars` variables in base `d`.
+fn from_kronecker(p: &Poly, d: u32, nvars: usize, vars: Vec<SymbolId>, order: MonomialOrder) -> MPoly {
+    let mut terms = Vec::new();
+    for (texp, c) in &p.terms {
+        let mut e = *texp;
+        let mut exps = vec![0u32; nvars];
+        for slot in exps.iter_mut() {
+            *slot = e % d;
+            e /= d;
+        }
+        terms.push((Monomial(exps), coeff_to_mcoeff(c)));
+    }
+    let mut result = MPoly { vars, order, terms };
+    result.canonicalize();
+    result
+}
+
+fn make_monic(p: &MPoly) -> MPoly {
+    match p.lc() {
+        Some(lc) if !lc.is_zero() => p.scalar_mul(&(MCoeff::one() / lc.clone())),
+        _ => p.clone(),
+    }
+}
+
+/// Multivariate GCD over Q via Kronecker substitution + univariate `poly_gcd`.
+///
+/// Returns:
+/// - `Some(g)` only when the result is **provably correct**: either the
+///   inputs are genuinely coprime (the Kronecker image gcd is constant — which
+///   forces gcd(a,b)=1), or the inverted candidate `g` is verified to divide
+///   both inputs by exact division (then it is the gcd, by a degree argument).
+/// - `None` when the answer is **undetermined** — the Kronecker image would be
+///   too large (degree cap) or it produced a *spurious* common factor that
+///   doesn't verify. Callers should fall back to the noun form. This is the
+///   key correctness guard: Kronecker routinely invents spurious common
+///   factors (e.g. for x+y, x−y), so we must never report `1` unless coprimality
+///   is actually proven.
+pub fn mpoly_gcd(a: &MPoly, b: &MPoly) -> Option<MPoly> {
+    assert_eq!(a.vars, b.vars, "mpoly_gcd: variable mismatch");
+    let one = MPoly::constant(a.vars.clone(), a.order, MCoeff::one());
+    if a.is_zero() { return Some(make_monic(b)); }
+    if b.is_zero() { return Some(make_monic(a)); }
+    // gcd with a (nonzero) constant is a unit → 1
+    if a.lm().map_or(true, |m| m.is_one()) || b.lm().map_or(true, |m| m.is_one()) {
+        return Some(one);
+    }
+    let d = 1 + max_var_exp(a).max(max_var_exp(b));
+    // Guard against Kronecker blow-up: the univariate image has degree < d^nvars,
+    // and `poly_gcd` on a very high-degree image is prohibitively slow.
+    const KRON_DEGREE_CAP: u64 = 1024;
+    match (d as u64).checked_pow(a.nvars() as u32) {
+        Some(kd) if kd <= KRON_DEGREE_CAP => {}
+        _ => return None,
+    }
+    let var = a.vars[0];
+    let (ka, kb) = (to_kronecker(a, d, var)?, to_kronecker(b, d, var)?);
+    let g_uni = poly_gcd(&ka, &kb);
+    if g_uni.terms.is_empty() { return None; }
+    let g = make_monic(&from_kronecker(&g_uni, d, a.nvars(), a.vars.clone(), a.order));
+    // Constant image gcd ⇒ gcd(K(a),K(b))=1 ⇒ gcd(a,b)=1 (proven coprime).
+    if g.lm().map_or(true, |m| m.is_one()) {
+        return Some(one);
+    }
+    // Otherwise accept only if it verifiably divides both (else spurious).
+    if a.exact_div(&g).is_some() && b.exact_div(&g).is_some() {
+        Some(g)
+    } else {
+        None
+    }
+}
+
+/// All k-element combinations of `items` (as value lists), generated lazily-ish.
+fn combinations(items: &[usize], k: usize) -> Vec<Vec<usize>> {
+    fn rec(items: &[usize], k: usize, start: usize, cur: &mut Vec<usize>, out: &mut Vec<Vec<usize>>) {
+        if cur.len() == k { out.push(cur.clone()); return; }
+        for i in start..items.len() {
+            cur.push(items[i]);
+            rec(items, k, i + 1, cur, out);
+            cur.pop();
+        }
+    }
+    let mut out = Vec::new();
+    if k > 0 && k <= items.len() { rec(items, k, 0, &mut Vec::new(), &mut out); }
+    out
+}
+
+/// Multivariate factorization via Kronecker substitution + recombination.
+///
+/// Steps: substitute to a univariate image, factor that with `factor_poly`,
+/// then greedily recombine the univariate pieces into multivariate factors,
+/// accepting a candidate only when it **exactly divides** the (remaining)
+/// polynomial. Because every accepted factor is a verified divisor, the
+/// returned factorization always multiplies back to the input — it is never
+/// wrong, only possibly incomplete (a factor left reducible if recombination
+/// was bounded out, or the image factoring was coarse).
+///
+/// Returns `Some(factors)` (list of (factor, multiplicity), with the constant
+/// content folded in when ≠1) for a nontrivial factorization, else `None`.
+pub fn mpoly_factor(p: &MPoly) -> Option<Vec<(MPoly, u32)>> {
+    if p.is_zero() { return None; }
+    if p.lm().map_or(true, |m| m.is_one()) { return None; } // constant
+
+    let d = 1 + max_var_exp(p);
+    const KRON_DEGREE_CAP: u64 = 1024;
+    match (d as u64).checked_pow(p.nvars() as u32) {
+        Some(kd) if kd <= KRON_DEGREE_CAP => {}
+        _ => return None,
+    }
+    let var = p.vars[0];
+    let kp = to_kronecker(p, d, var)?;
+
+    // Univariate irreducible pieces, expanded by multiplicity into a flat list.
+    let mut pieces: Vec<Poly> = Vec::new();
+    for (f, m) in factor_poly(&kp) {
+        if f.is_constant() { continue; }
+        for _ in 0..m { pieces.push(f.clone()); }
+    }
+    if pieces.is_empty() || pieces.len() > 16 { return None; }
+
+    // Greedy recombination: peel off the smallest verifiable factor each round.
+    let mut remaining = p.clone();
+    let mut used = vec![false; pieces.len()];
+    let mut factors: Vec<MPoly> = Vec::new();
+    loop {
+        let avail: Vec<usize> = (0..pieces.len()).filter(|&i| !used[i]).collect();
+        if avail.is_empty() { break; }
+        let mut found: Option<(Vec<usize>, MPoly, MPoly)> = None;
+        'search: for size in 1..=avail.len() {
+            for combo in combinations(&avail, size) {
+                let mut prod = Poly::constant(var, Coeff::one());
+                for &i in &combo { prod = prod.mul(&pieces[i]); }
+                let g = make_monic(&from_kronecker(&prod, d, p.nvars(), p.vars.clone(), p.order));
+                if g.lm().map_or(true, |m| m.is_one()) { continue; } // constant candidate
+                if let Some(q) = remaining.exact_div(&g) {
+                    found = Some((combo, g, q));
+                    break 'search;
+                }
+            }
+        }
+        match found {
+            Some((combo, g, q)) => {
+                for i in combo { used[i] = true; }
+                remaining = q;
+                factors.push(g);
+            }
+            None => break,
+        }
+    }
+    if factors.is_empty() { return None; }
+
+    // Group equal factors into (factor, multiplicity).
+    let mut grouped: Vec<(MPoly, u32)> = Vec::new();
+    for g in factors {
+        if let Some(slot) = grouped.iter_mut().find(|(f, _)| *f == g) {
+            slot.1 += 1;
+        } else {
+            grouped.push((g, 1));
+        }
+    }
+    // `remaining` is what's left: a constant (the content) or an unfactored
+    // remainder. Include it if it isn't 1.
+    let remaining_is_one = remaining.lm().map_or(false, |m| m.is_one())
+        && remaining.lc().map_or(false, |c| *c == MCoeff::one());
+    if !remaining.is_zero() && !remaining_is_one {
+        grouped.insert(0, (remaining, 1));
+    }
+
+    let nontrivial = grouped.len() > 1 || grouped.iter().any(|(_, m)| *m > 1);
+    if nontrivial { Some(grouped) } else { None }
+}
 
 #[cfg(test)]
 mod tests {
@@ -466,5 +704,116 @@ mod tests {
         let v = vars2();
         let bad = Expr::mul(Expr::Float(0.5), Expr::sym("x"));
         assert!(expr_to_mpoly(&bad, &v, MonomialOrder::Lex).is_none());
+    }
+
+    // ---- exact division & multivariate GCD ----
+
+    fn mp(e: &Expr) -> MPoly {
+        expr_to_mpoly(e, &vars2(), MonomialOrder::Grevlex).unwrap()
+    }
+    fn x() -> Expr { Expr::sym("x") }
+    fn y() -> Expr { Expr::sym("y") }
+    fn sq(e: Expr) -> Expr { Expr::pow(e, Expr::int(2)) }
+
+    #[test] fn exact_div_divides_and_rejects() {
+        // (x²-y²) / (x-y) = x+y
+        let a = mp(&Expr::sub(sq(x()), sq(y())));
+        let d = mp(&Expr::sub(x(), y()));
+        let q = a.exact_div(&d).expect("x-y divides x^2-y^2");
+        assert_eq!(q, mp(&Expr::add(x(), y())));
+        // (x²-y²) / (x+1) does not divide exactly
+        let nd = mp(&Expr::add(x(), Expr::int(1)));
+        assert!(a.exact_div(&nd).is_none());
+    }
+
+    #[test] fn gcd_difference_of_squares() {
+        let a = mp(&Expr::sub(sq(x()), sq(y())));            // x²-y²
+        let b = mp(&Expr::sub(x(), y()));                    // x-y
+        let g = mpoly_gcd(&a, &b).expect("verifiable gcd");
+        assert!(a.exact_div(&g).is_some() && b.exact_div(&g).is_some());
+        assert_eq!(g, mp(&Expr::sub(x(), y())));             // gcd = x-y
+    }
+
+    #[test] fn gcd_repeated_factor() {
+        // gcd((x+y)², (x+y)³) = (x+y)²
+        let xy = Expr::add(x(), y());
+        let a = mp(&sq(xy.clone()));
+        let b = mp(&Expr::pow(xy.clone(), Expr::int(3)));
+        let g = mpoly_gcd(&a, &b).expect("verifiable gcd");
+        assert!(a.exact_div(&g).is_some() && b.exact_div(&g).is_some());
+        assert_eq!(g, mp(&sq(xy)));                          // gcd = (x+y)²
+    }
+
+    #[test] fn gcd_safety_contract_never_wrong() {
+        // Whenever mpoly_gcd returns Some(g), g MUST divide both inputs (so it
+        // is provably the gcd). It may return None when undetermined (Kronecker
+        // limitation), but it must never return a non-dividing / too-small g.
+        let cases: &[(Expr, Expr)] = &[
+            (Expr::sub(sq(x()), sq(y())), Expr::sub(x(), y())),
+            (Expr::sub(sq(x()), sq(y())),                       // true gcd x+y, but
+             Expr::add(Expr::add(sq(x()), Expr::mul(Expr::int(2), Expr::mul(x(), y()))), sq(y()))),
+            (Expr::add(x(), y()), Expr::sub(x(), y())),
+            (Expr::mul(x(), y()), Expr::sub(x(), y())),
+        ];
+        for (ae, be) in cases {
+            let (a, b) = (mp(ae), mp(be));
+            if let Some(g) = mpoly_gcd(&a, &b) {
+                assert!(a.exact_div(&g).is_some() && b.exact_div(&g).is_some(),
+                        "mpoly_gcd returned a non-dividing g");
+            }
+        }
+    }
+
+    #[test] fn gcd_never_falsely_coprime() {
+        // x+y, x-y ARE coprime, but Kronecker invents a spurious factor that
+        // fails verification — so we must return None (→ noun), never a wrong 1.
+        let a = mp(&Expr::add(x(), y()));
+        let b = mp(&Expr::sub(x(), y()));
+        match mpoly_gcd(&a, &b) {
+            None => {}                                       // undetermined → noun (acceptable)
+            Some(g) => assert_eq!(g.total_degree(), 0),      // if determined, must be the unit 1
+        }
+    }
+
+    // ---- multivariate factoring ----
+
+    fn product_of(fs: &[(MPoly, u32)]) -> MPoly {
+        let mut acc: Option<MPoly> = None;
+        for (f, m) in fs {
+            for _ in 0..*m {
+                acc = Some(match acc { None => f.clone(), Some(a) => a.mul(f) });
+            }
+        }
+        acc.unwrap()
+    }
+
+    #[test] fn factor_difference_of_squares() {
+        let p = mp(&Expr::sub(sq(x()), sq(y())));        // x²-y²
+        let fs = mpoly_factor(&p).expect("factors");
+        assert_eq!(fs.len(), 2);                          // (x-y)(x+y)
+        assert_eq!(product_of(&fs), p);                   // multiplies back exactly
+    }
+
+    #[test] fn factor_perfect_square_multiplicity() {
+        let p = mp(&Expr::add(Expr::add(sq(x()), Expr::mul(Expr::int(2), Expr::mul(x(), y()))), sq(y())));
+        let fs = mpoly_factor(&p).expect("factors");      // (x+y)²
+        assert!(fs.iter().any(|(_, m)| *m == 2));
+        assert_eq!(product_of(&fs), p);
+    }
+
+    #[test] fn factor_irreducible_yields_none() {
+        // x²+y²+1 is irreducible over Q.
+        let p = mp(&Expr::add(Expr::add(sq(x()), sq(y())), Expr::int(1)));
+        assert!(mpoly_factor(&p).is_none());
+    }
+
+    #[test] fn gcd_genuinely_coprime_constant_image() {
+        // gcd(x+1, y+1) = 1: Kronecker images t+1, t^d+1 are coprime → proven 1.
+        // (gcd(x,y) by contrast maps to t, t^d which share t, so it is *not*
+        // provable this way and would return None — a known Kronecker limitation.)
+        let a = mp(&Expr::add(x(), Expr::int(1)));
+        let b = mp(&Expr::add(y(), Expr::int(1)));
+        let g = mpoly_gcd(&a, &b).expect("coprime is provable here");
+        assert_eq!(g.total_degree(), 0);
     }
 }

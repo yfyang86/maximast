@@ -389,6 +389,31 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
         }
         "ev" => return eval_ev(args, env),
         "sum" => return eval_sum(args, env),
+        "nusum" => {
+            // nusum(expr, var, lo, hi): Gosper definite hypergeometric sum.
+            let evaled: Vec<Expr> = args.iter().map(|a| meval(a, env)).collect();
+            if evaled.len() == 4 {
+                if let Expr::Symbol(_) = &evaled[1] {
+                    if let Some(r) = crate::gosper::gosper_definite(&evaled[0], &evaled[1], &evaled[2], &evaled[3]) {
+                        return meval(&r, env);
+                    }
+                }
+            }
+            return Expr::call("nusum", evaled);
+        }
+        "find_recurrence" => {
+            // find_recurrence(expr, n): minimal linear P-recurrence of the
+            // sequence expr(n), as the coefficient list [c_0(n),…,c_J(n)].
+            let evaled: Vec<Expr> = args.iter().map(|a| meval(a, env)).collect();
+            if evaled.len() == 2 {
+                if let Expr::Symbol(nid) = &evaled[1] {
+                    if let Some(coeffs) = crate::recurrence::find_recurrence(&evaled[0], *nid, env) {
+                        return Expr::list(coeffs);
+                    }
+                }
+            }
+            return Expr::call("find_recurrence", evaled);
+        }
         "product" => return eval_product(args, env),
         // makelist/create_list bind a loop var; the body must NOT be eagerly
         // evaluated in the outer scope (where the loop var is unbound). Doing
@@ -569,6 +594,34 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
                 }
             }
             Expr::call("factorial", evaled_args)
+        }
+        "pochhammer" => {
+            // (a)_m = a(a+1)…(a+m−1) for nonneg integer m.
+            if evaled_args.len() == 2 {
+                if let Expr::Integer(m) = &evaled_args[1] {
+                    if *m >= 0 && *m <= 200 {
+                        let a = &evaled_args[0];
+                        let mut prod = Expr::int(1);
+                        for i in 0..*m {
+                            prod = Expr::mul(prod, Expr::add(a.clone(), Expr::int(i)));
+                        }
+                        return meval(&prod, env);
+                    }
+                }
+            }
+            Expr::call("pochhammer", evaled_args)
+        }
+        "makefact" => {
+            if let Some(arg) = evaled_args.first() {
+                return meval(&crate::gammafn::makefact(arg), env);
+            }
+            Expr::call("makefact", evaled_args)
+        }
+        "minfactorial" => {
+            if let Some(arg) = evaled_args.first() {
+                return meval(&crate::gammafn::minfactorial(arg), env);
+            }
+            Expr::call("minfactorial", evaled_args)
         }
         "is" => {
             if let Some(val) = evaled_args.first() {
@@ -1162,6 +1215,11 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
                             }
                         }
                     }
+                    // Parametric definite integral: detect an order-1 recurrence
+                    // in the free parameter (samples the integral at integer n).
+                    if let Some(res) = crate::hypersum::try_parametric_integral(f, var, a, b, env) {
+                        return res;
+                    }
                 }
                 return result;
             }
@@ -1357,6 +1415,21 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
                     let g = maxima_poly::poly_gcd(&pa, &pb);
                     return maxima_poly::poly_to_expr(&g);
                 }
+                // Multivariate GCD (Kronecker + exact-division verification).
+                let mut vars: Vec<maxima_core::SymbolId> = Vec::new();
+                crate::groebner::collect_symbols(&evaled_args[0], &mut vars);
+                crate::groebner::collect_symbols(&evaled_args[1], &mut vars);
+                if !vars.is_empty() {
+                    if let (Some(ma), Some(mb)) = (
+                        maxima_poly::expr_to_mpoly(&evaled_args[0], &vars, maxima_poly::MonomialOrder::Grevlex),
+                        maxima_poly::expr_to_mpoly(&evaled_args[1], &vars, maxima_poly::MonomialOrder::Grevlex),
+                    ) {
+                        // Only when provably correct; else fall through to noun.
+                        if let Some(g) = maxima_poly::mpoly_gcd(&ma, &mb) {
+                            return maxima_poly::mpoly_to_expr(&g);
+                        }
+                    }
+                }
             }
             Expr::call("gcd", evaled_args)
         }
@@ -1458,6 +1531,28 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
                             simplified: false,
                             args: parts,
                         });
+                    }
+                }
+                // Multivariate factoring (Kronecker + recombination, each factor
+                // verified by exact division).
+                let mut vars: Vec<maxima_core::SymbolId> = Vec::new();
+                crate::groebner::collect_symbols(arg, &mut vars);
+                if !vars.is_empty() {
+                    if let Some(mp) = maxima_poly::expr_to_mpoly(arg, &vars, maxima_poly::MonomialOrder::Grevlex) {
+                        if let Some(factors) = maxima_poly::mpoly_factor(&mp) {
+                            let mut parts: Vec<Expr> = Vec::new();
+                            for (f, m) in &factors {
+                                let fe = maxima_poly::mpoly_to_expr(f);
+                                if *m == 1 { parts.push(fe); }
+                                else { parts.push(Expr::pow(fe, Expr::int(*m as i64))); }
+                            }
+                            if parts.len() == 1 { return parts.pop().unwrap(); }
+                            return simplify(&Expr::List {
+                                op: Operator::MTimes,
+                                simplified: false,
+                                args: parts,
+                            });
+                        }
                     }
                 }
                 return arg.clone();
@@ -3004,6 +3099,17 @@ fn eval_sum(args: &[Expr], env: &mut Environment) -> Expr {
     let var_expr = Expr::Symbol(var);
 
     if let Some(result) = try_closed_form_sum(&body_evaled, &var_expr, &lo, &hi) {
+        return result;
+    }
+
+    // Gosper's algorithm: definite hypergeometric summation (telescoping-verified).
+    if let Some(result) = crate::gosper::gosper_definite(&body_evaled, &var_expr, &lo, &hi) {
+        return meval(&result, env);
+    }
+
+    // Order-1 creative telescoping: detect S(n+1)/S(n) by sampling, closed form
+    // verified numerically (handles binomial-type sums Gosper can't telescope).
+    if let Some(result) = crate::hypersum::try_hyper_sum_order1(&body_evaled, var, &lo, &hi, env) {
         return result;
     }
 
