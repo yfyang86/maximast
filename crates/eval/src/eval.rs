@@ -4583,6 +4583,33 @@ pub(crate) fn ratsimp(expr: &Expr) -> Expr {
                 }
             }
         }
+
+        // Multivariate fraction cancellation via the recursive multivariate GCD
+        // (the univariate path above fails when coefficients are symbolic).
+        let mut vars: Vec<maxima_core::SymbolId> = Vec::new();
+        crate::groebner::collect_symbols(&num_expr, &mut vars);
+        crate::groebner::collect_symbols(&den_expr, &mut vars);
+        if vars.len() >= 2 {
+            if let (Some(np), Some(dp)) = (
+                maxima_poly::expr_to_mpoly(&num_expr, &vars, maxima_poly::MonomialOrder::Grevlex),
+                maxima_poly::expr_to_mpoly(&den_expr, &vars, maxima_poly::MonomialOrder::Grevlex),
+            ) {
+                if let Some(g) = maxima_poly::mpoly_gcd(&np, &dp) {
+                    let nontrivial = g.lm().map_or(false, |m| !m.is_one());
+                    if nontrivial {
+                        if let (Some(nn), Some(nd)) = (np.exact_div(&g), dp.exact_div(&g)) {
+                            let num_e = maxima_poly::mpoly_to_expr(&nn);
+                            let den_e = maxima_poly::mpoly_to_expr(&nd);
+                            let den_one = nd.lm().map_or(true, |m| m.is_one());
+                            if den_one {
+                                return simplify(&num_e);
+                            }
+                            return simplify(&Expr::div(num_e, den_e));
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // If we have rational * (sum), simplify by factoring integer GCD
