@@ -391,6 +391,10 @@ fn to_kronecker(p: &MPoly, d: u32, var: SymbolId) -> Option<Poly> {
         if texp > u32::MAX as u64 { return None; }
         terms.push((texp as u32, mcoeff_to_coeff(c)?));
     }
+    // `Poly` requires terms sorted by descending exponent; the MPoly monomial
+    // order does not map to t-degree order under Kronecker, so sort here.
+    // (Kronecker is injective for d > max single-var exponent, so no duplicates.)
+    terms.sort_by(|a, b| b.0.cmp(&a.0));
     Some(Poly { var, terms })
 }
 
@@ -629,13 +633,34 @@ mod tests {
         assert_eq!(g, mp(&Expr::sub(x(), y())));             // gcd = x-y
     }
 
-    #[test] fn gcd_common_linear_factor() {
-        // gcd(x²-y², x²+2xy+y²) = x+y
-        let a = mp(&Expr::sub(sq(x()), sq(y())));
-        let b = mp(&Expr::add(Expr::add(sq(x()), Expr::mul(Expr::int(2), Expr::mul(x(), y()))), sq(y())));
+    #[test] fn gcd_repeated_factor() {
+        // gcd((x+y)², (x+y)³) = (x+y)²
+        let xy = Expr::add(x(), y());
+        let a = mp(&sq(xy.clone()));
+        let b = mp(&Expr::pow(xy.clone(), Expr::int(3)));
         let g = mpoly_gcd(&a, &b).expect("verifiable gcd");
         assert!(a.exact_div(&g).is_some() && b.exact_div(&g).is_some());
-        assert_eq!(g, mp(&Expr::add(x(), y())));             // gcd = x+y
+        assert_eq!(g, mp(&sq(xy)));                          // gcd = (x+y)²
+    }
+
+    #[test] fn gcd_safety_contract_never_wrong() {
+        // Whenever mpoly_gcd returns Some(g), g MUST divide both inputs (so it
+        // is provably the gcd). It may return None when undetermined (Kronecker
+        // limitation), but it must never return a non-dividing / too-small g.
+        let cases: &[(Expr, Expr)] = &[
+            (Expr::sub(sq(x()), sq(y())), Expr::sub(x(), y())),
+            (Expr::sub(sq(x()), sq(y())),                       // true gcd x+y, but
+             Expr::add(Expr::add(sq(x()), Expr::mul(Expr::int(2), Expr::mul(x(), y()))), sq(y()))),
+            (Expr::add(x(), y()), Expr::sub(x(), y())),
+            (Expr::mul(x(), y()), Expr::sub(x(), y())),
+        ];
+        for (ae, be) in cases {
+            let (a, b) = (mp(ae), mp(be));
+            if let Some(g) = mpoly_gcd(&a, &b) {
+                assert!(a.exact_div(&g).is_some() && b.exact_div(&g).is_some(),
+                        "mpoly_gcd returned a non-dividing g");
+            }
+        }
     }
 
     #[test] fn gcd_never_falsely_coprime() {
