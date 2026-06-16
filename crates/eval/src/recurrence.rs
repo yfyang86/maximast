@@ -97,7 +97,7 @@ pub fn find_recurrence(expr: &Expr, n_id: SymbolId, env: &mut Environment) -> Op
     // Bounded so the common integer D-finite sequences stay within the kernel's
     // exact (i64) range — beyond it the kernel's summation/power arithmetic
     // overflows (panics in debug, wraps in release), which would corrupt samples.
-    const MAXN: i64 = 20;
+    const MAXN: i64 = 28;
     let n = Expr::Symbol(n_id);
 
     // Sample T(0..=MAXN) exactly; stop at the first non-numeric value or if a
