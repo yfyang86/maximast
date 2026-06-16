@@ -3270,6 +3270,12 @@ pub(crate) fn table_integrate(f: &Expr, var: &Expr) -> Expr {
         return result;
     }
 
+    // Higher half-powers of a quadratic: ∫ P(x)/Q^(m+1/2) dx (m≥1), e.g.
+    // ∫1/(x²+1)^(3/2). Hermite-reduction ansatz, verified by differentiation.
+    if let Some(result) = try_quadratic_radical_power(f, var) {
+        return result;
+    }
+
     // ∫ R(x)·exp(c·x) dx with rational R — Risch DE with a rational solution.
     if let Some(result) = try_exp_rational_integrate(f, var) {
         return result;
@@ -3778,6 +3784,141 @@ fn try_quadratic_radical_integrate(f: &Expr, var: &Expr) -> Option<Expr> {
     }
 }
 
+/// ∫ P(x)/Q^(m+1/2) dx for P polynomial, Q quadratic, m ≥ 1 (radical in the
+/// denominator with multiplicity, e.g. 1/(x²+1)^(3/2)). The integrand's Q-powers
+/// may be split across factors (Q^(-1)·Q^(-1/2)); we sum them.
+fn try_quadratic_radical_power(f: &Expr, var: &Expr) -> Option<Expr> {
+    let var_id = match var { Expr::Symbol(id) => *id, _ => return None };
+    let mut factors = Vec::new();
+    collect_mult_factors(f, &mut factors);
+
+    // Pass 1: identify the quadratic Q from any half-power factor.
+    let mut qpoly: Option<maxima_poly::Poly> = None;
+    for fac in &factors {
+        if let Some((base, half)) = power_of(fac) {
+            if half % 2 != 0 {
+                if let Some(p) = maxima_poly::expr_to_poly(&base, var_id) {
+                    if p.degree() == Some(2) { qpoly = Some(p); break; }
+                }
+            }
+        }
+    }
+    let qpoly = qpoly?;
+
+    // Pass 2: total Q-exponent in half-units, remaining factors form N(x).
+    let mut e2: i64 = 0;
+    let mut n_factors: Vec<Expr> = Vec::new();
+    for fac in &factors {
+        match power_of(fac) {
+            Some((base, half)) if maxima_poly::expr_to_poly(&base, var_id).as_ref() == Some(&qpoly) => e2 += half,
+            _ => n_factors.push(fac.clone()),
+        }
+    }
+    // Need an odd negative total: e2 = −(2m+1), m ≥ 1.
+    if e2 >= 0 || e2 % 2 == 0 { return None; }
+    let m = ((-e2) - 1) / 2;
+    if !(1..=6).contains(&m) { return None; }
+
+    let n_expr = if n_factors.is_empty() {
+        Expr::int(1)
+    } else {
+        simplify(&Expr::List { op: Operator::MTimes, simplified: false, args: n_factors })
+    };
+    let np = maxima_poly::expr_to_poly(&n_expr, var_id)?;
+    let dp = np.degree().unwrap_or(0) as usize;
+    let p_coeffs: Vec<maxima_poly::Coeff> = (0..=dp).map(|k| get_coeff(&np, k as u32)).collect();
+
+    let cand = integrate_poly_over_q_power(&qpoly, &p_coeffs, m, var, var_id)?;
+    if verify_antiderivative(&cand, f, var) {
+        Some(cand)
+    } else {
+        let neg = simplify(&Expr::neg(cand));
+        if verify_antiderivative(&neg, f, var) { Some(neg) } else { None }
+    }
+}
+
+/// Decompose a factor into (base, exponent-in-half-units), unwrapping nested
+/// powers and sqrt: √Q → (Q,1), Q^(-3/2) → (Q,−3), (Q^(3/2))^(−1) → (Q,−3),
+/// Q^(-1) → (Q,−2). None if the factor is not a numeric power.
+fn power_of(fac: &Expr) -> Option<(Expr, i64)> {
+    let rat_exp = |e: &Expr| -> Option<(i64, i64)> {
+        match e {
+            Expr::Integer(n) => Some((*n, 1)),
+            Expr::Rational { num, den } => Some((*num, *den)),
+            _ => None,
+        }
+    };
+    match fac {
+        Expr::List { op: Operator::Named(id), args, .. } if args.len() == 1 && resolve(*id) == "sqrt" => {
+            Some((args[0].clone(), 1))
+        }
+        Expr::List { op: Operator::MExpt, args, .. } if args.len() == 2 => {
+            let (en, ed) = rat_exp(&args[1])?;
+            if let Some((bb, hb)) = power_of(&args[0]) {
+                let total = hb.checked_mul(en)?;
+                if total % ed != 0 { return None; }
+                Some((bb, total / ed))
+            } else {
+                let h = (2 * en).checked_div(ed).filter(|_| (2 * en) % ed == 0)?;
+                Some((args[0].clone(), h))
+            }
+        }
+        _ => None,
+    }
+}
+
+/// Solve the Hermite ansatz ∫ P/Q^(m+1/2) = R/Q^(m−1/2) + κ·∫1/√Q, i.e.
+/// R'·Q − (m−1/2)·R·Q' + κ·Q^m = P, for polynomial R and constant κ.
+fn integrate_poly_over_q_power(qpoly: &maxima_poly::Poly, p_coeffs: &[maxima_poly::Coeff], m: i64, var: &Expr, var_id: maxima_core::SymbolId) -> Option<Expr> {
+    use maxima_poly::{Poly, Coeff};
+    let q = qpoly.clone();
+    let qprime = q.derivative();
+    let mut qm = Poly::constant(var_id, Coeff::one());
+    for _ in 0..m { qm = qm.mul(&q); }
+    let mut p = Poly::zero(var_id);
+    for (i, c) in p_coeffs.iter().enumerate() {
+        p = p.add(&Poly::monomial(var_id, i as u32, c.clone()));
+    }
+    let dp = p.degree().map(|d| d as i64).unwrap_or(-1);
+    let dr = std::cmp::max(dp, 2 * m).max(1) as usize - 1;
+    let half = Coeff::Rat(2 * m - 1, 2); // m − 1/2
+
+    // Columns: one per R_i, plus κ (coefficient of Q^m).
+    let mut cols: Vec<Poly> = Vec::new();
+    for i in 0..=dr {
+        let mono = Poly::monomial(var_id, i as u32, Coeff::one());
+        let t1 = mono.derivative().mul(&q);
+        let t2 = mono.mul(&qprime).scale(&half);
+        cols.push(t1.sub(&t2));
+    }
+    cols.push(qm);
+
+    let maxdeg = cols.iter().filter_map(|c| c.degree()).chain(p.degree()).max().unwrap_or(0);
+    let mut mat: Vec<Vec<Coeff>> = Vec::new();
+    let mut rhs: Vec<Coeff> = Vec::new();
+    for pw in 0..=maxdeg {
+        mat.push(cols.iter().map(|c| get_coeff(c, pw)).collect());
+        rhs.push(get_coeff(&p, pw));
+    }
+    let sol = solve_linear_coeff(mat, rhs)?;
+
+    let mut r = Poly::zero(var_id);
+    for i in 0..=dr { r = r.add(&Poly::monomial(var_id, i as u32, sol[i].clone())); }
+    let kappa = sol[dr + 1].clone();
+
+    let q_expr = maxima_poly::poly_to_expr(&q);
+    let q_pow = Expr::pow(q_expr, Expr::Rational { num: -(2 * m - 1), den: 2 });
+    let a = coeff_to_expr(&get_coeff(&q, 2));
+    let b = coeff_to_expr(&get_coeff(&q, 1));
+    let c = coeff_to_expr(&get_coeff(&q, 0));
+    let base = integrate_inv_sqrt_quadratic(&a, &b, &c, var)?;
+    let result = Expr::add(
+        Expr::mul(maxima_poly::poly_to_expr(&r), q_pow),
+        Expr::mul(coeff_to_expr(&kappa), base),
+    );
+    Some(simplify(&result))
+}
+
 /// Match a √(quadratic) factor: sqrt(Q), Q^(1/2), 1/sqrt(Q), Q^(-1/2).
 /// Returns (radicand, +1 for numerator / -1 for denominator).
 fn match_sqrt_factor(fac: &Expr) -> Option<(Expr, i32)> {
@@ -3932,3 +4073,27 @@ fn integrate_sqrt_quadratic(a: &Expr, b: &Expr, c: &Expr, var: &Expr) -> Option<
     Some(simplify(&Expr::add(term1, Expr::mul(k, inv))))
 }
 
+
+#[cfg(test)]
+mod r4_quadratic_power_tests {
+    use crate::eval::eval_str;
+    fn run(s: &str) -> String { eval_str(s) }
+
+    // Results pass through verify_antiderivative (differentiation), so a
+    // non-noun answer is necessarily correct.
+    #[test] fn inv_q_three_halves() {
+        assert!(!run("integrate(1/(x^2+1)^(3/2),x);").contains("integrate("));
+    }
+    #[test] fn x_over_q_three_halves() {
+        assert!(!run("integrate(x/(x^2+1)^(3/2),x);").contains("integrate("));
+    }
+    #[test] fn split_factor_form() {
+        assert!(!run("integrate(1/((x^2+1)*sqrt(x^2+1)),x);").contains("integrate("));
+    }
+    #[test] fn q_five_halves() {
+        assert!(!run("integrate(1/(x^2+4)^(5/2),x);").contains("integrate("));
+    }
+    #[test] fn elliptic_stays_noun() {
+        assert!(run("integrate(1/sqrt(x^3+1),x);").contains("integrate("));
+    }
+}

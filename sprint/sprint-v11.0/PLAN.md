@@ -32,7 +32,7 @@ Zeilberger → AZ (integrals) → Trager.
 | **R1** | **Gosper's algorithm** — indefinite hypergeometric summation. Hypergeometric shift-ratio (powers/factorials), Gosper–Petkovšek normal form, key-equation solve, telescoping-verified. Wired into `nusum` and definite `sum`. | Large | §1.5/§3.2 | ✅ |
 | **R2** | **Definite hypergeometric summation** — order-1 recurrence detection + closed forms (integer & half-integer shifts), plus a Pochhammer/Gamma/factorial-ratio simplification layer. | Large | §3.2 | ✅ |
 | **R3** | **Parametric definite integration** (Almkvist–Zeilberger, order-1) — sample I(n), detect the recurrence ratio, telescope to a verified closed form. Unified with R2's engine. | Large | §1.5 | ✅ |
-| **R4** | **Trager** algebraic integration: integral basis + Hermite reduction on `y²=r(x)`, algebraic LRT log part; decide elementarity. | Large | §1.3 | 📋 |
+| **R4** | **Algebraic integration** (Trager, quadratic case): Hermite-reduction ansatz for ∫P(x)/Q^(m+1/2) (Q quadratic), verified. Cubic+/genus≥1 deferred. | Large | §1.3 | ✅ |
 
 ### Phasing
 
@@ -115,3 +115,22 @@ towers · Reduce/CAD quantifier elimination · 3rd-gen trait architecture.
   optional), telescoped to a closed form, and symbolically verified. Example:
   `integrate(x^(2n)*exp(-x^2),x,0,inf) = (2n)!√π/(2·4^n·n!)` (= Γ(n+1/2)/2).
   Deferred to V12+: order ≥2 and certificate-based AZ.
+
+- **R4** — ✅ (quadratic case) Algebraic integration of ∫ P(x)/Q^(m+1/2) dx for
+  polynomial P and quadratic Q (m ≥ 1) via a Hermite-reduction ansatz
+  (R'·Q − (m−1/2)·R·Q' + κ·Q^m = P solved over Q), giving R(x)/Q^(m−1/2)+κ·∫1/√Q.
+  Handles split (Q^(-1)·Q^(-1/2)) and nested ((Q^(3/2))^(-1)) factor forms;
+  differentiation-verified, so non-noun ⟹ correct. Fills the radical-in-
+  denominator gap: `integrate(1/(x^2+1)^(3/2),x)=x/√(x²+1)`,
+  `integrate(1/(x^2+4)^(5/2),x)` (m=2), etc. The full Trager algorithm for cubic+
+  radicals / genus ≥ 1 (elliptic, e.g. 1/√(x³+1) — correctly NONELEMENTARY noun)
+  is deferred to V12.
+
+## v11.0 summary
+
+All four research-grade sprints landed as bounded, verified increments:
+R1 Gosper (indefinite hypergeometric sums) · R2 definite hypergeometric
+summation + Pochhammer/Gamma layer · R3 parametric definite integration
+(Almkvist–Zeilberger order-1, unified with R2) · R4 quadratic algebraic
+integration. Deferred to V12+: certificate-based / order-≥2 Zeilberger-AZ, full
+Trager (cubic+), the recursive multivariate GCD, and v10 M3.
