@@ -23,12 +23,16 @@ v8.0 S5/S6 were.
 
 ## Sprints
 
-| Sprint | Content | Size | Survey ref |
-|--------|---------|------|------------|
-| **R1** | Ore-algebra core: factor the operator/creative-telescoping engine out of `zeilberger.rs` into a shared `ore.rs` (operators, Ore polynomials, reduction) | Medium | §3.2 |
-| **R2** | Holonomic closure: represent D-finite functions by (annihilating ODE/recurrence + initial values); closure under +, ×, and `∫` | Large | §3.4 / §5.1 |
-| **R3** | Almkvist–Zeilberger: hyperexponential integrand → linear ODE for the parameter integral → solve (reuse `ode.rs`); generalize the special-cased ∫₀^∞ families | Large | §1.5 |
-| **R4** | Trager algebraic integration: integral basis + Hermite reduction on `y²=r(x)`, algebraic Lazard–Rioboo–Trager log part; decide elementarity | Large | §1.3 |
+Revised to lead with the **summation** half (the most tractable, concrete
+research-grade win, and the foundation Almkvist–Zeilberger mirrors): Gosper →
+Zeilberger → AZ (integrals) → Trager.
+
+| Sprint | Content | Size | Survey ref | Status |
+|--------|---------|------|------------|--------|
+| **R1** | **Gosper's algorithm** — indefinite hypergeometric summation. Hypergeometric shift-ratio (powers/factorials), Gosper–Petkovšek normal form, key-equation solve, telescoping-verified. Wired into `nusum` and definite `sum`. | Large | §1.5/§3.2 | ✅ |
+| **R2** | **Zeilberger** creative telescoping — definite hypergeometric sums (binomial identities) via parametrised Gosper; recurrence + solver. | Large | §3.2 | 📋 |
+| **R3** | **Almkvist–Zeilberger** — the integral analog: hyperexponential integrand → linear ODE for the parameter integral → solve (reuse `ode.rs`). | Large | §1.5 | 📋 |
+| **R4** | **Trager** algebraic integration: integral basis + Hermite reduction on `y²=r(x)`, algebraic LRT log part; decide elementarity. | Large | §1.3 | 📋 |
 
 ### Phasing
 
@@ -65,3 +69,17 @@ towers · Reduce/CAD quantifier elimination · 3rd-gen trait architecture.
 | 2 | R3 scope | Hyperexponential integrands only (achievable), or general D-finite (needs full R2)? |
 | 3 | R4 ambition | Radical-quadratic/cubic only this release, or attempt general `y²=r(x)` hyperelliptic? |
 | 4 | bignum | Trager resultants over Q can overflow i64 — stay pure `num::BigInt`, or accept an LGPL FLINT fast path for the heavy algebraic work? |
+
+## Progress notes
+
+- **R1** — ✅ Gosper's algorithm in `crates/eval/src/gosper.rs`. A structural
+  hypergeometric shift-ratio handles polynomial/rational/exponential/factorial
+  terms (the generic simplifier won't reduce `2^(k+1)/2^k` or `(k+1)!/k!`);
+  Gosper–Petkovšek normal form via dispersion + poly GCD; degree-bounded key
+  equation solved over Q (own particular-solution Gaussian elimination — the
+  shared solver rejects the free variables Gosper needs); telescoping-verified
+  numerically before returning (correct-or-noun). Wired into `nusum` and as a
+  fallback in definite `sum`. Also fixed `expr_to_poly` to expand polynomial
+  bases under integer powers (e.g. `(k+1)^2`). Examples:
+  `nusum(k*k!)=(n+1)!-1`, `nusum(2^k)=2^(n+1)-2`, `sum(1/(k*(k+1)))=1-1/(n+1)`,
+  `sum(k^3)=(n*(n+1)/2)^2`.

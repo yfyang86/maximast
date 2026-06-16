@@ -29,6 +29,7 @@ pub mod special;
 pub mod strings;
 pub mod tex;
 pub mod zeilberger;
+pub mod gosper;
 
 pub use env::{Environment, NativeFn, NativeFuncDef};
 pub use eval::{eval_str, eval_str_with_env, eval_expr_with_env, meval};

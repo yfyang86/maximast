@@ -45,7 +45,10 @@ pub fn expr_to_poly(expr: &Expr, var: SymbolId) -> Option<Poly> {
                                 continue;
                             }
                         }
-                        return None;
+                        // General base^exp (e.g. (k+1)^2): expand if the base is
+                        // itself a polynomial and the exponent a nonneg integer.
+                        let p = expr_to_poly(arg, var)?;
+                        result = result.mul(&p);
                     }
                     other => {
                         let p = expr_to_poly(other, var)?;
@@ -56,9 +59,14 @@ pub fn expr_to_poly(expr: &Expr, var: SymbolId) -> Option<Poly> {
             Some(result)
         }
         Expr::List { op: Operator::MExpt, args, .. } if args.len() == 2 => {
-            if let (Expr::Symbol(id), Expr::Integer(exp)) = (&args[0], &args[1]) {
-                if *id == var && *exp >= 0 {
-                    return Some(Poly::monomial(var, *exp as u32, Coeff::one()));
+            if let Expr::Integer(exp) = &args[1] {
+                if *exp >= 0 {
+                    // base^exp for a polynomial base and nonneg integer exponent
+                    // (e.g. (k+1)^2): expand by repeated multiplication.
+                    let base = expr_to_poly(&args[0], var)?;
+                    let mut result = Poly::constant(var, Coeff::one());
+                    for _ in 0..*exp { result = result.mul(&base); }
+                    return Some(result);
                 }
             }
             None

@@ -389,6 +389,18 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
         }
         "ev" => return eval_ev(args, env),
         "sum" => return eval_sum(args, env),
+        "nusum" => {
+            // nusum(expr, var, lo, hi): Gosper definite hypergeometric sum.
+            let evaled: Vec<Expr> = args.iter().map(|a| meval(a, env)).collect();
+            if evaled.len() == 4 {
+                if let Expr::Symbol(_) = &evaled[1] {
+                    if let Some(r) = crate::gosper::gosper_definite(&evaled[0], &evaled[1], &evaled[2], &evaled[3]) {
+                        return meval(&r, env);
+                    }
+                }
+            }
+            return Expr::call("nusum", evaled);
+        }
         "product" => return eval_product(args, env),
         // makelist/create_list bind a loop var; the body must NOT be eagerly
         // evaluated in the outer scope (where the loop var is unbound). Doing
@@ -3042,6 +3054,11 @@ fn eval_sum(args: &[Expr], env: &mut Environment) -> Expr {
 
     if let Some(result) = try_closed_form_sum(&body_evaled, &var_expr, &lo, &hi) {
         return result;
+    }
+
+    // Gosper's algorithm: definite hypergeometric summation (telescoping-verified).
+    if let Some(result) = crate::gosper::gosper_definite(&body_evaled, &var_expr, &lo, &hi) {
+        return meval(&result, env);
     }
 
     let evaled: Vec<Expr> = args.iter().map(|a| meval(a, env)).collect();
