@@ -31,7 +31,13 @@ check** as the correctness gate:
 |--------|---------|------|--------|
 | **M1** | `MPoly` exact division + verified multivariate GCD (Kronecker); wire `gcd` | Medium | ✅ |
 | **M2** | Multivariate factoring (Kronecker: factor the image, recombine via exact-div); wire `factor` | Large | ✅ |
-| **M3** | Multivariate `ratsimp`/cancellation using the new GCD; `content`/`primpart` over many vars | Medium | 📋 |
+| **M3** | Multivariate `ratsimp`/cancellation using the new GCD; `content`/`primpart` over many vars | Medium | ⏭️ deferred to V12 |
+
+> **M3 deferred to V12.** M3 (multivariate fraction cancellation) leans on a
+> *complete* multivariate GCD, but the M1 Kronecker GCD is incomplete (not
+> gcd-preserving). Rather than build M3 on a weak GCD, both the **proper
+> recursive multivariate GCD** and M3 move to **V12**. v11.0 proceeds to the
+> research-grade engines.
 
 ## Targets
 
