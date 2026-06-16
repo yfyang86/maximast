@@ -23,7 +23,7 @@ form.
 |--------|---------|--------|
 | **T1** | `find_recurrence(expr,n)` — minimal linear P-recurrence of a D-finite sequence via exact sampling + null-space, verified. (Zeilberger-package spirit.) | ✅ |
 | **T2** | Solve found recurrences to closed form when possible (order-1 already; order-2 hypergeometric via Petkovšek/d'Alembertian); wire into `sum`/`integrate`. | 📋 |
-| **T3** | Trager on cubic/genus-1 curves: integral basis + Hermite reduction; decide elementarity (e.g. `∫(x²+1)/√(x³+x)` elementary vs `∫1/√(x³+1)` nonelementary). | 📋 |
+| **T3** | Trager/Hermite on cubic+ curves: ∫P(x)/√C (deg C≥3) — elementary R·√C iff reducible, else nonelementary. | ✅ (∫P/√C case) |
 | **T4** | Certificate-based proof: turn a sampled recurrence into a verified telescoping certificate. | 📋 |
 
 ## Targets
@@ -41,6 +41,13 @@ integrate(1/sqrt(x^3+1), x)                           → NONELEMENTARY (noun)
   `gcd(x^2-y^2,(x+y)^2)=x+y`, `gcd(x+y,x-y)=1` (coprime detected). Wired into
   `gcd` and into multivariate `ratsimp` cancellation (v10 M3):
   `ratsimp((x^2-y^2)/(x-y))=x+y`, `ratsimp((x^3-y^3)/(x-y))=x^2+x*y+y^2`.
+- **T3** — ✅ (∫P/√C case) `integrate.rs` `try_sqrt_curve_integrate`: for ∫P(x)/√(C)
+  with deg C ≥ 3, solve the Hermite ansatz R'·C + ½·R·C' = P. Exact solution ⇒
+  elementary `R·√C`; else the residual is an elliptic/abelian integral ⇒
+  nonelementary noun. `∫x^5/√(x^3+1)` and `∫4x^3/√(x^4+1)` now elementary;
+  `∫1/√(x^3+1)`, `∫x/√(x^3+1)`, `∫x^2/√(x^3+x)` correctly noun. Differentiation-
+  verified. (Full Trager — log part over algebraic extensions, P/√C with poles —
+  remains.)
 - **P1** — ✅ binomial → BigInt (i64-overflow fix). Deeper simplifier-`Coef`
   BigRational refactor (rational-sum overflow) remains, guarded.
 
