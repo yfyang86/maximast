@@ -135,6 +135,8 @@ round(3/2);        → 2
 expand((x+1)^6);                → 1+6*x+15*x^2+20*x^3+15*x^4+6*x^5+x^6
 factor(x^6-1);                  → (-1+x)*(1+x)*(1+x+x^2)*(1-x+x^2)
 factor(x^4+x^2+1);             → (1+x+x^2)*(1-x+x^2)
+factor(a^2-b^2);               → (a-b)*(a+b)            (multivariate)
+factor(x^3-y^3);               → (x-y)*(x^2+x*y+y^2)
 ```
 
 ### Simplification
@@ -150,6 +152,7 @@ trigexpand(sin(a+b));           → sin(a)*cos(b)+cos(a)*sin(b)
 
 ```
 gcd(x^4-1, x^6-1);             → polynomial GCD
+gcd(x^2-y^2, x-y);             → x-y                   (multivariate)
 ```
 
 ### Substitution
@@ -178,6 +181,7 @@ integrate(sin(x)^2, x);         → -(1/2)*cos(x)*sin(x)+(1/2)*x
 integrate(exp(x)*sin(x), x);    → exp(x)*(sin(x)-cos(x))/2
 integrate(1/(x^4+1), x);        → log+atan with √2 coefficients
 integrate(log(x)^3/x, x);       → (1/4)*log(x)^4
+integrate(1/(x^2+1)^(3/2), x);  → x/sqrt(x^2+1)   (algebraic, Hermite reduction)
 ```
 
 ### Definite Integration
@@ -188,7 +192,12 @@ integrate(sin(x), x, 0, %pi);      → 2
 integrate(exp(-x), x, 0, inf);     → 1
 integrate(1/(x^2+1), x, minf, inf);→ %pi
 integrate(x^n*exp(-x), x, 0, inf); → factorial(n)  (Gamma function)
+integrate(x^(2*n)*exp(-x^2), x, 0, inf); → (2n)!*sqrt(%pi)/(2*4^n*n!)  (parametric)
 ```
+
+Parametric definite integrals `I(n) = ∫ f(n,x) dx` are resolved by detecting the
+order-1 recurrence `I(n+1)/I(n)` (Almkvist–Zeilberger, order 1), every closed
+form numerically verified.
 
 ### Limits
 
@@ -269,15 +278,36 @@ linsolve([x+y+z=6, x-y=2, 2*y+z=5], [x,y,z]); → [x = 3, y = 1, z = 3]
 
 ---
 
-## Summation
+## Summation & Creative Telescoping
 
-Closed-form evaluation via the Gosper algorithm:
+Indefinite hypergeometric summation via the **Gosper algorithm** (`nusum`):
+
+```
+nusum(k*k!, k, 1, n);            → (n+1)!-1
+nusum(2^k, k, 1, n);             → 2^(n+1)-2
+```
+
+Definite closed forms (Gosper + order-1 recurrence detection, integer &
+half-integer shifts; every result numerically verified):
 
 ```
 sum(k, k, 1, n);                 → n*(n+1)/2
-sum(k^2, k, 1, n);              → closed form
-sum(1/(k*(k+1)), k, 1, n);      → telescoping
+sum(k^3, k, 1, n);              → (n*(n+1)/2)^2
+sum(1/(k*(k+1)), k, 1, n);      → 1-1/(n+1)      (telescoping)
 sum(binomial(n,k), k, 0, n);    → 2^n
+sum(k*binomial(n,k), k, 0, n);  → n*2^(n-1)
+sum(binomial(n,k)^2, k, 0, n);  → (2n)!/(n!)^2   (= binomial(2n,n))
+```
+
+**`find_recurrence(expr, n)`** — for D-finite sequences with no elementary
+closed form, returns the linear P-recurrence as the coefficient list
+`[c_0(n), …, c_J(n)]`, meaning `Σ_j c_j(n)·S(n+j) = 0` (exactly verified):
+
+```
+find_recurrence(sum(binomial(n,k)^3,k,0,n), n);
+                                 → [-8-16*n-8*n^2, -16-21*n-7*n^2, 4+4*n+n^2]   (Franel)
+find_recurrence(sum(binomial(n,k)*binomial(n+k,k),k,0,n), n);
+                                 → [1+n, -9-6*n, 2+n]                            (central Delannoy)
 ```
 
 Numeric sums:

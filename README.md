@@ -15,7 +15,7 @@ cargo run -- -b walkthrough/03_calculus.mac    # run walkthrough
 
 ```
 ╔══════════════════════════════════════════════════╗
-║  Maxima Kernel (Rust)  v0.1.0                    ║
+║  Maxima Kernel (Rust)  v12.0.0                   ║
 ║  A Computer Algebra System                       ║
 ╚══════════════════════════════════════════════════╝
 
@@ -84,7 +84,9 @@ integrate(x*exp(x), x);                  → (x-1)*exp(x)
 integrate(1/(x^2+x+1), x);              → 2*atan((1+2*x)/sqrt(3))/sqrt(3)
 integrate(1/(x^4+1), x);                → log+atan with √2 coefficients
 integrate(1/((x+1)*sqrt(x^2+5)), x);    → log via Euler substitution
+integrate(1/(x^2+1)^(3/2), x);          → x/sqrt(x^2+1)  (algebraic, Hermite reduction)
 integrate(x^n*exp(-x), x, 0, inf);      → factorial(n)
+integrate(x^(2*n)*exp(-x^2), x, 0, inf);→ (2n)!*sqrt(%pi)/(2*4^n*n!)  (parametric, Almkvist–Zeilberger)
 integrate(exp(-2*x^2)*cos(3*x), x, 0, inf); → Gaussian-cosine
 limit(exp(-x), x, inf);                 → 0
 taylor(sin(x), x, 0, 5);               → x - x^3/6 + x^5/120
@@ -106,10 +108,16 @@ is returned; otherwise `ode2` falls back to the noun form.
 ```
 expand((a+b)*(a-b));          → a^2 - b^2
 factor(x^4 + x^2 + 1);       → (1+x+x^2)*(1-x+x^2)
+factor(a^2 - b^2);            → (a-b)*(a+b)      (multivariate)
+factor(x^3 - y^3);            → (x-y)*(x^2+x*y+y^2)
 ratsimp((x^2-1)/(x-1));      → x+1
 partfrac(1/(x^2-1), x);      → 1/(2*(x-1)) - 1/(2*(x+1))
 gcd(x^2-1, x^2+2*x+1);      → x+1
+gcd(x^2-y^2, x-y);            → x-y            (multivariate)
 ```
+
+The multivariate `gcd`/`factor` use Kronecker substitution to the univariate
+engine, with every factor exact-division-verified (correct, never wrong).
 
 ### Solving
 ```
@@ -119,12 +127,24 @@ solve(x^4 - 5*x^2 + 4, x);       → [x = 1, x = -1, x = 2, x = -2]
 linsolve([x+y=3, 2*x-y=0], [x,y]); → [x = 1, y = 2]
 ```
 
-### Summation
+### Summation & Creative Telescoping
 ```
-sum(k, k, 1, n);              → n*(n+1)/2  (closed form via Gosper)
-sum(k^2, k, 1, n);            → closed form
-sum(1/(k*(k+1)), k, 1, n);    → telescoping
-sum(binomial(n,k), k, 0, n);  → 2^n
+nusum(k*k!, k, 1, n);            → (n+1)!-1     (Gosper indefinite)
+nusum(2^k, k, 1, n);             → 2^(n+1)-2
+sum(k^3, k, 1, n);               → (n*(n+1)/2)^2
+sum(1/(k*(k+1)), k, 1, n);       → 1-1/(n+1)    (telescoping)
+sum(binomial(n,k), k, 0, n);     → 2^n
+sum(k*binomial(n,k), k, 0, n);   → n*2^(n-1)
+sum(binomial(n,k)^2, k, 0, n);   → (2n)!/(n!)^2  (= binomial(2n,n))
+```
+Definite hypergeometric sums are resolved by order-1 recurrence detection
+(integer & half-integer shifts), every closed form numerically verified.
+
+For D-finite sequences with **no** elementary closed form, `find_recurrence`
+returns the linear P-recurrence `[c_0(n), …, c_J(n)]` (meaning Σ c_j(n)·S(n+j)=0):
+```
+find_recurrence(sum(binomial(n,k)^3,k,0,n), n);  → Franel: [-8-16n-8n², -16-21n-7n², 4+4n+n²]
+find_recurrence(sum(binomial(n,k)*binomial(n+k,k),k,0,n), n);  → central Delannoy
 ```
 
 ### Matrices
