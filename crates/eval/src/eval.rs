@@ -1475,6 +1475,28 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
                         });
                     }
                 }
+                // Multivariate factoring (Kronecker + recombination, each factor
+                // verified by exact division).
+                let mut vars: Vec<maxima_core::SymbolId> = Vec::new();
+                crate::groebner::collect_symbols(arg, &mut vars);
+                if !vars.is_empty() {
+                    if let Some(mp) = maxima_poly::expr_to_mpoly(arg, &vars, maxima_poly::MonomialOrder::Grevlex) {
+                        if let Some(factors) = maxima_poly::mpoly_factor(&mp) {
+                            let mut parts: Vec<Expr> = Vec::new();
+                            for (f, m) in &factors {
+                                let fe = maxima_poly::mpoly_to_expr(f);
+                                if *m == 1 { parts.push(fe); }
+                                else { parts.push(Expr::pow(fe, Expr::int(*m as i64))); }
+                            }
+                            if parts.len() == 1 { return parts.pop().unwrap(); }
+                            return simplify(&Expr::List {
+                                op: Operator::MTimes,
+                                simplified: false,
+                                args: parts,
+                            });
+                        }
+                    }
+                }
                 return arg.clone();
             }
             Expr::call("factor", evaled_args)
