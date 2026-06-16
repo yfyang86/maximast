@@ -1386,12 +1386,17 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
             if evaled_args.len() == 2 {
                 if let (Expr::Integer(n), Expr::Integer(k)) = (&evaled_args[0], &evaled_args[1]) {
                     if *k < 0 || *k > *n { return Expr::int(0); }
-                    let mut result = 1i64;
-                    let k_val = (*k).min(*n - *k) as u64;
+                    // Exact via BigInt — the i64 product overflows for n ≳ 67
+                    // (e.g. binomial(70,35) used to wrap to a negative number).
+                    let k_val = (*k).min(*n - *k);
+                    let mut result = num::BigInt::from(1);
                     for i in 0..k_val {
-                        result = result * (*n - i as i64) / (i as i64 + 1);
+                        result = result * num::BigInt::from(*n - i) / num::BigInt::from(i + 1);
                     }
-                    return Expr::int(result);
+                    return match num::ToPrimitive::to_i64(&result) {
+                        Some(v) => Expr::int(v),
+                        None => Expr::BigInt(Box::new(result)),
+                    };
                 }
             }
             Expr::call("binomial", evaled_args)
