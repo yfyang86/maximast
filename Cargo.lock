@@ -237,21 +237,21 @@ checksum = "5e5032e24019045c762d3c0f28f5b6b8bbf38563a65908389bf7978758920897"
 
 [[package]]
 name = "maxima-bad-plugin"
-version = "8.0.0"
+version = "12.0.0"
 dependencies = [
  "maxima-plugin",
 ]
 
 [[package]]
 name = "maxima-core"
-version = "8.0.0"
+version = "12.0.0"
 dependencies = [
  "num",
 ]
 
 [[package]]
 name = "maxima-eval"
-version = "8.0.0"
+version = "12.0.0"
 dependencies = [
  "libloading",
  "maxima-core",
@@ -265,7 +265,7 @@ dependencies = [
 
 [[package]]
 name = "maxima-orthopoly"
-version = "8.0.0"
+version = "12.0.0"
 dependencies = [
  "maxima-plugin",
  "num",
@@ -273,14 +273,14 @@ dependencies = [
 
 [[package]]
 name = "maxima-parser"
-version = "8.0.0"
+version = "12.0.0"
 dependencies = [
  "maxima-core",
 ]
 
 [[package]]
 name = "maxima-plugin"
-version = "8.0.0"
+version = "12.0.0"
 dependencies = [
  "maxima-core",
  "maxima-eval",
@@ -288,14 +288,14 @@ dependencies = [
 
 [[package]]
 name = "maxima-plugin-template"
-version = "8.0.0"
+version = "12.0.0"
 dependencies = [
  "maxima-plugin",
 ]
 
 [[package]]
 name = "maxima-poly"
-version = "8.0.0"
+version = "12.0.0"
 dependencies = [
  "maxima-core",
  "maxima-parser",
@@ -304,7 +304,7 @@ dependencies = [
 
 [[package]]
 name = "maxima-repl"
-version = "8.0.0"
+version = "12.0.0"
 dependencies = [
  "maxima-core",
  "maxima-eval",
@@ -314,7 +314,7 @@ dependencies = [
 
 [[package]]
 name = "maxima-specfun"
-version = "8.0.0"
+version = "12.0.0"
 dependencies = [
  "maxima-plugin",
  "num",
@@ -322,7 +322,7 @@ dependencies = [
 
 [[package]]
 name = "maxima-test-plugin"
-version = "8.0.0"
+version = "12.0.0"
 dependencies = [
  "maxima-plugin",
 ]
