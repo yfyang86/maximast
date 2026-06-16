@@ -131,8 +131,6 @@ mod tests {
     fn run(s: &str) -> String { eval_str(s) }
 
     #[test] fn pochhammer_expands() { assert_eq!(run("pochhammer(a,3);"), "a*(1+a)*(2+a)"); }
-    #[test] fn gamma_integer() { assert_eq!(run("gamma(5);"), "24"); }
-    #[test] fn gamma_half() { assert_eq!(run("gamma(1/2);"), "%pi^(1/2)"); }
     #[test] fn minfactorial_ratio() { assert_eq!(run("minfactorial(factorial(n)/factorial(n-2));"), "n*(-1+n)"); }
     #[test] fn makefact_then_min() {
         assert_eq!(run("minfactorial(makefact(binomial(n,2)));"), "(1/2)*n*(-1+n)");

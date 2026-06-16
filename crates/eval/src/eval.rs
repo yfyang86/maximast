@@ -598,29 +598,6 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
             }
             Expr::call("pochhammer", evaled_args)
         }
-        "gamma" => {
-            if let Some(arg) = evaled_args.first() {
-                match arg {
-                    // Γ(m) = (m−1)! for positive integer m.
-                    Expr::Integer(m) if *m >= 1 => {
-                        return meval(&Expr::call("factorial", vec![Expr::int(*m - 1)]), env);
-                    }
-                    // Γ(p+1/2) = (2p)!/(4^p p!)·√π  for integer p ≥ 0.
-                    Expr::Rational { num, den } if *den == 2 && num % 2 != 0 && *num > 0 => {
-                        let p = (*num - 1) / 2;
-                        let fact = |m: i64| Expr::call("factorial", vec![Expr::int(m)]);
-                        let sqrt_pi = Expr::pow(Expr::sym("%pi"), Expr::Rational { num: 1, den: 2 });
-                        let expr = Expr::mul(
-                            Expr::div(fact(2 * p), Expr::mul(Expr::pow(Expr::int(4), Expr::int(p)), fact(p))),
-                            sqrt_pi,
-                        );
-                        return meval(&expr, env);
-                    }
-                    _ => {}
-                }
-            }
-            Expr::call("gamma", evaled_args)
-        }
         "makefact" => {
             if let Some(arg) = evaled_args.first() {
                 return meval(&crate::gammafn::makefact(arg), env);
