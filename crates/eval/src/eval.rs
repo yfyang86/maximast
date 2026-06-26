@@ -1011,7 +1011,7 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
             Expr::call(&func_name, evaled_args)
         }
         "ifactors" | "totient" | "divisors" | "next_prime" | "prev_prime"
-        | "power_mod" | "inv_mod" | "jacobi" | "chinese" | "fibonacci" => {
+        | "power_mod" | "inv_mod" | "jacobi" | "chinese" | "fibonacci" | "fib" | "lucas" => {
             if let Some(result) = crate::numtheory::eval_numtheory_func(&func_name, &evaled_args) {
                 return result;
             }
@@ -7357,6 +7357,20 @@ mod tests {
     fn eval_integrate_log_sq() { assert!(run("integrate(log(x)^2, x);").contains("log")); }
     #[test]
     fn eval_integrate_x3_exp() { assert!(run("integrate(x^3*exp(x), x);").contains("exp")); }
+    #[test]
+    fn eval_integrate_symbolic_power() { assert_eq!(run("integrate(x^n, x);"), "x^(1+n)/(1+n)"); }
+    #[test]
+    fn eval_integrate_poly_product() {
+        // Expand-before-integrate for polynomial integrands (was a noun).
+        assert_eq!(run("integrate(x^2*(x+1), x);"), "x^3/3+x^4/4");
+        assert_eq!(run("integrate((1-x)^4, x, 0, 1);"), "1/5");
+    }
+    #[test]
+    fn eval_fib_lucas() {
+        assert_eq!(run("fib(10);"), "55");
+        assert_eq!(run("lucas(7);"), "29");
+        assert_eq!(run("find_recurrence(fib(n),n);"), "[-1,-1,1]");
+    }
     #[test]
     fn eval_integrate_exp_sin() { assert!(run("integrate(exp(x)*sin(x), x);").contains("exp")); }
     #[test]

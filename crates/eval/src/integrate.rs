@@ -1805,6 +1805,23 @@ pub(crate) fn table_integrate(f: &Expr, var: &Expr) -> Expr {
         return result;
     }
 
+    // Expand polynomial products/powers so the sum + power rules apply, e.g.
+    // x^2*(x+1) → x^3+x^2 and (1-x)^4 → …. Restricted to integrands that expand
+    // to a POLYNOMIAL in `var`: termwise integration is then always elementary.
+    // (Splitting a non-polynomial like (x-1)·exp(x)/x^2 termwise would route
+    // elementary integrals through Ei and fail to recombine.)
+    if let Expr::Symbol(vid) = var {
+        if !matches!(f, Expr::List { op: Operator::MPlus, .. }) {
+            let expanded = expand(f);
+            if matches!(&expanded, Expr::List { op: Operator::MPlus, .. })
+                && &expanded != f
+                && maxima_poly::expr_to_poly(&expanded, *vid).is_some()
+            {
+                return table_integrate(&expanded, var);
+            }
+        }
+    }
+
     match f {
         // ∫ constant dx = constant * x
         Expr::Integer(_) | Expr::Float(_) | Expr::Rational { .. } => {
@@ -2273,17 +2290,17 @@ pub(crate) fn table_integrate(f: &Expr, var: &Expr) -> Expr {
             }
             // ∫ x^n dx = x^(n+1)/(n+1)
             Operator::MExpt if args.len() == 2 && args[0] == *var => {
-                if let Some(n) = to_f64(&args[1]) {
-                    if (n + 1.0).abs() > 1e-15 {
-                        let new_exp = simplify(&Expr::add(args[1].clone(), Expr::int(1)));
-                        return simplify(&Expr::div(
-                            Expr::pow(var.clone(), new_exp.clone()),
-                            new_exp,
-                        ));
-                    } else {
-                        // ∫ x^(-1) dx = log(x)
+                // Power rule for any exponent free of `var` (numeric OR symbolic):
+                // ∫ x^n dx = x^(n+1)/(n+1), with ∫ x^(-1) dx = log(x).
+                if !contains_var(&args[1], var) {
+                    if matches!(to_f64(&args[1]), Some(n) if (n + 1.0).abs() <= 1e-15) {
                         return Expr::call("log", vec![var.clone()]);
                     }
+                    let new_exp = simplify(&Expr::add(args[1].clone(), Expr::int(1)));
+                    return simplify(&Expr::div(
+                        Expr::pow(var.clone(), new_exp.clone()),
+                        new_exp,
+                    ));
                 }
             }
             // ∫ f(x) dx for known functions

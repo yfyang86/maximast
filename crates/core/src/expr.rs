@@ -133,13 +133,16 @@ fn needs_parens_after_star(expr: &Expr) -> bool {
 }
 
 fn needs_parens_in_power(expr: &Expr) -> bool {
-    matches!(
-        expr,
-        Expr::List {
-            op: Operator::MPlus | Operator::MTimes,
-            ..
-        }
-    )
+    // A base prints with parens when leaving it bare would re-parse to a
+    // different value: negative numerics ((-1)^n ≠ -1^n) and any rational
+    // ((1/2)^n ≠ 1/2^n), plus sums/products.
+    match expr {
+        Expr::Integer(n) => *n < 0,
+        Expr::Float(f) => *f < 0.0,
+        Expr::Rational { .. } => true,
+        Expr::List { op: Operator::MPlus | Operator::MTimes, .. } => true,
+        _ => false,
+    }
 }
 
 fn needs_parens_as_exponent(expr: &Expr) -> bool {
@@ -494,6 +497,18 @@ mod tests {
     fn call_display() {
         let e = Expr::call("sin", vec![Expr::sym("x")]);
         assert_eq!(e.to_string(), "sin(x)");
+    }
+
+    #[test]
+    fn power_base_needs_parens() {
+        // Negative numeric and rational bases must print parenthesized so they
+        // round-trip: (-1)^n ≠ -1^n, (1/2)^n ≠ 1/2^n.
+        let neg1_n = Expr::pow(Expr::int(-1), Expr::sym("n"));
+        assert_eq!(neg1_n.to_string(), "(-1)^n");
+        let half_n = Expr::pow(Expr::Rational { num: 1, den: 2 }, Expr::sym("n"));
+        assert_eq!(half_n.to_string(), "(1/2)^n");
+        // Positive integer / symbol bases stay bare.
+        assert_eq!(Expr::pow(Expr::int(2), Expr::sym("n")).to_string(), "2^n");
     }
 
     #[test]
