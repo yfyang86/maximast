@@ -18,7 +18,8 @@ use crate::integrate::{
 
 pub fn meval(expr: &Expr, env: &mut Environment) -> Expr {
     match expr {
-        Expr::Integer(_) | Expr::BigInt(_) | Expr::Float(_) | Expr::String(_) => expr.clone(),
+        Expr::Integer(_) | Expr::BigInt(_) | Expr::Float(_) | Expr::BigFloat(_)
+        | Expr::String(_) => expr.clone(),
         Expr::Rational { .. } => expr.clone(),
 
         Expr::Symbol(id) => {
@@ -131,6 +132,7 @@ fn expr_from(op: &Operator, args: &[Expr]) -> Expr {
 
 fn eval_plus(args: &[Expr], env: &mut Environment) -> Expr {
     let evaled: Vec<Expr> = args.iter().map(|a| meval(a, env)).collect();
+    if let Some(b) = crate::bigfloat::fold_numeric(&Operator::MPlus, &evaled) { return b; }
     // Matrix + Matrix: element-wise addition
     if evaled.len() == 2 {
         if let (
@@ -158,6 +160,7 @@ fn eval_plus(args: &[Expr], env: &mut Environment) -> Expr {
 
 fn eval_times(args: &[Expr], env: &mut Environment) -> Expr {
     let evaled: Vec<Expr> = args.iter().map(|a| meval(a, env)).collect();
+    if let Some(b) = crate::bigfloat::fold_numeric(&Operator::MTimes, &evaled) { return b; }
     // Scalar * Matrix: broadcast multiplication
     if evaled.len() == 2 {
         for (si, mi) in [(0,1), (1,0)] {
@@ -184,6 +187,9 @@ fn eval_power(args: &[Expr], env: &mut Environment) -> Expr {
     let base = meval(&args[0], env);
     let exp = meval(&args[1], env);
 
+    if let Some(b) = crate::bigfloat::fold_numeric(&Operator::MExpt, &[base.clone(), exp.clone()]) {
+        return b;
+    }
     // %e^f → exp(f)
     if base == Expr::sym("%e") {
         return meval(&Expr::call("exp", vec![exp]), env);
@@ -2210,36 +2216,17 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
                             }
                             _ => {
                                 // Radical solve via factor decomposition (linear,
-                                // quadratic, biquadratic factors).
+                                // quadratic, biquadratic, cubic, quartic factors).
                                 if let Some(sol) = solve_factors_radical(&poly, var) { return sol; }
-                                // Higher degree: try factoring
-                                let factors = maxima_poly::factor_poly(&poly);
-                                let var_name = resolve(var);
-                                let v = Expr::sym(&var_name);
-                                let mut roots = Vec::new();
-                                for (f, _m) in &factors {
-                                    if f.degree() == Some(1) {
-                                        let a = f.leading_coeff();
-                                        let b = f.constant_term();
-                                        if let Some(root) = b.neg().div(&a) {
-                                            let re = match root {
-                                                maxima_poly::Coeff::Int(n) => Expr::int(n),
-                                                maxima_poly::Coeff::Rat(n, d) => Expr::Rational { num: n, den: d },
-                                            };
-                                            if !roots.contains(&re) {
-                                                roots.push(re);
-                                            }
-                                        }
-                                    }
-                                }
-                                if !roots.is_empty() {
-                                    let solutions: Vec<Expr> = roots.into_iter()
-                                        .map(|r| Expr::List { op: Operator::MEqual, simplified: false, args: vec![v.clone(), r] })
-                                        .collect();
-                                    return Expr::list(solutions);
-                                }
+                                // Otherwise fall through to solve_poly_rootof, which
+                                // radical-solves the solvable factors and returns
+                                // rootof nouns for the rest (e.g. a quintic factor).
                             }
                         }
+                        // Radical solve declined (e.g. a general quintic): return
+                        // structured rootof(p,x,k) nouns for the roots, evaluable
+                        // numerically by float/bfloat.
+                        if let Some(sol) = solve_poly_rootof(&poly, var) { return sol; }
                     }
                     // Symbolic quadratic: a*x²+b*x+c=0 with non-numeric coefficients
                     // Extract coefficients by collecting powers of var
@@ -2367,45 +2354,55 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
                     let mut eigenvals = Vec::new();
                     let mut multiplicities = Vec::new();
                     let mut eigenvecs = Vec::new();
+                    let mut complete = true;
 
+                    // Each charpoly factor (multiplicity m) contributes its roots —
+                    // rational, irrational, or complex. For each eigenvalue λ the
+                    // eigenvectors are an exact basis of null(M − λI) over Expr.
                     for (f, m) in &factors {
-                        if f.degree() == Some(1) {
-                            let a = f.leading_coeff();
-                            let b = f.constant_term();
-                            if let Some(root) = b.neg().div(&a) {
-                                let re = match root {
-                                    maxima_poly::Coeff::Int(n) => Expr::int(n),
-                                    maxima_poly::Coeff::Rat(n, d) => Expr::Rational { num: n, den: d },
-                                };
-                                eigenvals.push(re.clone());
+                        if f.degree().unwrap_or(0) == 0 { continue; }
+                        match factor_radical_roots(f) {
+                            Some(roots) => for r in roots {
+                                let lam = radical_eval(&r);
+                                eigenvals.push(lam.clone());
                                 multiplicities.push(Expr::int(*m as i64));
 
-                                // Find eigenvector via null space of (M - λI)
-                                let mut aug: Vec<Vec<f64>> = Vec::new();
+                                // Build M − λI exactly, then take its null space.
+                                let mut mlam: Vec<Vec<Expr>> = Vec::new();
                                 for (i, row) in rows.iter().enumerate() {
                                     if let Expr::List { op: Operator::MList, args: cols, .. } = row {
-                                        let r: Vec<f64> = cols.iter().enumerate().map(|(j, c)| {
-                                            let val = to_f64(c).unwrap_or(0.0);
+                                        let new_row: Vec<Expr> = cols.iter().enumerate().map(|(j, c)| {
                                             if i == j {
-                                                val - to_f64(&re).unwrap_or(0.0)
+                                                meval(&Expr::sub(c.clone(), lam.clone()), env)
                                             } else {
-                                                val
+                                                c.clone()
                                             }
                                         }).collect();
-                                        aug.push(r);
+                                        mlam.push(new_row);
                                     }
                                 }
-                                // Row reduce to find null space
-                                let evec = null_space_vector(&aug);
-                                eigenvecs.push(Expr::list(vec![
-                                    Expr::list(evec.iter().map(|v| {
-                                        if *v == v.round() { Expr::int(*v as i64) } else { Expr::Float(*v) }
-                                    }).collect()),
-                                ]));
-                            }
+                                // Exact null space; if the simplifier can't prove
+                                // M − λI singular for a radical λ (empty basis),
+                                // fall back to an adjugate column (polynomial in
+                                // λ, reduces under expand). A genuine eigenvalue
+                                // always has ≥1 eigenvector, so an empty result
+                                // with no adjugate vector means incomplete → noun.
+                                let ns = matrix_nullspace(&mlam, env);
+                                let empty = matches!(&ns,
+                                    Expr::List { op: Operator::MList, args, .. } if args.is_empty());
+                                if empty {
+                                    match nullvec_via_adjugate(&mlam, env) {
+                                        Some(v) => eigenvecs.push(Expr::list(vec![v])),
+                                        None => complete = false,
+                                    }
+                                } else {
+                                    eigenvecs.push(ns);
+                                }
+                            },
+                            None => complete = false, // unsolvable factor (e.g. casus cubic)
                         }
                     }
-                    if !eigenvals.is_empty() {
+                    if complete && !eigenvals.is_empty() {
                         return Expr::list(vec![
                             Expr::list(vec![Expr::list(eigenvals), Expr::list(multiplicities)]),
                             Expr::list(eigenvecs),
@@ -3204,6 +3201,31 @@ fn matrix_nullspace(m: &[Vec<Expr>], env: &mut Environment) -> Expr {
     Expr::list(basis)
 }
 
+/// One null vector of a square matrix `a` that is known to be singular, taken
+/// from a nonzero column of its adjugate: A·adj(A) = det(A)·I = 0, so every
+/// column of adj(A) lies in null(A). Cofactors are polynomial in the matrix
+/// entries, so a radical eigenvalue λ reduces under `expand` where the
+/// divide-based RREF leaves an unreducible 1/λ residue. Returns the column as
+/// a column matrix, or None if the adjugate vanishes (geometric multiplicity
+/// > 1 — handled by the exact null-space path instead).
+fn nullvec_via_adjugate(a: &[Vec<Expr>], env: &mut Environment) -> Option<Expr> {
+    let n = a.len();
+    for k in 0..n {
+        let mut col = Vec::with_capacity(n);
+        let mut nonzero = false;
+        for i in 0..n {
+            // adj(A)[i][k] = cofactor C_{k,i}.
+            let c = expand(&matrix_cofactor(a, k, i, env));
+            if !matches!(simplify(&c), Expr::Integer(0)) { nonzero = true; }
+            col.push(c);
+        }
+        if nonzero {
+            return Some(rows_to_matrix(col.into_iter().map(|x| vec![x]).collect()));
+        }
+    }
+    None
+}
+
 fn coeff_to_expr_c(c: &maxima_poly::Coeff) -> Expr {
     match c {
         maxima_poly::Coeff::Int(n) => Expr::int(*n),
@@ -3215,6 +3237,20 @@ fn coeff_to_expr_c(c: &maxima_poly::Coeff) -> Expr {
 /// does not reduce e.g. div(12,4) → 3, but meval does).
 fn radical_eval(e: &Expr) -> Expr {
     meval(e, &mut Environment::new())
+}
+
+/// Real cube root of a real expression: sign(a)·|a|^(1/3). The principal
+/// (1/3)-power of a negative number is complex, so Cardano's real u,v must be
+/// built this way to land the real root on the real axis.
+fn real_cbrt(a: &Expr) -> Expr {
+    let third = Expr::Rational { num: 1, den: 3 };
+    // sign from a full complex evaluation (handles sqrt; the value is real here).
+    let neg = expr_to_complex(&radical_eval(a)).map(|c| c.re < 0.0).unwrap_or(false);
+    if neg {
+        radical_eval(&Expr::neg(Expr::pow(radical_eval(&Expr::neg(a.clone())), third)))
+    } else {
+        radical_eval(&Expr::pow(a.clone(), third))
+    }
 }
 
 /// Roots of a·x²+b·x+c written as −b/(2a) ± √((b²−4ac)/(4a²)) so the radicand
@@ -3257,33 +3293,64 @@ fn factor_radical_roots(f: &maxima_poly::Poly) -> Option<Vec<Expr>> {
             &coeff_to_expr_c(&poly_coeff_at(f, 0)),
         )),
         3 => {
-            // Depress monic x³+B x²+C x+D → t³+p t+q via t = x − B/3. Handle the
-            // pure-cube case p=0 (t³=−q) with the three cube roots k^(1/3)·ω^j;
-            // the general/casus-irreducibilis cubic is deferred (→ None).
+            // Depress monic x³+B x²+C x+D → t³+p t+q via x = t − B/3, then back-
+            // shift each t by −B/3. p=0 is the pure-cube case t³=−q; otherwise
+            // Cardano with D = (q/2)²+(p/3)³: D≥0 gives a real-radical solution
+            // (u+v real, the other two ωu+ω²v / ω²u+ωv complex). D<0 is the
+            // casus irreducibilis (3 real irrational roots, no real radicals) → None.
             let lead = coeff_to_expr_c(&poly_coeff_at(f, 3));
             let bb = radical_eval(&Expr::div(coeff_to_expr_c(&poly_coeff_at(f, 2)), lead.clone()));
             let cc = radical_eval(&Expr::div(coeff_to_expr_c(&poly_coeff_at(f, 1)), lead.clone()));
             let dd = radical_eval(&Expr::div(coeff_to_expr_c(&poly_coeff_at(f, 0)), lead));
-            // p = C − B²/3
+            // p = C − B²/3 ; q = 2B³/27 − B·C/3 + D
             let p = radical_eval(&Expr::sub(cc.clone(),
                 Expr::div(Expr::pow(bb.clone(), Expr::int(2)), Expr::int(3))));
-            if p != Expr::int(0) { return None; }
-            // q = 2B³/27 − B·C/3 + D ; t³ = −q
             let q = radical_eval(&Expr::add(
                 Expr::sub(Expr::div(Expr::mul(Expr::int(2), Expr::pow(bb.clone(), Expr::int(3))), Expr::int(27)),
                           Expr::div(Expr::mul(bb.clone(), cc), Expr::int(3))),
                 dd));
-            let k = radical_eval(&Expr::neg(q));
-            let cbrt = radical_eval(&Expr::pow(k, Expr::Rational { num: 1, den: 3 }));
             let shift = radical_eval(&Expr::div(bb, Expr::int(3)));
             // ω = (−1+%i√3)/2, ω² = (−1−%i√3)/2
             let isqrt3 = Expr::mul(Expr::sym("%i"), Expr::call("sqrt", vec![Expr::int(3)]));
             let omega = Expr::div(Expr::add(Expr::int(-1), isqrt3.clone()), Expr::int(2));
             let omega2 = Expr::div(Expr::sub(Expr::int(-1), isqrt3), Expr::int(2));
-            let roots: Vec<Expr> = [Expr::int(1), omega, omega2].into_iter()
-                .map(|w| radical_eval(&Expr::sub(Expr::mul(w, cbrt.clone()), shift.clone())))
-                .collect();
-            Some(roots)
+            let (t1, t2, t3) = if p == Expr::int(0) {
+                // t³ = −q → cbrt·{1, ω, ω²}
+                let cbrt = radical_eval(&Expr::pow(radical_eval(&Expr::neg(q)),
+                    Expr::Rational { num: 1, den: 3 }));
+                (radical_eval(&cbrt),
+                 radical_eval(&Expr::mul(omega, cbrt.clone())),
+                 radical_eval(&Expr::mul(omega2, cbrt)))
+            } else {
+                let disc = radical_eval(&Expr::add(
+                    Expr::div(Expr::pow(q.clone(), Expr::int(2)), Expr::int(4)),
+                    Expr::div(Expr::pow(p.clone(), Expr::int(3)), Expr::int(27))));
+                let dval = crate::helpers::to_f64(&disc).unwrap_or(0.0);
+                let half = radical_eval(&Expr::div(Expr::neg(q.clone()), Expr::int(2)));
+                let (u, v) = if dval >= 0.0 {
+                    // D≥0: real cube roots of −q/2 ± √D (clean real radicals)
+                    let sq = radical_eval(&Expr::call("sqrt", vec![disc]));
+                    (real_cbrt(&radical_eval(&Expr::add(half.clone(), sq.clone()))),
+                     real_cbrt(&radical_eval(&Expr::sub(half, sq))))
+                } else {
+                    // D<0 casus irreducibilis: √D = %i√|D|, take the principal
+                    // complex cube root u and pin v = −p/(3u) so u·v = −p/3.
+                    // u+v, ωu+ω²v, ω²u+ωv are then the three (real) roots in
+                    // complex-radical form (verified numerically downstream).
+                    let sq = radical_eval(&Expr::call("sqrt", vec![disc]));
+                    let u = radical_eval(&Expr::pow(radical_eval(&Expr::add(half, sq)),
+                        Expr::Rational { num: 1, den: 3 }));
+                    let v = radical_eval(&Expr::div(Expr::neg(p.clone()),
+                        Expr::mul(Expr::int(3), u.clone())));
+                    (u, v)
+                };
+                (radical_eval(&Expr::add(u.clone(), v.clone())),
+                 radical_eval(&Expr::add(Expr::mul(omega.clone(), u.clone()), Expr::mul(omega2.clone(), v.clone()))),
+                 radical_eval(&Expr::add(Expr::mul(omega2, u), Expr::mul(omega, v))))
+            };
+            Some([t1, t2, t3].into_iter()
+                .map(|t| radical_eval(&Expr::sub(t, shift.clone())))
+                .collect())
         }
         4 if poly_coeff_at(f, 3) == zero && poly_coeff_at(f, 1) == zero => {
             // a·x⁴ + c·x² + e: roots are ±√u for the roots u of a·u²+c·u+e.
@@ -3299,6 +3366,143 @@ fn factor_radical_roots(f: &maxima_poly::Poly) -> Option<Vec<Expr>> {
                 roots.push(radical_eval(&Expr::neg(s)));
             }
             Some(roots)
+        }
+        4 => {
+            // General quartic via Ferrari. Depress monic x⁴+Bx³+Cx²+Dx+E with
+            // x = y − B/4 → y⁴ + p y² + q y + r. Solve the resolvent cubic
+            // 8t³ + 8p t² + (2p²−8r)t − q² for a real nonzero t₀ (reuses the
+            // radical cubic solver, incl. Cardano), giving the perfect-square
+            // factorisation (y²+p/2+t₀)² = (αy−β)² with α=√(2t₀), β=q/(2α).
+            // Two quadratics y² ∓ αy + (p/2+t₀±β) then yield all four roots,
+            // each shifted back by −B/4. Verified numerically; any step that
+            // can't be radical-solved → None (noun).
+            let lead = coeff_to_expr_c(&poly_coeff_at(f, 4));
+            let div = |c: u32| radical_eval(&Expr::div(coeff_to_expr_c(&poly_coeff_at(f, c)), lead.clone()));
+            let (bb, cc, dd, ee) = (div(3), div(2), div(1), div(0));
+            // p = C − 3B²/8
+            let p = radical_eval(&Expr::sub(cc.clone(),
+                Expr::div(Expr::mul(Expr::int(3), Expr::pow(bb.clone(), Expr::int(2))), Expr::int(8))));
+            // q = D − BC/2 + B³/8
+            let q = radical_eval(&Expr::add(Expr::sub(dd.clone(),
+                Expr::div(Expr::mul(bb.clone(), cc.clone()), Expr::int(2))),
+                Expr::div(Expr::pow(bb.clone(), Expr::int(3)), Expr::int(8))));
+            // r = E − BD/4 + B²C/16 − 3B⁴/256
+            let r = radical_eval(&Expr::sub(Expr::add(Expr::sub(ee,
+                Expr::div(Expr::mul(bb.clone(), dd), Expr::int(4))),
+                Expr::div(Expr::mul(Expr::pow(bb.clone(), Expr::int(2)), cc), Expr::int(16))),
+                Expr::div(Expr::mul(Expr::int(3), Expr::pow(bb.clone(), Expr::int(4))), Expr::int(256))));
+            let shift4 = radical_eval(&Expr::div(bb, Expr::int(4)));
+
+            // q = 0 ⇒ the depressed quartic is biquadratic in y: y⁴+py²+r = 0.
+            // Solve z²+pz+r for z = y², then y = ±√z. (Ferrari's resolvent
+            // degenerates here — its only real root can be 0.)
+            if q == Expr::int(0) {
+                let zs = quad_radical_roots(&Expr::int(1), &p, &r);
+                let mut roots = Vec::new();
+                for z in zs {
+                    let s = radical_eval(&Expr::call("sqrt", vec![z]));
+                    roots.push(radical_eval(&Expr::sub(s.clone(), shift4.clone())));
+                    roots.push(radical_eval(&Expr::sub(Expr::neg(s), shift4.clone())));
+                }
+                return Some(roots);
+            }
+
+            // Resolvent cubic in a dummy variable, solved by radicals.
+            let t_id = maxima_core::intern("%ferrarit");
+            let t = Expr::Symbol(t_id);
+            let rc2 = radical_eval(&Expr::mul(Expr::int(8), p.clone()));
+            let rc1 = radical_eval(&Expr::sub(Expr::mul(Expr::int(2), Expr::pow(p.clone(), Expr::int(2))),
+                Expr::mul(Expr::int(8), r.clone())));
+            let rc0 = radical_eval(&Expr::neg(Expr::pow(q.clone(), Expr::int(2))));
+            let resolvent = Expr::add(Expr::add(Expr::add(
+                Expr::mul(Expr::int(8), Expr::pow(t.clone(), Expr::int(3))),
+                Expr::mul(rc2, Expr::pow(t.clone(), Expr::int(2)))),
+                Expr::mul(rc1, t)), rc0);
+            let res_poly = maxima_poly::expr_to_poly(&expand(&resolvent), t_id)?;
+            // Pick a real, nonzero resolvent root (prefer the most positive, so
+            // α = √(2t₀) is real and the quartic's real roots stay real).
+            let mut cands: Vec<(f64, Expr)> = Vec::new();
+            for (g, _m) in maxima_poly::factor_poly(&res_poly) {
+                if g.degree().unwrap_or(0) == 0 { continue; }
+                if let Some(rs) = factor_radical_roots(&g) {
+                    for rt in rs {
+                        let rt = radical_eval(&rt);
+                        if let Some(c) = expr_to_complex(&rt) {
+                            if c.im.abs() < 1e-9 && c.re.abs() > 1e-9 { cands.push((c.re, rt)); }
+                        }
+                    }
+                }
+            }
+            cands.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+            let t0 = cands.into_iter().next()?.1;
+
+            let alpha = radical_eval(&Expr::call("sqrt",
+                vec![radical_eval(&Expr::mul(Expr::int(2), t0.clone()))]));
+            let beta = radical_eval(&Expr::div(q.clone(), Expr::mul(Expr::int(2), alpha.clone())));
+            let base = radical_eval(&Expr::add(Expr::div(p.clone(), Expr::int(2)), t0.clone()));
+            let const1 = radical_eval(&Expr::add(base.clone(), beta.clone())); // p/2+t₀+β
+            let const2 = radical_eval(&Expr::sub(base, beta));                  // p/2+t₀−β
+            let a2 = radical_eval(&Expr::mul(Expr::int(2), t0)); // α² = 2t₀
+            // y² − αy + const1 = 0 ; y² + αy + const2 = 0
+            let s1 = radical_eval(&Expr::call("sqrt",
+                vec![radical_eval(&Expr::sub(a2.clone(), Expr::mul(Expr::int(4), const1)))]));
+            let s2 = radical_eval(&Expr::call("sqrt",
+                vec![radical_eval(&Expr::sub(a2, Expr::mul(Expr::int(4), const2)))]));
+            let ys = [
+                Expr::div(Expr::add(alpha.clone(), s1.clone()), Expr::int(2)),
+                Expr::div(Expr::sub(alpha.clone(), s1), Expr::int(2)),
+                Expr::div(Expr::add(Expr::neg(alpha.clone()), s2.clone()), Expr::int(2)),
+                Expr::div(Expr::sub(Expr::neg(alpha), s2), Expr::int(2)),
+            ];
+            Some(ys.into_iter()
+                .map(|y| radical_eval(&Expr::sub(y, shift4.clone())))
+                .collect())
+        }
+        _ => None,
+    }
+}
+
+/// Numeric value of a closed-form radical expression as a complex f64, for
+/// verifying solver output (principal branches). Handles arithmetic, integer/
+/// rational/float atoms, %i/%pi/%e, sqrt, and powers; returns None on a free
+/// symbol or an unsupported function (verification is then skipped).
+fn expr_to_complex(e: &Expr) -> Option<num::complex::Complex64> {
+    use num::complex::Complex64;
+    use num::ToPrimitive;
+    let c = |re: f64| Complex64::new(re, 0.0);
+    match e {
+        Expr::Integer(n) => Some(c(*n as f64)),
+        Expr::BigInt(b) => (**b).to_f64().map(c),
+        Expr::Rational { num, den } => Some(c(*num as f64 / *den as f64)),
+        Expr::Float(f) => Some(c(*f)),
+        Expr::Symbol(id) => match resolve(*id).as_str() {
+            "%i" => Some(Complex64::new(0.0, 1.0)),
+            "%pi" => Some(c(std::f64::consts::PI)),
+            "%e" => Some(c(std::f64::consts::E)),
+            _ => None,
+        },
+        Expr::List { op: Operator::MPlus, args, .. } => {
+            let mut s = Complex64::new(0.0, 0.0);
+            for a in args { s += expr_to_complex(a)?; }
+            Some(s)
+        }
+        Expr::List { op: Operator::MTimes, args, .. } => {
+            let mut s = Complex64::new(1.0, 0.0);
+            for a in args { s *= expr_to_complex(a)?; }
+            Some(s)
+        }
+        Expr::List { op: Operator::MExpt, args, .. } if args.len() == 2 => {
+            let base = expr_to_complex(&args[0])?;
+            // Integer exponents via powi keep real results real; else powc.
+            if let Expr::Integer(n) = &args[1] {
+                if let Ok(k) = i32::try_from(*n) { return Some(base.powi(k)); }
+            }
+            Some(base.powc(expr_to_complex(&args[1])?))
+        }
+        Expr::List { op: Operator::Named(id), args, .. }
+            if resolve(*id) == "sqrt" && args.len() == 1 =>
+        {
+            Some(expr_to_complex(&args[0])?.sqrt())
         }
         _ => None,
     }
@@ -3318,20 +3522,60 @@ fn solve_factors_radical(poly: &maxima_poly::Poly, var: maxima_core::SymbolId) -
         }
     }
     if roots.is_empty() { return None; }
-    // Numeric sanity check on roots that evaluate to a real number.
+    // Numeric sanity check: every root, real OR complex, must satisfy p(r)≈0.
+    // (The earlier real-only to_f64 check let a wrong complex radical slip
+    // through — Cardano/Ferrari produce complex roots, so verify them too.)
     let p_expr = maxima_poly::poly_to_expr(poly);
     let var_e = Expr::Symbol(var);
     for r in &roots {
-        let mut env = Environment::new();
-        let val = meval(&subst(r, &var_e, &p_expr), &mut env);
-        if let Some(v) = crate::helpers::to_f64(&val) {
-            if v.abs() > 1e-6 { return None; } // a real root that doesn't satisfy p ⇒ bug
+        if let Some(c) = expr_to_complex(&subst(r, &var_e, &p_expr)) {
+            if c.norm() > 1e-6 { return None; } // doesn't satisfy p ⇒ bug → noun
         }
     }
     let v = Expr::sym(&resolve(var));
     Some(Expr::list(roots.into_iter().map(|r| Expr::List {
         op: Operator::MEqual, simplified: false, args: vec![v.clone(), r],
     }).collect()))
+}
+
+/// Solve a numeric univariate polynomial, returning radical roots for the
+/// factors that have them and `rootof(f, x, k)` nouns for the factors that
+/// don't (e.g. a general quintic). Used as the fall-through after the pure
+/// radical solver declines. Returns None only if a factor can be neither
+/// radical-solved nor numerically isolated (shouldn't happen for numeric polys).
+fn solve_poly_rootof(poly: &maxima_poly::Poly, var: maxima_core::SymbolId) -> Option<Expr> {
+    let v = Expr::Symbol(var);
+    let mut eqs: Vec<Expr> = Vec::new();
+    for (f, _m) in &maxima_poly::factor_poly(poly) {
+        if f.degree().unwrap_or(0) == 0 { continue; }
+        // Radical roots for this factor if it has them and they all verify;
+        // otherwise rootof nouns.
+        let radical = factor_radical_roots(f).and_then(|rs| {
+            let p_expr = maxima_poly::poly_to_expr(f);
+            let roots: Vec<Expr> = rs.into_iter().map(|r| radical_eval(&r)).collect();
+            let all_ok = roots.iter().all(|r| {
+                expr_to_complex(&subst(r, &v, &p_expr)).map(|c| c.norm() <= 1e-6).unwrap_or(true)
+            });
+            if all_ok { Some(roots) } else { None }
+        });
+        match radical {
+            Some(roots) => for r in roots {
+                let eq = Expr::List { op: Operator::MEqual, simplified: false, args: vec![v.clone(), r] };
+                if !eqs.contains(&eq) { eqs.push(eq); }
+            },
+            None => { if !rootof_eqs(f, var, &mut eqs) { return None; } }
+        }
+    }
+    if eqs.is_empty() { None } else { Some(Expr::list(eqs)) }
+}
+
+/// Append `f`'s roots as `rootof(f, x, k)` equations to `eqs`; false if `f` has
+/// no numeric roots to index.
+fn rootof_eqs(f: &maxima_poly::Poly, var: maxima_core::SymbolId, eqs: &mut Vec<Expr>) -> bool {
+    match crate::rootof::make_rootof_solutions(f, var) {
+        Some(Expr::List { args, .. }) => { eqs.extend(args); true }
+        _ => false,
+    }
 }
 
 /// True if a polynomial coefficient is strictly positive (handles Int and Rat).
@@ -4151,7 +4395,7 @@ fn build_series(coeffs: &[Expr], shift: i64, var: &Expr, a: &Expr) -> Expr {
 
 pub(crate) fn diff_once(expr: &Expr, var: &Expr) -> Expr {
     match expr {
-        Expr::Integer(_) | Expr::BigInt(_) | Expr::Float(_)
+        Expr::Integer(_) | Expr::BigInt(_) | Expr::Float(_) | Expr::BigFloat(_)
         | Expr::Rational { .. } | Expr::String(_) => Expr::int(0),
 
         Expr::Symbol(_) => {
@@ -5641,53 +5885,6 @@ fn eval_require(filename: &str, env: &mut Environment) -> Expr {
         }
     }
     eval_load(filename, env)
-}
-
-fn null_space_vector(mat: &[Vec<f64>]) -> Vec<f64> {
-    let m = mat.len();
-    if m == 0 { return vec![]; }
-    let n = mat[0].len();
-    let mut work: Vec<Vec<f64>> = mat.to_vec();
-
-    // Row echelon form
-    let mut pivot_cols = Vec::new();
-    let mut row = 0;
-    for col in 0..n {
-        if row >= m { break; }
-        let mut pr = None;
-        for r in row..m {
-            if work[r][col].abs() > 1e-10 {
-                pr = Some(r);
-                break;
-            }
-        }
-        if let Some(p) = pr {
-            work.swap(row, p);
-            let pv = work[row][col];
-            for c in 0..n { work[row][c] /= pv; }
-            for r in 0..m {
-                if r != row && work[r][col].abs() > 1e-10 {
-                    let f = work[r][col];
-                    for c in 0..n { work[r][c] -= f * work[row][c]; }
-                }
-            }
-            pivot_cols.push(col);
-            row += 1;
-        }
-    }
-
-    // Find a free variable (column not in pivot_cols)
-    let free_col = (0..n).find(|c| !pivot_cols.contains(c)).unwrap_or(n - 1);
-
-    // Construct null space vector: set free variable to 1
-    let mut vec = vec![0.0; n];
-    vec[free_col] = 1.0;
-    for (i, &pc) in pivot_cols.iter().enumerate() {
-        if i < work.len() {
-            vec[pc] = -work[i][free_col];
-        }
-    }
-    vec
 }
 
 /// trigexpand: expand trig of sums
@@ -7650,8 +7847,15 @@ mod tests {
         let r = run("solve(x^3-2, x);");
         assert!(r.contains("2^(1/3)") && r.contains("%i"), "got {r}");
         assert_eq!(r.matches("x =").count(), 3);
-        // casus irreducibilis (3 real roots) deferred → noun, not a wrong answer.
-        assert!(run("solve(x^3-3*x+1, x);").contains("solve("));
+        // General Cardano (p≠0, D≥0): real radical root present, all verified.
+        let r = run("solve(x^3+x+1, x);");
+        assert!(!r.contains("solve("), "should solve, got {r}");
+        assert_eq!(r.matches("x =").count(), 3);
+        // Casus irreducibilis (D<0, 3 real roots) now solved via complex radicals
+        // (each verified numerically), no longer a noun.
+        let r = run("solve(x^3-3*x+1, x);");
+        assert!(!r.contains("solve("), "casus should solve, got {r}");
+        assert_eq!(r.matches("x =").count(), 3);
     }
     #[test]
     fn eval_solve_radical() {

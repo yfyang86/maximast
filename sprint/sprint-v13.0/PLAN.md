@@ -92,6 +92,35 @@ hash-consing), parser robustness (Result-based parser), 0i (gruntz limit bugs),
   `lambert_w` (Halley: 1.0→0.56714), `polylog` (Li_2(1)=%pi^2/6, series numeric).
   f64; arbitrary precision follows a bigfloat backend.
 
-## Bundle 2 self-contained items DONE (1a-i/ii, 1b, 3a, 3b, 3c, 3d). Remaining:
-RootOf + general Cardano/Ferrari, 1c bigfloat (both architectural — sign-off),
-eigenvectors for non-rational eigenvalues, exact realroots intervals.
+## Bundle 2 self-contained items DONE (1a-i/ii, 1b, 3a, 3b, 3c, 3d).
+- **3b** ✅ now complete: eigenvectors for irrational/complex eigenvalues. Exact
+  null space of M−λI for every radical eigenvalue; where the divide-based RREF
+  leaves an unreducible 1/λ residue, an adjugate column (polynomial in λ,
+  reduces under expand) supplies the eigenvector. correct-or-noun.
+- **1b** ✅ now complete: `realroots` returns exact rationals (Maxima
+  `[x = r, …]`). Factor over Q → linear factors exact; each irreducible factor's
+  real roots isolated by Sturm bisection in exact BigRational arithmetic within
+  a rational eps. No f64 in the result.
+
+- **1a** ✅ now complete (Cardano/Ferrari): general cubic via Cardano —
+  depressed t³+pt+q, real radicals when D≥0, complex radicals (u, v=−p/(3u))
+  when D<0 (casus irreducibilis, 3 real roots). General quartic via Ferrari —
+  resolvent cubic 8t³+8pt²+(2p²−8r)t−q² supplies t₀ (q=0 falls back to
+  biquadratic-in-y). Foundation: a Complex64 verifier (expr_to_complex) checks
+  |p(r)|<1e-6 for every root, real or complex; a failed root → noun.
+
+- **1c** ✅ now complete: arbitrary-precision bigfloat backend (astro-float).
+  New `Expr::BigFloat` core atom stores a precision-tagged decimal (core keeps
+  no bignum-float dep — all compute is in eval). `bfloat(expr)` evaluates the
+  whole argument at fpprec digits (constants, arithmetic, powers, elementary
+  functions); a bigfloat in +/*/^ folds at the widest operand precision
+  (contagion). Display in Maxima `…bN` notation.
+
+- **RootOf** ✅ now complete: `solve` returns `rootof(p,x,k)` nouns for numeric
+  univariate factors with no radical solution (general quintic+). All roots via
+  Durand–Kerner, ordered real-first then complex; `float` evaluates to the k-th
+  root (real `Float` or `a+b·%i`), `bfloat` refines real roots to fpprec digits
+  via Newton in astro-float. Solvable factors still return verified radicals
+  (mixed polynomials return radicals for the solvable part, rootof for the rest).
+
+## Bundle 2 COMPLETE — all items shipped. Next: Bundle 3 (Summation completion).

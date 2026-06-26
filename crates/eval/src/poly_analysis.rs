@@ -1,5 +1,6 @@
 use maxima_core::{Expr, SymbolId};
 use crate::simp::simplify;
+use num::{BigInt, BigRational, One, Zero, Signed};
 
 pub(crate) fn eval_poly_func(name: &str, args: &[Expr]) -> Option<Expr> {
     match name {
@@ -145,16 +146,42 @@ pub(crate) fn eval_sturm_func(name: &str, args: &[Expr]) -> Option<Expr> {
             Some(Expr::int(count as i64))
         }
         "realroots" => {
-            if args.len() >= 1 {
-                let var_id = find_main_var(&args[0])?;
-                let p = maxima_poly::expr_to_poly(&crate::eval::expand(&args[0]), var_id)?;
-                let eps = if args.len() >= 2 { crate::helpers::to_f64(&args[1])? } else { 1e-10 };
-                let roots = isolate_real_roots(&p, eps);
-                let root_exprs: Vec<Expr> = roots.into_iter()
-                    .map(|r| { let i = r.round() as i64; if (r - i as f64).abs() < eps { Expr::int(i) } else { Expr::Float(r) } })
-                    .collect();
-                Some(Expr::list(root_exprs))
-            } else { None }
+            // Exact real-root isolation. Factor over Q: each linear factor gives
+            // an exact rational root; each higher (irreducible) factor's real
+            // roots are irrational and isolated by Sturm bisection in exact
+            // rational arithmetic, returned as a rational within eps. Result is
+            // Maxima-style `[x = r, ...]` of exact rationals (no f64). eps is a
+            // rational (default 10^-10).
+            if args.is_empty() { return None; }
+            let var_id = find_main_var(&args[0])?;
+            let p = maxima_poly::expr_to_poly(&crate::eval::expand(&args[0]), var_id)?;
+            let eps = match args.get(1) {
+                Some(a) => crate::helpers::expr_to_bigrat(a)?.abs(),
+                None => BigRational::new(BigInt::one(), BigInt::from(10).pow(10)),
+            };
+            if eps.is_zero() { return None; }
+            let mut roots: Vec<BigRational> = Vec::new();
+            for (f, _m) in &maxima_poly::factor_poly(&p) {
+                match f.degree() {
+                    Some(0) | None => continue,
+                    Some(1) => {
+                        // a·x + b = 0 → root −b/a (exact rational)
+                        let a = coeff_bigrat(&f.leading_coeff());
+                        let b = coeff_bigrat(&f.constant_term());
+                        roots.push(-b / a);
+                    }
+                    Some(_) => roots.extend(isolate_exact(f, &eps)),
+                }
+            }
+            roots.sort();
+            roots.dedup();
+            let var = Expr::Symbol(var_id);
+            let eqs: Vec<Expr> = roots.iter().map(|r| Expr::List {
+                op: maxima_core::Operator::MEqual,
+                simplified: false,
+                args: vec![var.clone(), crate::helpers::bigrat_to_expr(r)],
+            }).collect();
+            Some(Expr::list(eqs))
         }
         _ => None,
     }
@@ -238,38 +265,95 @@ fn sturm_count(p: &maxima_poly::Poly, lo: f64, hi: f64) -> usize {
     if v_lo >= v_hi { v_lo - v_hi } else { 0 }
 }
 
-fn isolate_real_roots(p: &maxima_poly::Poly, eps: f64) -> Vec<f64> {
-    let bound = root_bound(p);
-    let seq = sturm_sequence(p);
-    let total = sign_changes(&seq, -bound) - sign_changes(&seq, bound);
-    if total == 0 { return vec![]; }
+fn coeff_bigrat(c: &maxima_poly::Coeff) -> BigRational {
+    match c {
+        maxima_poly::Coeff::Int(n) => BigRational::from(BigInt::from(*n)),
+        maxima_poly::Coeff::Rat(n, d) => BigRational::new(BigInt::from(*n), BigInt::from(*d)),
+    }
+}
 
-    let mut intervals: Vec<(f64, f64)> = vec![(-bound, bound)];
+/// A polynomial as (exponent, exact coefficient) terms for rational evaluation.
+fn poly_bigrat_terms(p: &maxima_poly::Poly) -> Vec<(usize, BigRational)> {
+    p.terms.iter().map(|(e, c)| (*e as usize, coeff_bigrat(c))).collect()
+}
+
+fn eval_bigrat(terms: &[(usize, BigRational)], q: &BigRational) -> BigRational {
+    let mut s = BigRational::zero();
+    for (e, c) in terms { s += c * num::pow(q.clone(), *e); }
+    s
+}
+
+fn sign_bigrat(x: &BigRational) -> i32 {
+    if x.is_positive() { 1 } else if x.is_negative() { -1 } else { 0 }
+}
+
+/// Sign variations of the Sturm chain (each as exact terms) evaluated at q.
+fn sign_changes_bigrat(seq: &[Vec<(usize, BigRational)>], q: &BigRational) -> usize {
+    let mut last = 0i32;
+    let mut changes = 0;
+    for poly in seq {
+        let s = sign_bigrat(&eval_bigrat(poly, q));
+        if s != 0 {
+            if last != 0 && s != last { changes += 1; }
+            last = s;
+        }
+    }
+    changes
+}
+
+/// Cauchy bound 1 + max|a_i/a_n| as an exact rational; all real roots lie in
+/// (−bound, bound).
+fn root_bound_bigrat(terms: &[(usize, BigRational)], deg: usize) -> BigRational {
+    let lc = terms.iter().find(|(e, _)| *e == deg).map(|(_, c)| c.clone())
+        .unwrap_or_else(BigRational::one);
+    let mut maxr = BigRational::zero();
+    for (e, c) in terms {
+        if *e != deg {
+            let r = (c / &lc).abs();
+            if r > maxr { maxr = r; }
+        }
+    }
+    maxr + BigRational::one()
+}
+
+/// Real roots of a square-free, irreducible-over-Q factor (degree ≥ 2, so the
+/// real roots are irrational), each isolated by Sturm bisection in exact
+/// rational arithmetic and returned as the rational midpoint of an interval of
+/// width < eps. Because the factor is irreducible no rational bisection point
+/// is ever a root, so the Sturm count V(lo)−V(hi) is exact at every split.
+fn isolate_exact(p: &maxima_poly::Poly, eps: &BigRational) -> Vec<BigRational> {
+    let seq: Vec<Vec<(usize, BigRational)>> =
+        sturm_sequence(p).iter().map(poly_bigrat_terms).collect();
+    let pterms = poly_bigrat_terms(p);
+    let deg = p.degree().unwrap_or(0) as usize;
+    let bound = root_bound_bigrat(&pterms, deg);
+    let neg_bound = -bound.clone();
+    if sign_changes_bigrat(&seq, &neg_bound) <= sign_changes_bigrat(&seq, &bound) {
+        return vec![];
+    }
+    let two = BigRational::from(BigInt::from(2));
+    let mut intervals = vec![(neg_bound, bound)];
     let mut roots = Vec::new();
-
-    for _ in 0..100 {
-        let mut new_intervals = Vec::new();
-        for (lo, hi) in &intervals {
-            let n = sign_changes(&seq, *lo) - sign_changes(&seq, *hi);
+    let mut guard = 0;
+    while !intervals.is_empty() && guard < 100_000 {
+        guard += 1;
+        let mut next = Vec::new();
+        for (lo, hi) in intervals {
+            let v_lo = sign_changes_bigrat(&seq, &lo);
+            let v_hi = sign_changes_bigrat(&seq, &hi);
+            let n = v_lo.saturating_sub(v_hi);
             if n == 0 { continue; }
-            if n == 1 {
-                if hi - lo < eps {
-                    roots.push((lo + hi) / 2.0);
-                } else {
-                    let mid = (lo + hi) / 2.0;
-                    new_intervals.push((*lo, mid));
-                    new_intervals.push((mid, *hi));
-                }
+            if n == 1 && &hi - &lo < *eps {
+                roots.push((&lo + &hi) / &two);
             } else {
-                let mid = (lo + hi) / 2.0;
-                new_intervals.push((*lo, mid));
-                new_intervals.push((mid, *hi));
+                let mid = (&lo + &hi) / &two;
+                next.push((lo, mid.clone()));
+                next.push((mid, hi));
             }
         }
-        if new_intervals.is_empty() { break; }
-        intervals = new_intervals;
+        intervals = next;
     }
-    roots.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    roots.sort();
     roots
 }
 

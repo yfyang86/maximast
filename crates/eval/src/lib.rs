@@ -24,6 +24,7 @@ pub mod plot;
 pub mod plugin;
 pub mod poly_analysis;
 pub mod poly_expr;
+pub mod rootof;
 pub mod residue;
 pub mod sets;
 pub mod simp;
