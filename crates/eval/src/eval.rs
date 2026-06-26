@@ -1278,7 +1278,7 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
                                 };
                             }
                             let lc = poly.leading_coeff();
-                            let lc_pos = matches!(&lc, maxima_poly::Coeff::Int(n) if *n > 0);
+                            let lc_pos = coeff_positive(&lc);
                             if is_inf {
                                 return if lc_pos { Expr::sym("inf") } else { Expr::sym("minf") };
                             } else {
@@ -1287,24 +1287,32 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
                                 return if lc_pos == sign_flip { Expr::sym("minf") } else { Expr::sym("inf") };
                             }
                         }
-                        // Rational function: ratio of leading terms
+                        // Rational function: ratio of leading terms.
                         if let Some((num, den)) = extract_fraction(f) {
                             if let (Some(np), Some(dp)) = (
                                 maxima_poly::expr_to_poly(&num, *var_id),
                                 maxima_poly::expr_to_poly(&den, *var_id),
                             ) {
-                                let ndeg = np.degree().unwrap_or(0);
-                                let ddeg = dp.degree().unwrap_or(0);
+                                let ndeg = np.degree().unwrap_or(0) as i64;
+                                let ddeg = dp.degree().unwrap_or(0) as i64;
                                 if ndeg < ddeg { return Expr::int(0); }
+                                let ratio = np.leading_coeff().div(&dp.leading_coeff());
                                 if ndeg == ddeg {
-                                    if let Some(ratio) = np.leading_coeff().div(&dp.leading_coeff()) {
-                                        return match ratio {
+                                    if let Some(r) = ratio {
+                                        return match r {
                                             maxima_poly::Coeff::Int(n) => Expr::int(n),
                                             maxima_poly::Coeff::Rat(n, d) => Expr::Rational { num: n, den: d },
                                         };
                                     }
                                 }
-                                if ndeg > ddeg { return Expr::sym("inf"); }
+                                if ndeg > ddeg {
+                                    if let Some(r) = ratio {
+                                        // sign(ratio)·∞, with an extra (−1)^(ndeg−ddeg) for x→−∞.
+                                        let pos = coeff_positive(&r)
+                                            ^ (is_minf && (ndeg - ddeg) % 2 != 0);
+                                        return if pos { Expr::sym("inf") } else { Expr::sym("minf") };
+                                    }
+                                }
                             }
                         }
                     }
@@ -3083,6 +3091,14 @@ fn eval_ev(args: &[Expr], env: &mut Environment) -> Expr {
     let result = meval(&base_expr, env);
     env.pop_scope();
     result
+}
+
+/// True if a polynomial coefficient is strictly positive (handles Int and Rat).
+fn coeff_positive(c: &maxima_poly::Coeff) -> bool {
+    match c {
+        maxima_poly::Coeff::Int(n) => *n > 0,
+        maxima_poly::Coeff::Rat(n, d) => *n != 0 && (*n > 0) == (*d > 0),
+    }
 }
 
 /// True if the expression mentions inf/minf/infinity/und anywhere — used to
@@ -7392,6 +7408,17 @@ mod tests {
         // Expand-before-integrate for polynomial integrands (was a noun).
         assert_eq!(run("integrate(x^2*(x+1), x);"), "x^3/3+x^4/4");
         assert_eq!(run("integrate((1-x)^4, x, 0, 1);"), "1/5");
+    }
+    #[test]
+    fn eval_limit_rational_sign() {
+        // Positive rational leading coeff was misread as negative → minf.
+        assert_eq!(run("limit(x*(x+1)/2, x, inf);"), "inf");
+        assert_eq!(run("limit((x^2+x)/2, x, inf);"), "inf");
+        // ndeg>ddeg now carries the leading-ratio sign.
+        assert_eq!(run("limit((-x^3)/(x+1), x, inf);"), "minf");
+        // regressions
+        assert_eq!(run("limit((3*x^2+1)/(x^2+1), x, inf);"), "3");
+        assert_eq!(run("limit(x^3, x, minf);"), "minf");
     }
     #[test]
     fn eval_improper_integral_no_inf_leak() {
