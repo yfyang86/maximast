@@ -401,6 +401,19 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
             }
             return Expr::call("nusum", evaled);
         }
+        "gosper_certificate" => {
+            // gosper_certificate(t, k): rational certificate R(k) proving the
+            // indefinite hypergeometric sum telescopes (t(k) = T(k+1)−T(k)).
+            let evaled: Vec<Expr> = args.iter().map(|a| meval(a, env)).collect();
+            if evaled.len() == 2 {
+                if let Expr::Symbol(_) = &evaled[1] {
+                    if let Some(r) = crate::gosper::gosper_certificate(&evaled[0], &evaled[1]) {
+                        return r;
+                    }
+                }
+            }
+            return Expr::call("gosper_certificate", evaled);
+        }
         "find_recurrence" => {
             // find_recurrence(expr, n): minimal linear P-recurrence of the
             // sequence expr(n), as the coefficient list [c_0(n),…,c_J(n)].
