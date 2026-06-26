@@ -2216,36 +2216,17 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
                             }
                             _ => {
                                 // Radical solve via factor decomposition (linear,
-                                // quadratic, biquadratic factors).
+                                // quadratic, biquadratic, cubic, quartic factors).
                                 if let Some(sol) = solve_factors_radical(&poly, var) { return sol; }
-                                // Higher degree: try factoring
-                                let factors = maxima_poly::factor_poly(&poly);
-                                let var_name = resolve(var);
-                                let v = Expr::sym(&var_name);
-                                let mut roots = Vec::new();
-                                for (f, _m) in &factors {
-                                    if f.degree() == Some(1) {
-                                        let a = f.leading_coeff();
-                                        let b = f.constant_term();
-                                        if let Some(root) = b.neg().div(&a) {
-                                            let re = match root {
-                                                maxima_poly::Coeff::Int(n) => Expr::int(n),
-                                                maxima_poly::Coeff::Rat(n, d) => Expr::Rational { num: n, den: d },
-                                            };
-                                            if !roots.contains(&re) {
-                                                roots.push(re);
-                                            }
-                                        }
-                                    }
-                                }
-                                if !roots.is_empty() {
-                                    let solutions: Vec<Expr> = roots.into_iter()
-                                        .map(|r| Expr::List { op: Operator::MEqual, simplified: false, args: vec![v.clone(), r] })
-                                        .collect();
-                                    return Expr::list(solutions);
-                                }
+                                // Otherwise fall through to solve_poly_rootof, which
+                                // radical-solves the solvable factors and returns
+                                // rootof nouns for the rest (e.g. a quintic factor).
                             }
                         }
+                        // Radical solve declined (e.g. a general quintic): return
+                        // structured rootof(p,x,k) nouns for the roots, evaluable
+                        // numerically by float/bfloat.
+                        if let Some(sol) = solve_poly_rootof(&poly, var) { return sol; }
                     }
                     // Symbolic quadratic: a*x²+b*x+c=0 with non-numeric coefficients
                     // Extract coefficients by collecting powers of var
@@ -3555,6 +3536,46 @@ fn solve_factors_radical(poly: &maxima_poly::Poly, var: maxima_core::SymbolId) -
     Some(Expr::list(roots.into_iter().map(|r| Expr::List {
         op: Operator::MEqual, simplified: false, args: vec![v.clone(), r],
     }).collect()))
+}
+
+/// Solve a numeric univariate polynomial, returning radical roots for the
+/// factors that have them and `rootof(f, x, k)` nouns for the factors that
+/// don't (e.g. a general quintic). Used as the fall-through after the pure
+/// radical solver declines. Returns None only if a factor can be neither
+/// radical-solved nor numerically isolated (shouldn't happen for numeric polys).
+fn solve_poly_rootof(poly: &maxima_poly::Poly, var: maxima_core::SymbolId) -> Option<Expr> {
+    let v = Expr::Symbol(var);
+    let mut eqs: Vec<Expr> = Vec::new();
+    for (f, _m) in &maxima_poly::factor_poly(poly) {
+        if f.degree().unwrap_or(0) == 0 { continue; }
+        // Radical roots for this factor if it has them and they all verify;
+        // otherwise rootof nouns.
+        let radical = factor_radical_roots(f).and_then(|rs| {
+            let p_expr = maxima_poly::poly_to_expr(f);
+            let roots: Vec<Expr> = rs.into_iter().map(|r| radical_eval(&r)).collect();
+            let all_ok = roots.iter().all(|r| {
+                expr_to_complex(&subst(r, &v, &p_expr)).map(|c| c.norm() <= 1e-6).unwrap_or(true)
+            });
+            if all_ok { Some(roots) } else { None }
+        });
+        match radical {
+            Some(roots) => for r in roots {
+                let eq = Expr::List { op: Operator::MEqual, simplified: false, args: vec![v.clone(), r] };
+                if !eqs.contains(&eq) { eqs.push(eq); }
+            },
+            None => { if !rootof_eqs(f, var, &mut eqs) { return None; } }
+        }
+    }
+    if eqs.is_empty() { None } else { Some(Expr::list(eqs)) }
+}
+
+/// Append `f`'s roots as `rootof(f, x, k)` equations to `eqs`; false if `f` has
+/// no numeric roots to index.
+fn rootof_eqs(f: &maxima_poly::Poly, var: maxima_core::SymbolId, eqs: &mut Vec<Expr>) -> bool {
+    match crate::rootof::make_rootof_solutions(f, var) {
+        Some(Expr::List { args, .. }) => { eqs.extend(args); true }
+        _ => false,
+    }
 }
 
 /// True if a polynomial coefficient is strictly positive (handles Int and Rat).

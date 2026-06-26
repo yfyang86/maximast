@@ -130,12 +130,17 @@ solve(x^3 - 2, x);               → [2^(1/3), 2^(1/3)·ω, 2^(1/3)·ω²]  (Car
 solve(x^3 + x + 1, x);           → real radical root + 2 complex (general Cardano)
 solve(x^3 - 3*x + 1, x);         → 3 real roots in complex radicals (casus irreducibilis)
 solve(x^4 + x + 1, x);           → 4 roots (Ferrari resolvent cubic)
+solve(x^5 - x - 1, x);           → [x = rootof(x^5-x-1, x, 1), …, x, 5)]  (no radicals)
+float(rootof(x^5-x-1, x, 1));    → 1.167303978261419   (real root first)
+bfloat(rootof(x^5-x-1, x, 1));   → 1.16730397826141868425604589985b0  (Newton-refined)
 linsolve([x+y=a, x-y=b], [x,y]);  → [x = (a+b)/2, y = (a-b)/2]   (symbolic)
 ```
 `solve` factors over ℚ then solves each factor by radicals: quadratic, general
 cubic (Cardano, incl. casus irreducibilis via complex radicals), and general
-quartic (Ferrari). Every root is verified numerically (|p(r)| < 1e-6 over ℂ)
-before it is returned; anything not expressible by radicals returns a noun.
+quartic (Ferrari). Every radical root is verified numerically (|p(r)| < 1e-6
+over ℂ). Factors with no radical solution (e.g. a general quintic) return
+`rootof(p, x, k)` nouns — all roots via Durand–Kerner, real roots first — which
+`float`/`bfloat` evaluate (real roots refined to full precision by Newton).
 
 ### Root analysis
 ```

@@ -285,6 +285,11 @@ pub fn expr_to_float(expr: &Expr) -> Expr {
         Expr::List { op: Operator::MList, args, .. } => {
             Expr::list(args.iter().map(|a| expr_to_float(a)).collect())
         }
+        Expr::List { op: Operator::Named(id), args, .. }
+            if maxima_core::resolve(*id) == "rootof" =>
+        {
+            crate::rootof::eval_rootof_float(args).unwrap_or_else(|| expr.clone())
+        }
         Expr::List { op: Operator::MPlus, args, .. } => {
             let floated: Vec<Expr> = args.iter().map(|a| expr_to_float(a)).collect();
             if floated.iter().all(|a| matches!(a, Expr::Float(_) | Expr::Integer(_))) {

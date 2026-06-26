@@ -116,5 +116,11 @@ hash-consing), parser robustness (Result-based parser), 0i (gruntz limit bugs),
   functions); a bigfloat in +/*/^ folds at the widest operand precision
   (contagion). Display in Maxima `…bN` notation.
 
-Remaining (architectural — flagged sign-off): RootOf object (quintics /
-unsolvable-by-radicals).
+- **RootOf** ✅ now complete: `solve` returns `rootof(p,x,k)` nouns for numeric
+  univariate factors with no radical solution (general quintic+). All roots via
+  Durand–Kerner, ordered real-first then complex; `float` evaluates to the k-th
+  root (real `Float` or `a+b·%i`), `bfloat` refines real roots to fpprec digits
+  via Newton in astro-float. Solvable factors still return verified radicals
+  (mixed polynomials return radicals for the solvable part, rootof for the rest).
+
+## Bundle 2 COMPLETE — all items shipped. Next: Bundle 3 (Summation completion).

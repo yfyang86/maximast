@@ -9,6 +9,12 @@ pub(crate) fn eval_bfloat_func(name: &str, args: &[Expr], env: &mut crate::env::
             let digits = get_fpprec_decimal(env).max(1);
             let bits = decimal_to_bits(digits);
             let arg = args.first()?;
+            // A rootof noun is refined numerically rather than evaluated termwise.
+            if let Expr::List { op: Operator::Named(id), args: ra, .. } = arg {
+                if resolve(*id) == "rootof" {
+                    return crate::rootof::eval_rootof_bfloat(ra, bits, digits);
+                }
+            }
             let mut cc = Consts::new().ok()?;
             let v = to_bigfloat(arg, bits, &mut cc)?;
             Some(wrap(&v, bits, digits, &mut cc))
@@ -79,6 +85,8 @@ fn wrap(v: &BigFloat, bits: usize, digits: i64, cc: &mut Consts) -> Expr {
 /// digits, keeping the exponent and a normalised `d.ddd` mantissa (astro-float
 /// always emits one digit before the point). Trims the guard digits so the
 /// display matches the requested fpprec; rounding is left to the backend.
+pub(crate) fn round_sig_pub(s: &str, n: usize) -> String { round_sig(s, n) }
+
 fn round_sig(s: &str, n: usize) -> String {
     let (mantissa, exp) = match s.split_once(['e', 'E']) {
         Some((m, e)) => (m, Some(e)),
