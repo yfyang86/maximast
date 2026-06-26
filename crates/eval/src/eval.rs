@@ -1037,6 +1037,12 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
             }
             return Expr::call(&func_name, evaled_args);
         }
+        "zeta" | "lambert_w" | "polylog" => {
+            if let Some(r) = crate::specfun_num::eval_specfun(&func_name, &evaled_args) {
+                return r;
+            }
+            return Expr::call(&func_name, evaled_args);
+        }
         "resultant" | "discriminant" | "content" | "primpart"
         | "nroots" | "realroots" | "sturm" => {
             if let Some(result) = crate::poly_analysis::eval_sturm_func(&func_name, &evaled_args) {
@@ -7586,6 +7592,18 @@ mod tests {
     fn eval_solve_cubic() {
         let r = run("solve(x^3-6*x^2+11*x-6, x);");
         assert!(r.contains("x = 1") && r.contains("x = 2") && r.contains("x = 3"), "got: {}", r);
+    }
+    #[test]
+    fn eval_specfun_numeric() {
+        assert_eq!(run("zeta(2);"), "%pi^2/6");
+        assert_eq!(run("zeta(4);"), "%pi^4/90");
+        assert_eq!(run("zeta(0);"), "-1/2");
+        assert!(run("zeta(2.0);").starts_with("1.64493"));
+        assert!(run("zeta(3.0);").starts_with("1.20205"));
+        assert!(run("lambert_w(1.0);").starts_with("0.56714"));
+        assert_eq!(run("lambert_w(0);"), "0");
+        assert_eq!(run("polylog(2, 1);"), "%pi^2/6");
+        assert!(run("polylog(2, 0.5);").starts_with("0.58224"));
     }
     #[test]
     fn eval_numeric_solvers() {
