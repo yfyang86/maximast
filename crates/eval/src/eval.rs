@@ -2130,6 +2130,9 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
                                 }
                             }
                             Some(2) => {
+                                // Radical solve (clean √ and complex %i forms:
+                                // x^2-2 → ±sqrt(2), x^2+1 → ±%i).
+                                if let Some(sol) = solve_factors_radical(&poly, var) { return sol; }
                                 // ax^2 + bx + c = 0 → quadratic formula
                                 let a_c = poly.terms.iter().find(|(e,_)| *e == 2).map(|(_,c)| c.clone()).unwrap_or(maxima_poly::Coeff::zero());
                                 let b_c = poly.terms.iter().find(|(e,_)| *e == 1).map(|(_,c)| c.clone()).unwrap_or(maxima_poly::Coeff::zero());
@@ -2163,6 +2166,9 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
                                 }
                             }
                             Some(3) => {
+                                // Radical solve via factor decomposition (linear,
+                                // quadratic, biquadratic factors).
+                                if let Some(sol) = solve_factors_radical(&poly, var) { return sol; }
                                 // Cubic: try factoring first
                                 let factors = maxima_poly::factor_poly(&poly);
                                 let var_name = resolve(var);
@@ -2191,6 +2197,9 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
                                 }
                             }
                             _ => {
+                                // Radical solve via factor decomposition (linear,
+                                // quadratic, biquadratic factors).
+                                if let Some(sol) = solve_factors_radical(&poly, var) { return sol; }
                                 // Higher degree: try factoring
                                 let factors = maxima_poly::factor_poly(&poly);
                                 let var_name = resolve(var);
@@ -3091,6 +3100,111 @@ fn eval_ev(args: &[Expr], env: &mut Environment) -> Expr {
     let result = meval(&base_expr, env);
     env.pop_scope();
     result
+}
+
+fn poly_coeff_at(p: &maxima_poly::Poly, e: u32) -> maxima_poly::Coeff {
+    p.terms.iter().find(|(x, _)| *x == e).map(|(_, c)| c.clone()).unwrap_or_else(maxima_poly::Coeff::zero)
+}
+
+fn coeff_to_expr_c(c: &maxima_poly::Coeff) -> Expr {
+    match c {
+        maxima_poly::Coeff::Int(n) => Expr::int(*n),
+        maxima_poly::Coeff::Rat(n, d) => Expr::Rational { num: *n, den: *d },
+    }
+}
+
+/// Full numeric/symbolic reduction via a throwaway environment (simplify alone
+/// does not reduce e.g. div(12,4) → 3, but meval does).
+fn radical_eval(e: &Expr) -> Expr {
+    meval(e, &mut Environment::new())
+}
+
+/// Roots of a·x²+b·x+c written as −b/(2a) ± √((b²−4ac)/(4a²)) so the radicand
+/// reduces cleanly (√3, not 2√3/2); a negative radicand becomes %i·√(−r).
+fn quad_radical_roots(a: &Expr, b: &Expr, c: &Expr) -> Vec<Expr> {
+    let two_a = Expr::mul(Expr::int(2), a.clone());
+    let lin = radical_eval(&Expr::div(Expr::neg(b.clone()), two_a));
+    let disc = Expr::sub(
+        Expr::pow(b.clone(), Expr::int(2)),
+        Expr::mul(Expr::int(4), Expr::mul(a.clone(), c.clone())),
+    );
+    let four_a2 = Expr::mul(Expr::int(4), Expr::pow(a.clone(), Expr::int(2)));
+    let rad = radical_eval(&Expr::div(disc, four_a2));
+    let sqrt_part = match &rad {
+        Expr::Integer(n) if *n < 0 =>
+            radical_eval(&Expr::mul(Expr::sym("%i"), Expr::call("sqrt", vec![Expr::int(-n)]))),
+        Expr::Rational { num, .. } if *num < 0 =>
+            radical_eval(&Expr::mul(Expr::sym("%i"), Expr::call("sqrt", vec![radical_eval(&Expr::neg(rad.clone()))]))),
+        _ => radical_eval(&Expr::call("sqrt", vec![rad.clone()])),
+    };
+    vec![
+        radical_eval(&Expr::add(lin.clone(), sqrt_part.clone())),
+        radical_eval(&Expr::sub(lin, sqrt_part)),
+    ]
+}
+
+/// Roots of a single (irreducible-over-Q) factor by degree: linear, quadratic
+/// (radical/complex), or biquadratic quartic (solve the quadratic in x², then
+/// take ±√). None for anything else (e.g. an irreducible cubic — Cardano TBD).
+fn factor_radical_roots(f: &maxima_poly::Poly) -> Option<Vec<Expr>> {
+    let zero = maxima_poly::Coeff::zero();
+    match f.degree()? {
+        1 => {
+            let r = poly_coeff_at(f, 0).neg().div(&poly_coeff_at(f, 1))?;
+            Some(vec![coeff_to_expr_c(&r)])
+        }
+        2 => Some(quad_radical_roots(
+            &coeff_to_expr_c(&poly_coeff_at(f, 2)),
+            &coeff_to_expr_c(&poly_coeff_at(f, 1)),
+            &coeff_to_expr_c(&poly_coeff_at(f, 0)),
+        )),
+        4 if poly_coeff_at(f, 3) == zero && poly_coeff_at(f, 1) == zero => {
+            // a·x⁴ + c·x² + e: roots are ±√u for the roots u of a·u²+c·u+e.
+            let us = quad_radical_roots(
+                &coeff_to_expr_c(&poly_coeff_at(f, 4)),
+                &coeff_to_expr_c(&poly_coeff_at(f, 2)),
+                &coeff_to_expr_c(&poly_coeff_at(f, 0)),
+            );
+            let mut roots = Vec::new();
+            for u in us {
+                let s = radical_eval(&Expr::call("sqrt", vec![u]));
+                roots.push(s.clone());
+                roots.push(radical_eval(&Expr::neg(s)));
+            }
+            Some(roots)
+        }
+        _ => None,
+    }
+}
+
+/// Solve a univariate polynomial by factoring over Q and solving each factor
+/// with radicals. Returns the full solution list, or None if any factor can't
+/// be radical-solved (caller falls through to a noun — correct-or-noun).
+fn solve_factors_radical(poly: &maxima_poly::Poly, var: maxima_core::SymbolId) -> Option<Expr> {
+    let factors = maxima_poly::factor_poly(poly);
+    let mut roots: Vec<Expr> = Vec::new();
+    for (f, _m) in &factors {
+        if f.degree().unwrap_or(0) == 0 { continue; } // numeric content
+        for r in factor_radical_roots(f)? {
+            let r = radical_eval(&r);
+            if !roots.contains(&r) { roots.push(r); }
+        }
+    }
+    if roots.is_empty() { return None; }
+    // Numeric sanity check on roots that evaluate to a real number.
+    let p_expr = maxima_poly::poly_to_expr(poly);
+    let var_e = Expr::Symbol(var);
+    for r in &roots {
+        let mut env = Environment::new();
+        let val = meval(&subst(r, &var_e, &p_expr), &mut env);
+        if let Some(v) = crate::helpers::to_f64(&val) {
+            if v.abs() > 1e-6 { return None; } // a real root that doesn't satisfy p ⇒ bug
+        }
+    }
+    let v = Expr::sym(&resolve(var));
+    Some(Expr::list(roots.into_iter().map(|r| Expr::List {
+        op: Operator::MEqual, simplified: false, args: vec![v.clone(), r],
+    }).collect()))
 }
 
 /// True if a polynomial coefficient is strictly positive (handles Int and Rat).
@@ -7387,6 +7501,22 @@ mod tests {
     fn eval_solve_cubic() {
         let r = run("solve(x^3-6*x^2+11*x-6, x);");
         assert!(r.contains("x = 1") && r.contains("x = 2") && r.contains("x = 3"), "got: {}", r);
+    }
+    #[test]
+    fn eval_solve_radical() {
+        // Quadratic complex/irrational roots in clean form.
+        assert_eq!(run("solve(x^2+1, x);"), "[x = %i,x = -%i]");
+        assert_eq!(run("solve(x^2-2, x);"), "[x = sqrt(2),x = -sqrt(2)]");
+        // Biquadratic via quadratic-in-x^2; quartic factoring into quadratics.
+        let r = run("solve(x^4-5*x^2+6, x);");
+        assert!(r.contains("sqrt(2)") && r.contains("sqrt(3)"), "got {r}");
+        let r = run("solve(x^4-1, x);");
+        assert!(r.contains("%i") && r.contains("x = 1"), "got {r}");
+        let r = run("solve(x^4-4*x^2+1, x);");
+        assert!(r.contains("sqrt(2+sqrt(3))") || r.contains("sqrt(sqrt(3)+2)"), "got {r}");
+        // Cubic with a quadratic factor: 1 + complex conjugate pair.
+        let r = run("solve(x^3-1, x);");
+        assert!(r.contains("x = 1") && r.contains("%i"), "got {r}");
     }
     #[test]
     fn eval_solve_quartic() {

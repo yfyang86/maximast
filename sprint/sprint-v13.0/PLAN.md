@@ -16,7 +16,17 @@ discipline: **compute → verify → return; correct-or-noun, never wrong.**
 | 0f | iterated-squaring timeout — **re-scoped**: real cost in `expand` (4097-term poly²); needs fast poly-expand / hash-consing (→ infra 1e), not the simplify flag (ineffective + flag unreliable) | ⏭️ |
 | 0h | plugin name resolution ✅; parser `,numer` panic → deferred (Result-based parser refactor; ev-modifier is a feature) | ◑ |
 
-## Bundle 2 — Solve & numbers
+## Bundle 2 — Solve & numbers 🚧
+
+- **1a-i** ✅ radical solve via factor decomposition: each factor solved by
+  degree — linear → rational, quadratic → `-b/(2a)±√((b²-4ac)/(4a²))` (clean √
+  and complex %i), biquadratic quartic → quadratic-in-x². All-or-noun.
+  `solve(x^2+1)=±%i`, `solve(x^4-5x^2+6)=±√2,±√3`, `solve(x^4-4x^2+1)=±√(2±√3)`,
+  `solve(x^4-1)=±1,±%i`, `solve(x^3-1)=1,(-1±%i√3)/2`. (Used meval for radicand
+  reduction — simplify alone doesn't reduce div(12,4)→3, a noted gap.)
+  TODO: general Cardano (irreducible cubic `x^3-2`), Ferrari (general quartic),
+  `RootOf` object (architectural — sign-off first), `polysys_solve` cascade.
+
 
 1a cubic/quartic radical solve + `RootOf` · 1b exact real-root isolation ·
 1c arbitrary-precision bigfloat backend · 3a matrix decompositions · 3b general
