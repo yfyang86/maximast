@@ -1031,6 +1031,12 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
             }
             Expr::call(&func_name, evaled_args)
         }
+        "find_root" | "newton" | "romberg" | "quad_qags" | "quad_qag" | "rk" => {
+            if let Some(r) = crate::numeric::eval_numeric_func(&func_name, &evaled_args, env) {
+                return r;
+            }
+            return Expr::call(&func_name, evaled_args);
+        }
         "resultant" | "discriminant" | "content" | "primpart"
         | "nroots" | "realroots" | "sturm" => {
             if let Some(result) = crate::poly_analysis::eval_sturm_func(&func_name, &evaled_args) {
@@ -7580,6 +7586,15 @@ mod tests {
     fn eval_solve_cubic() {
         let r = run("solve(x^3-6*x^2+11*x-6, x);");
         assert!(r.contains("x = 1") && r.contains("x = 2") && r.contains("x = 3"), "got: {}", r);
+    }
+    #[test]
+    fn eval_numeric_solvers() {
+        assert!(run("find_root(x^2-2, x, 0, 2);").starts_with("1.41421"));
+        assert!(run("find_root(cos(x)-x, x, 0, 1);").starts_with("0.73908"));
+        assert_eq!(run("romberg(sin(x), x, 0, %pi);"), "2.0");
+        assert!(run("quad_qags(exp(-x^2), x, 0, 1);").starts_with("0.74682"));
+        // no bracketed sign change → noun
+        assert!(run("find_root(x^2+1, x, 0, 2);").contains("find_root("));
     }
     #[test]
     fn eval_eigenvalues_general() {
