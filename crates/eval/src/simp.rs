@@ -517,9 +517,9 @@ fn simplify_power(base: &Expr, exp: &Expr) -> Expr {
                 Expr::BigInt(Box::new(num::pow::Pow::pow(&big, *e as u64)))
             }
         }
-        // (n/d)^e for small integer e: fold to an exact rational. Leave it
-        // symbolic if the powers would overflow i64.
-        (Expr::Rational { num, den }, Expr::Integer(e)) if e.unsigned_abs() >= 2 && e.unsigned_abs() <= 30 => {
+        // (n/d)^e for small integer e (incl. e=-1, the reciprocal): fold to an
+        // exact rational. Leave it symbolic if the powers would overflow i64.
+        (Expr::Rational { num, den }, Expr::Integer(e)) if e.unsigned_abs() >= 1 && e.unsigned_abs() <= 30 => {
             let k = e.unsigned_abs() as u32;
             match (num.checked_pow(k), den.checked_pow(k)) {
                 (Some(np), Some(dp)) => {
@@ -809,6 +809,15 @@ mod tests {
         assert_eq!(s("9223372036854775807 + 9223372036854775807"), "18446744073709551614");
         // Small-int fast path stays canonical.
         assert_eq!(s("2 + 3"), "5");
+    }
+
+    #[test]
+    fn reciprocal_of_rational() {
+        // (n/d)^(-1) and 1/(n/d) fold to an exact rational (was 1/(1/2)).
+        assert_eq!(crate::eval::eval_str("1/(1/2);"), "2");
+        assert_eq!(crate::eval::eval_str("(2/3)^(-1);"), "3/2");
+        assert_eq!(crate::eval::eval_str("3/(1/2);"), "6");
+        assert_eq!(crate::eval::eval_str("(1/2)^(-2);"), "4");
     }
 
     #[test]

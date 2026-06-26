@@ -1011,7 +1011,7 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
             Expr::call(&func_name, evaled_args)
         }
         "ifactors" | "totient" | "divisors" | "next_prime" | "prev_prime"
-        | "power_mod" | "inv_mod" | "jacobi" | "chinese" | "fibonacci" => {
+        | "power_mod" | "inv_mod" | "jacobi" | "chinese" | "fibonacci" | "fib" | "lucas" => {
             if let Some(result) = crate::numtheory::eval_numtheory_func(&func_name, &evaled_args) {
                 return result;
             }
@@ -1031,8 +1031,20 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
             }
             Expr::call(&func_name, evaled_args)
         }
+        "find_root" | "newton" | "romberg" | "quad_qags" | "quad_qag" | "rk" => {
+            if let Some(r) = crate::numeric::eval_numeric_func(&func_name, &evaled_args, env) {
+                return r;
+            }
+            return Expr::call(&func_name, evaled_args);
+        }
+        "zeta" | "lambert_w" | "polylog" => {
+            if let Some(r) = crate::specfun_num::eval_specfun(&func_name, &evaled_args) {
+                return r;
+            }
+            return Expr::call(&func_name, evaled_args);
+        }
         "resultant" | "discriminant" | "content" | "primpart"
-        | "nroots" | "realroots" => {
+        | "nroots" | "realroots" | "sturm" => {
             if let Some(result) = crate::poly_analysis::eval_sturm_func(&func_name, &evaled_args) {
                 return result;
             }
@@ -1205,32 +1217,32 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
                             if result.to_string().starts_with("integrate"));
 
                         if have_antideriv {
-                            // Infinite bounds: use limits
+                            // Infinite bounds: use limits. Any candidate that still
+                            // contains inf/minf/und is a failed limit (e.g. an
+                            // unresolved atan(inf/√2)); fall through to a noun
+                            // rather than leak it into the output.
                             if is_inf(b) && !is_inf(a) && !is_minf(a) {
                                 let fa = meval(&subst(a, var, &result), env);
-                                let lim = crate::gruntz::gruntz_limit(&result, var);
-                                if let Some(fb) = lim {
-                                    if !matches!(&fb, Expr::Symbol(id) if { let n = resolve(*id); n == "inf" || n == "minf" || n == "und" }) {
-                                        // meval (not simplify) so named-function limit
-                                        // values like erf(inf) collapse: ∫₀^∞ exp(-x²)=√π/2.
-                                        return meval(&Expr::sub(fb, fa), env);
-                                    }
+                                if let Some(fb) = crate::gruntz::gruntz_limit(&result, var) {
+                                    let cand = meval(&Expr::sub(fb, fa), env);
+                                    if !contains_inf_sym(&cand) { return cand; }
                                 }
                             } else if is_minf(a) && is_inf(b) {
                                 // (-∞, ∞): need both limits
                                 let lim_pos = crate::gruntz::gruntz_limit(&result, var);
-                                // For -∞: substitute x → -x, take limit as x → ∞
                                 let neg_var = Expr::neg(var.clone());
                                 let result_neg = simplify(&subst(&neg_var, var, &result));
                                 let lim_neg = crate::gruntz::gruntz_limit(&result_neg, var);
                                 if let (Some(fp), Some(fn_)) = (lim_pos, lim_neg) {
-                                    return meval(&Expr::sub(fp, fn_), env);
+                                    let cand = meval(&Expr::sub(fp, fn_), env);
+                                    if !contains_inf_sym(&cand) { return cand; }
                                 }
                             } else {
                                 // Finite bounds
                                 let fa = meval(&subst(a, var, &result), env);
                                 let fb = meval(&subst(b, var, &result), env);
-                                return simplify(&Expr::sub(fb, fa));
+                                let cand = simplify(&Expr::sub(fb, fa));
+                                if !contains_inf_sym(&cand) { return cand; }
                             }
                         }
 
@@ -1246,6 +1258,9 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
                     if let Some(res) = crate::hypersum::try_parametric_integral(f, var, a, b, env) {
                         return res;
                     }
+                    // A definite integral we couldn't evaluate: return the noun,
+                    // not the indefinite antiderivative (which would be wrong).
+                    return Expr::call("integrate", evaled_args);
                 }
                 return result;
             }
@@ -1275,7 +1290,7 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
                                 };
                             }
                             let lc = poly.leading_coeff();
-                            let lc_pos = matches!(&lc, maxima_poly::Coeff::Int(n) if *n > 0);
+                            let lc_pos = coeff_positive(&lc);
                             if is_inf {
                                 return if lc_pos { Expr::sym("inf") } else { Expr::sym("minf") };
                             } else {
@@ -1284,24 +1299,32 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
                                 return if lc_pos == sign_flip { Expr::sym("minf") } else { Expr::sym("inf") };
                             }
                         }
-                        // Rational function: ratio of leading terms
+                        // Rational function: ratio of leading terms.
                         if let Some((num, den)) = extract_fraction(f) {
                             if let (Some(np), Some(dp)) = (
                                 maxima_poly::expr_to_poly(&num, *var_id),
                                 maxima_poly::expr_to_poly(&den, *var_id),
                             ) {
-                                let ndeg = np.degree().unwrap_or(0);
-                                let ddeg = dp.degree().unwrap_or(0);
+                                let ndeg = np.degree().unwrap_or(0) as i64;
+                                let ddeg = dp.degree().unwrap_or(0) as i64;
                                 if ndeg < ddeg { return Expr::int(0); }
+                                let ratio = np.leading_coeff().div(&dp.leading_coeff());
                                 if ndeg == ddeg {
-                                    if let Some(ratio) = np.leading_coeff().div(&dp.leading_coeff()) {
-                                        return match ratio {
+                                    if let Some(r) = ratio {
+                                        return match r {
                                             maxima_poly::Coeff::Int(n) => Expr::int(n),
                                             maxima_poly::Coeff::Rat(n, d) => Expr::Rational { num: n, den: d },
                                         };
                                     }
                                 }
-                                if ndeg > ddeg { return Expr::sym("inf"); }
+                                if ndeg > ddeg {
+                                    if let Some(r) = ratio {
+                                        // sign(ratio)·∞, with an extra (−1)^(ndeg−ddeg) for x→−∞.
+                                        let pos = coeff_positive(&r)
+                                            ^ (is_minf && (ndeg - ddeg) % 2 != 0);
+                                        return if pos { Expr::sym("inf") } else { Expr::sym("minf") };
+                                    }
+                                }
                             }
                         }
                     }
@@ -2119,6 +2142,9 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
                                 }
                             }
                             Some(2) => {
+                                // Radical solve (clean √ and complex %i forms:
+                                // x^2-2 → ±sqrt(2), x^2+1 → ±%i).
+                                if let Some(sol) = solve_factors_radical(&poly, var) { return sol; }
                                 // ax^2 + bx + c = 0 → quadratic formula
                                 let a_c = poly.terms.iter().find(|(e,_)| *e == 2).map(|(_,c)| c.clone()).unwrap_or(maxima_poly::Coeff::zero());
                                 let b_c = poly.terms.iter().find(|(e,_)| *e == 1).map(|(_,c)| c.clone()).unwrap_or(maxima_poly::Coeff::zero());
@@ -2152,6 +2178,9 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
                                 }
                             }
                             Some(3) => {
+                                // Radical solve via factor decomposition (linear,
+                                // quadratic, biquadratic factors).
+                                if let Some(sol) = solve_factors_radical(&poly, var) { return sol; }
                                 // Cubic: try factoring first
                                 let factors = maxima_poly::factor_poly(&poly);
                                 let var_name = resolve(var);
@@ -2180,6 +2209,9 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
                                 }
                             }
                             _ => {
+                                // Radical solve via factor decomposition (linear,
+                                // quadratic, biquadratic factors).
+                                if let Some(sol) = solve_factors_radical(&poly, var) { return sol; }
                                 // Higher degree: try factoring
                                 let factors = maxima_poly::factor_poly(&poly);
                                 let var_name = resolve(var);
@@ -2294,21 +2326,20 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
                     let factors = maxima_poly::factor_poly(&poly);
                     let mut eigenvals = Vec::new();
                     let mut multiplicities = Vec::new();
+                    let mut complete = true;
+                    // Each charpoly factor (multiplicity m) contributes its roots
+                    // — rational, irrational, or complex — each with multiplicity m.
                     for (f, m) in &factors {
-                        if f.degree() == Some(1) {
-                            let a = f.leading_coeff();
-                            let b = f.constant_term();
-                            if let Some(root) = b.neg().div(&a) {
-                                let re = match root {
-                                    maxima_poly::Coeff::Int(n) => Expr::int(n),
-                                    maxima_poly::Coeff::Rat(n, d) => Expr::Rational { num: n, den: d },
-                                };
-                                eigenvals.push(re);
+                        if f.degree().unwrap_or(0) == 0 { continue; }
+                        match factor_radical_roots(f) {
+                            Some(roots) => for r in roots {
+                                eigenvals.push(radical_eval(&r));
                                 multiplicities.push(Expr::int(*m as i64));
-                            }
+                            },
+                            None => complete = false, // an unsolvable factor (e.g. casus cubic)
                         }
                     }
-                    if !eigenvals.is_empty() {
+                    if complete && !eigenvals.is_empty() {
                         return Expr::list(vec![Expr::list(eigenvals), Expr::list(multiplicities)]);
                     }
                 }
@@ -2385,18 +2416,31 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
             Expr::call("eigenvectors", evaled_args)
         }
         "rank" => {
-            if let Some(Expr::List { op: Operator::MMatrix, args: rows, .. }) = evaled_args.first() {
-                let mut mat: Vec<Vec<f64>> = Vec::new();
-                for row in rows {
-                    if let Expr::List { op: Operator::MList, args: cols, .. } = row {
-                        let r: Vec<f64> = cols.iter().map(|c| to_f64(c).unwrap_or(0.0)).collect();
-                        mat.push(r);
-                    }
-                }
-                let r = numeric_rank(&mat);
-                return Expr::int(r as i64);
+            // Exact rank = number of pivots from exact Gaussian elimination
+            // (the old f64 path was silently wrong on symbolic/large entries).
+            if let Some(m) = evaled_args.first().and_then(mat_rows) {
+                let mut mm = m;
+                let pivots = gauss_eliminate(&mut mm, false, env);
+                return Expr::int(pivots.len() as i64);
             }
             Expr::call("rank", evaled_args)
+        }
+        "triangularize" | "echelon" | "rref" | "rowreduce" => {
+            // triangularize → upper triangular; echelon/rref → reduced row
+            // echelon form (pivots normalized to 1).
+            if let Some(m) = evaled_args.first().and_then(mat_rows) {
+                let reduced = func_name != "triangularize";
+                let mut mm = m;
+                gauss_eliminate(&mut mm, reduced, env);
+                return rows_to_matrix(mm);
+            }
+            Expr::call(&func_name, evaled_args)
+        }
+        "nullspace" => {
+            if let Some(m) = evaled_args.first().and_then(mat_rows) {
+                return matrix_nullspace(&m, env);
+            }
+            Expr::call("nullspace", evaled_args)
         }
         "trigexpand" => {
             if let Some(arg) = evaled_args.first() {
@@ -3082,6 +3126,232 @@ fn eval_ev(args: &[Expr], env: &mut Environment) -> Expr {
     result
 }
 
+fn poly_coeff_at(p: &maxima_poly::Poly, e: u32) -> maxima_poly::Coeff {
+    p.terms.iter().find(|(x, _)| *x == e).map(|(_, c)| c.clone()).unwrap_or_else(maxima_poly::Coeff::zero)
+}
+
+/// Extract an MMatrix expression as Vec<Vec<Expr>> (rows of MList).
+fn mat_rows(e: &Expr) -> Option<Vec<Vec<Expr>>> {
+    if let Expr::List { op: Operator::MMatrix, args: rows, .. } = e {
+        let mut m = Vec::with_capacity(rows.len());
+        for row in rows {
+            if let Expr::List { op: Operator::MList, args: cols, .. } = row {
+                m.push(cols.clone());
+            } else { return None; }
+        }
+        if m.is_empty() || m.iter().any(|r| r.len() != m[0].len()) { return None; }
+        Some(m)
+    } else { None }
+}
+
+fn rows_to_matrix(m: Vec<Vec<Expr>>) -> Expr {
+    Expr::List {
+        op: Operator::MMatrix, simplified: false,
+        args: m.into_iter().map(Expr::list).collect(),
+    }
+}
+
+/// Exact Gaussian elimination over Expr entries (meval for arithmetic).
+/// `reduced` ⇒ RREF (normalize pivots to 1, clear above & below); else upper
+/// triangular (clear below only). Returns the pivot column indices.
+fn gauss_eliminate(m: &mut Vec<Vec<Expr>>, reduced: bool, env: &mut Environment) -> Vec<usize> {
+    let rows = m.len();
+    if rows == 0 { return Vec::new(); }
+    let cols = m[0].len();
+    let is_zero = |e: &Expr| matches!(simplify(e), Expr::Integer(0));
+    let mut pivots = Vec::new();
+    let mut r = 0;
+    for c in 0..cols {
+        if r >= rows { break; }
+        let Some(pr) = (r..rows).find(|&i| !is_zero(&m[i][c])) else { continue };
+        m.swap(r, pr);
+        if reduced {
+            let piv = m[r][c].clone();
+            for j in 0..cols { m[r][j] = meval(&Expr::div(m[r][j].clone(), piv.clone()), env); }
+        }
+        let piv = m[r][c].clone();
+        let lo = if reduced { 0 } else { r + 1 };
+        for i in lo..rows {
+            if i != r && !is_zero(&m[i][c]) {
+                let factor = meval(&Expr::div(m[i][c].clone(), piv.clone()), env);
+                for j in 0..cols {
+                    m[i][j] = meval(&Expr::sub(m[i][j].clone(), Expr::mul(factor.clone(), m[r][j].clone())), env);
+                }
+            }
+        }
+        pivots.push(c);
+        r += 1;
+    }
+    pivots
+}
+
+/// Null-space basis of a matrix (columns v with M·v = 0), as a list of column
+/// matrices — one per free (non-pivot) column.
+fn matrix_nullspace(m: &[Vec<Expr>], env: &mut Environment) -> Expr {
+    let cols = m[0].len();
+    let mut rref = m.to_vec();
+    let pivots = gauss_eliminate(&mut rref, true, env);
+    let pivot_set: std::collections::HashSet<usize> = pivots.iter().copied().collect();
+    let mut basis = Vec::new();
+    for free in (0..cols).filter(|c| !pivot_set.contains(c)) {
+        let mut v = vec![Expr::int(0); cols];
+        v[free] = Expr::int(1);
+        for (p, &pc) in pivots.iter().enumerate() {
+            v[pc] = meval(&Expr::neg(rref[p][free].clone()), env);
+        }
+        basis.push(rows_to_matrix(v.into_iter().map(|x| vec![x]).collect()));
+    }
+    Expr::list(basis)
+}
+
+fn coeff_to_expr_c(c: &maxima_poly::Coeff) -> Expr {
+    match c {
+        maxima_poly::Coeff::Int(n) => Expr::int(*n),
+        maxima_poly::Coeff::Rat(n, d) => Expr::Rational { num: *n, den: *d },
+    }
+}
+
+/// Full numeric/symbolic reduction via a throwaway environment (simplify alone
+/// does not reduce e.g. div(12,4) → 3, but meval does).
+fn radical_eval(e: &Expr) -> Expr {
+    meval(e, &mut Environment::new())
+}
+
+/// Roots of a·x²+b·x+c written as −b/(2a) ± √((b²−4ac)/(4a²)) so the radicand
+/// reduces cleanly (√3, not 2√3/2); a negative radicand becomes %i·√(−r).
+fn quad_radical_roots(a: &Expr, b: &Expr, c: &Expr) -> Vec<Expr> {
+    let two_a = Expr::mul(Expr::int(2), a.clone());
+    let lin = radical_eval(&Expr::div(Expr::neg(b.clone()), two_a));
+    let disc = Expr::sub(
+        Expr::pow(b.clone(), Expr::int(2)),
+        Expr::mul(Expr::int(4), Expr::mul(a.clone(), c.clone())),
+    );
+    let four_a2 = Expr::mul(Expr::int(4), Expr::pow(a.clone(), Expr::int(2)));
+    let rad = radical_eval(&Expr::div(disc, four_a2));
+    let sqrt_part = match &rad {
+        Expr::Integer(n) if *n < 0 =>
+            radical_eval(&Expr::mul(Expr::sym("%i"), Expr::call("sqrt", vec![Expr::int(-n)]))),
+        Expr::Rational { num, .. } if *num < 0 =>
+            radical_eval(&Expr::mul(Expr::sym("%i"), Expr::call("sqrt", vec![radical_eval(&Expr::neg(rad.clone()))]))),
+        _ => radical_eval(&Expr::call("sqrt", vec![rad.clone()])),
+    };
+    vec![
+        radical_eval(&Expr::add(lin.clone(), sqrt_part.clone())),
+        radical_eval(&Expr::sub(lin, sqrt_part)),
+    ]
+}
+
+/// Roots of a single (irreducible-over-Q) factor by degree: linear, quadratic
+/// (radical/complex), or biquadratic quartic (solve the quadratic in x², then
+/// take ±√). None for anything else (e.g. an irreducible cubic — Cardano TBD).
+fn factor_radical_roots(f: &maxima_poly::Poly) -> Option<Vec<Expr>> {
+    let zero = maxima_poly::Coeff::zero();
+    match f.degree()? {
+        1 => {
+            let r = poly_coeff_at(f, 0).neg().div(&poly_coeff_at(f, 1))?;
+            Some(vec![coeff_to_expr_c(&r)])
+        }
+        2 => Some(quad_radical_roots(
+            &coeff_to_expr_c(&poly_coeff_at(f, 2)),
+            &coeff_to_expr_c(&poly_coeff_at(f, 1)),
+            &coeff_to_expr_c(&poly_coeff_at(f, 0)),
+        )),
+        3 => {
+            // Depress monic x³+B x²+C x+D → t³+p t+q via t = x − B/3. Handle the
+            // pure-cube case p=0 (t³=−q) with the three cube roots k^(1/3)·ω^j;
+            // the general/casus-irreducibilis cubic is deferred (→ None).
+            let lead = coeff_to_expr_c(&poly_coeff_at(f, 3));
+            let bb = radical_eval(&Expr::div(coeff_to_expr_c(&poly_coeff_at(f, 2)), lead.clone()));
+            let cc = radical_eval(&Expr::div(coeff_to_expr_c(&poly_coeff_at(f, 1)), lead.clone()));
+            let dd = radical_eval(&Expr::div(coeff_to_expr_c(&poly_coeff_at(f, 0)), lead));
+            // p = C − B²/3
+            let p = radical_eval(&Expr::sub(cc.clone(),
+                Expr::div(Expr::pow(bb.clone(), Expr::int(2)), Expr::int(3))));
+            if p != Expr::int(0) { return None; }
+            // q = 2B³/27 − B·C/3 + D ; t³ = −q
+            let q = radical_eval(&Expr::add(
+                Expr::sub(Expr::div(Expr::mul(Expr::int(2), Expr::pow(bb.clone(), Expr::int(3))), Expr::int(27)),
+                          Expr::div(Expr::mul(bb.clone(), cc), Expr::int(3))),
+                dd));
+            let k = radical_eval(&Expr::neg(q));
+            let cbrt = radical_eval(&Expr::pow(k, Expr::Rational { num: 1, den: 3 }));
+            let shift = radical_eval(&Expr::div(bb, Expr::int(3)));
+            // ω = (−1+%i√3)/2, ω² = (−1−%i√3)/2
+            let isqrt3 = Expr::mul(Expr::sym("%i"), Expr::call("sqrt", vec![Expr::int(3)]));
+            let omega = Expr::div(Expr::add(Expr::int(-1), isqrt3.clone()), Expr::int(2));
+            let omega2 = Expr::div(Expr::sub(Expr::int(-1), isqrt3), Expr::int(2));
+            let roots: Vec<Expr> = [Expr::int(1), omega, omega2].into_iter()
+                .map(|w| radical_eval(&Expr::sub(Expr::mul(w, cbrt.clone()), shift.clone())))
+                .collect();
+            Some(roots)
+        }
+        4 if poly_coeff_at(f, 3) == zero && poly_coeff_at(f, 1) == zero => {
+            // a·x⁴ + c·x² + e: roots are ±√u for the roots u of a·u²+c·u+e.
+            let us = quad_radical_roots(
+                &coeff_to_expr_c(&poly_coeff_at(f, 4)),
+                &coeff_to_expr_c(&poly_coeff_at(f, 2)),
+                &coeff_to_expr_c(&poly_coeff_at(f, 0)),
+            );
+            let mut roots = Vec::new();
+            for u in us {
+                let s = radical_eval(&Expr::call("sqrt", vec![u]));
+                roots.push(s.clone());
+                roots.push(radical_eval(&Expr::neg(s)));
+            }
+            Some(roots)
+        }
+        _ => None,
+    }
+}
+
+/// Solve a univariate polynomial by factoring over Q and solving each factor
+/// with radicals. Returns the full solution list, or None if any factor can't
+/// be radical-solved (caller falls through to a noun — correct-or-noun).
+fn solve_factors_radical(poly: &maxima_poly::Poly, var: maxima_core::SymbolId) -> Option<Expr> {
+    let factors = maxima_poly::factor_poly(poly);
+    let mut roots: Vec<Expr> = Vec::new();
+    for (f, _m) in &factors {
+        if f.degree().unwrap_or(0) == 0 { continue; } // numeric content
+        for r in factor_radical_roots(f)? {
+            let r = radical_eval(&r);
+            if !roots.contains(&r) { roots.push(r); }
+        }
+    }
+    if roots.is_empty() { return None; }
+    // Numeric sanity check on roots that evaluate to a real number.
+    let p_expr = maxima_poly::poly_to_expr(poly);
+    let var_e = Expr::Symbol(var);
+    for r in &roots {
+        let mut env = Environment::new();
+        let val = meval(&subst(r, &var_e, &p_expr), &mut env);
+        if let Some(v) = crate::helpers::to_f64(&val) {
+            if v.abs() > 1e-6 { return None; } // a real root that doesn't satisfy p ⇒ bug
+        }
+    }
+    let v = Expr::sym(&resolve(var));
+    Some(Expr::list(roots.into_iter().map(|r| Expr::List {
+        op: Operator::MEqual, simplified: false, args: vec![v.clone(), r],
+    }).collect()))
+}
+
+/// True if a polynomial coefficient is strictly positive (handles Int and Rat).
+fn coeff_positive(c: &maxima_poly::Coeff) -> bool {
+    match c {
+        maxima_poly::Coeff::Int(n) => *n > 0,
+        maxima_poly::Coeff::Rat(n, d) => *n != 0 && (*n > 0) == (*d > 0),
+    }
+}
+
+/// True if the expression mentions inf/minf/infinity/und anywhere — used to
+/// reject a definite-integral candidate whose limit failed to resolve.
+fn contains_inf_sym(e: &Expr) -> bool {
+    match e {
+        Expr::Symbol(id) => matches!(resolve(*id).as_str(), "inf" | "minf" | "infinity" | "und"),
+        Expr::List { args, .. } => args.iter().any(contains_inf_sym),
+        _ => false,
+    }
+}
+
 fn eval_sum(args: &[Expr], env: &mut Environment) -> Expr {
     // sum(expr, var, lo, hi)
     if args.len() != 4 {
@@ -3128,6 +3398,35 @@ fn eval_sum(args: &[Expr], env: &mut Environment) -> Expr {
         b
     };
     let var_expr = Expr::Symbol(var);
+
+    // Infinite upper bound: the finite closed-form paths below substitute `hi`
+    // into an antidifference, which for hi=inf produced garbage like
+    // `1-1/(1+inf)` or `inf*(1+inf)/2`. Handle only the unambiguous convergent
+    // case (numeric geometric Σ c·r^k with |r|<1 → c·r^lo/(1-r)); everything
+    // else (telescoping/zeta tails, divergent, symbolic ratio) returns a noun.
+    // (Fuller infinite summation + the Gruntz limit-at-∞ bugs are tracked
+    // separately; correct-or-noun beats a wrong closed form.)
+    if matches!(&hi, Expr::Symbol(id) if { let n = resolve(*id); n == "inf" || n == "infinity" }) {
+        // Detect a convergent geometric series by exact sampling: with numeric
+        // lo, the terms t_i = body(lo+i) form a geometric progression iff
+        // t1/t0 == t2/t1 = r; if |r|<1 the sum is t0/(1-r) (computed in exact
+        // rationals, sidestepping `1/(1/2)`-style un-simplification).
+        if let Some(lo_i) = to_i64(&lo) {
+            use num::{Zero, One, Signed};
+            let at = |i: i64, env: &mut Environment|
+                crate::helpers::expr_to_bigrat(&meval(&subst(&Expr::int(i), &var_expr, &body_evaled), env));
+            if let (Some(t0), Some(t1), Some(t2)) = (at(lo_i, env), at(lo_i + 1, env), at(lo_i + 2, env)) {
+                if !t0.is_zero() && !t1.is_zero() {
+                    let r = &t1 / &t0;
+                    if r == &t2 / &t1 && r.abs() < num::BigRational::one() {
+                        return crate::helpers::bigrat_to_expr(&(&t0 / &(num::BigRational::one() - &r)));
+                    }
+                }
+            }
+        }
+        let evaled: Vec<Expr> = args.iter().map(|a| meval(a, env)).collect();
+        return Expr::call("sum", evaled);
+    }
 
     if let Some(result) = try_closed_form_sum(&body_evaled, &var_expr, &lo, &hi) {
         return result;
@@ -5758,7 +6057,7 @@ fn matrix_cofactor(mat: &[Vec<Expr>], row: usize, col: usize, env: &mut Environm
     }
 }
 
-fn eval_linsolve(eqs: &[Expr], vars: &[Expr], _env: &mut Environment) -> Expr {
+fn eval_linsolve(eqs: &[Expr], vars: &[Expr], env: &mut Environment) -> Expr {
     let n = vars.len();
     if n == 0 || eqs.len() < n { return Expr::call("linsolve", vec![Expr::list(eqs.to_vec()), Expr::list(vars.to_vec())]); }
 
@@ -5799,95 +6098,45 @@ fn eval_linsolve(eqs: &[Expr], vars: &[Expr], _env: &mut Environment) -> Expr {
         mat.push(row);
     }
 
-    // Gaussian elimination (numeric for now)
+    // Exact symbolic Gauss–Jordan elimination over the Expr matrix, using full
+    // `meval` for the arithmetic so nested fractions collapse. (The old f64 path
+    // forced every entry through to_f64(e).unwrap_or(0.0), silently zeroing
+    // symbolic coefficients/RHS — e.g. returning [x=0,y=0] for a symbolic RHS.)
     let ncols = n + 1;
-    let mut fmat: Vec<Vec<f64>> = mat.iter().map(|row| {
-        row.iter().map(|e| to_f64(e).unwrap_or(0.0)).collect()
-    }).collect();
-
+    let is_zero = |e: &Expr| matches!(simplify(e), Expr::Integer(0));
     for col in 0..n {
-        // Find pivot
-        let mut pivot_row = None;
-        for r in col..fmat.len() {
-            if fmat[r][col].abs() > 1e-12 {
-                pivot_row = Some(r);
-                break;
-            }
-        }
-        let pr = match pivot_row {
+        let pr = match (col..mat.len()).find(|&r| !is_zero(&mat[r][col])) {
             Some(r) => r,
-            None => continue,
+            None => continue, // free column; handled as singular below
         };
-        fmat.swap(col, pr);
-
-        let pivot = fmat[col][col];
-        for r in (col + 1)..fmat.len() {
-            let factor = fmat[r][col] / pivot;
-            for c in col..ncols {
-                let val = fmat[col][c];
-                fmat[r][c] -= factor * val;
-            }
-        }
-    }
-
-    // Back substitution
-    let mut solutions = vec![0.0f64; n];
-    for i in (0..n).rev() {
-        let mut sum = fmat[i][n];
-        for j in (i + 1)..n {
-            sum -= fmat[i][j] * solutions[j];
-        }
-        if fmat[i][i].abs() > 1e-12 {
-            solutions[i] = sum / fmat[i][i];
-        }
-    }
-
-    let result: Vec<Expr> = vars.iter().zip(solutions.iter()).map(|(v, s)| {
-        let val = if (*s - s.round()).abs() < 1e-10 {
-            Expr::int(s.round() as i64)
-        } else {
-            Expr::Float(*s)
-        };
-        Expr::List { op: Operator::MEqual, simplified: false, args: vec![v.clone(), val] }
-    }).collect();
-
-    Expr::list(result)
-}
-
-fn numeric_rank(mat: &[Vec<f64>]) -> usize {
-    let m = mat.len();
-    if m == 0 { return 0; }
-    let n = mat[0].len();
-    let mut work: Vec<Vec<f64>> = mat.to_vec();
-    let mut rank = 0;
-    let mut col = 0;
-    for row in 0..m {
-        if col >= n { break; }
-        let mut pivot = None;
-        for r in row..m {
-            if work[r][col].abs() > 1e-12 {
-                pivot = Some(r);
-                break;
-            }
-        }
-        match pivot {
-            Some(pr) => {
-                work.swap(row, pr);
-                let pv = work[row][col];
-                for r in (row + 1)..m {
-                    let f = work[r][col] / pv;
-                    for c in col..n {
-                        let val = work[row][c];
-                        work[r][c] -= f * val;
-                    }
+        mat.swap(col, pr);
+        let pivot = mat[col][col].clone();
+        for r in 0..mat.len() {
+            if r != col && !is_zero(&mat[r][col]) {
+                let factor = meval(&Expr::div(mat[r][col].clone(), pivot.clone()), env);
+                for c in col..ncols {
+                    let e = Expr::sub(mat[r][c].clone(), Expr::mul(factor.clone(), mat[col][c].clone()));
+                    mat[r][c] = meval(&e, env);
                 }
-                rank += 1;
             }
-            None => {}
         }
-        col += 1;
     }
-    rank
+
+    // Diagonal form ⇒ x_i = rhs_i / diag_i. A zero diagonal means the system is
+    // singular/dependent — return a noun rather than a wrong answer.
+    let mut result: Vec<Expr> = Vec::new();
+    for i in 0..n {
+        if is_zero(&mat[i][i]) {
+            return Expr::call("linsolve", vec![Expr::list(eqs.to_vec()), Expr::list(vars.to_vec())]);
+        }
+        let val = ratsimp(&meval(&Expr::div(mat[i][n].clone(), mat[i][i].clone()), env));
+        result.push(Expr::List {
+            op: Operator::MEqual,
+            simplified: false,
+            args: vec![vars[i].clone(), val],
+        });
+    }
+    Expr::list(result)
 }
 
 /// Evaluate a string input and return the result as a string.
@@ -7345,6 +7594,82 @@ mod tests {
         assert!(r.contains("x = 1") && r.contains("x = 2") && r.contains("x = 3"), "got: {}", r);
     }
     #[test]
+    fn eval_specfun_numeric() {
+        assert_eq!(run("zeta(2);"), "%pi^2/6");
+        assert_eq!(run("zeta(4);"), "%pi^4/90");
+        assert_eq!(run("zeta(0);"), "-1/2");
+        assert!(run("zeta(2.0);").starts_with("1.64493"));
+        assert!(run("zeta(3.0);").starts_with("1.20205"));
+        assert!(run("lambert_w(1.0);").starts_with("0.56714"));
+        assert_eq!(run("lambert_w(0);"), "0");
+        assert_eq!(run("polylog(2, 1);"), "%pi^2/6");
+        assert!(run("polylog(2, 0.5);").starts_with("0.58224"));
+    }
+    #[test]
+    fn eval_numeric_solvers() {
+        assert!(run("find_root(x^2-2, x, 0, 2);").starts_with("1.41421"));
+        assert!(run("find_root(cos(x)-x, x, 0, 1);").starts_with("0.73908"));
+        assert_eq!(run("romberg(sin(x), x, 0, %pi);"), "2.0");
+        assert!(run("quad_qags(exp(-x^2), x, 0, 1);").starts_with("0.74682"));
+        // no bracketed sign change → noun
+        assert!(run("find_root(x^2+1, x, 0, 2);").contains("find_root("));
+    }
+    #[test]
+    fn eval_eigenvalues_general() {
+        // Irrational (golden ratio) and complex eigenvalues (was a noun).
+        let r = run("eigenvalues(matrix([0,1],[1,1]));");
+        assert!(r.contains("sqrt(5") && r.contains("1/2"), "got {r}");
+        assert_eq!(run("eigenvalues(matrix([0,-1],[1,0]));"), "[[%i,-%i],[1,1]]");
+        // rational + multiplicity regressions
+        assert_eq!(run("eigenvalues(matrix([2,1],[1,2]));"), "[[1,3],[1,1]]");
+        assert_eq!(run("eigenvalues(matrix([2,1,0],[0,2,1],[0,0,2]));"), "[[2],[3]]");
+    }
+    #[test]
+    fn eval_matrix_decomp() {
+        assert_eq!(run("rank(matrix([1,2],[2,4]));"), "1");
+        assert_eq!(run("rank(matrix([1,2],[3,4]));"), "2");
+        // exact symbolic rank (the old f64 path was silently wrong)
+        assert_eq!(run("rank(matrix([a,b],[2*a,2*b]));"), "1");
+        assert_eq!(run("rref(matrix([1,2,3],[4,5,6]));"), "matrix([1,0,-1],[0,1,2])");
+        assert_eq!(run("triangularize(matrix([1,2],[3,4]));"), "matrix([1,2],[0,-2])");
+        // nullspace vector satisfies M*v=0
+        assert_eq!(run("nullspace(matrix([1,2],[2,4]));"), "[matrix([-2],[1])]");
+    }
+    #[test]
+    fn eval_sturm_nroots() {
+        // Sturm sequence exposed; whole-line nroots.
+        assert!(run("sturm(x^3-2*x-5, x);").contains("3*x^2-2"));
+        assert_eq!(run("nroots(x^5-x-1);"), "1");
+        assert_eq!(run("nroots((x-1)*(x-2)*(x-3));"), "3");
+        assert_eq!(run("nroots(x^4+1);"), "0");
+        assert_eq!(run("nroots(x^5-x-1, -2, 2);"), "1"); // 3-arg regression
+    }
+    #[test]
+    fn eval_solve_cubic_cardano() {
+        // Pure depressed cube x^3 = k: real cube root + two complex (Cardano).
+        let r = run("solve(x^3-2, x);");
+        assert!(r.contains("2^(1/3)") && r.contains("%i"), "got {r}");
+        assert_eq!(r.matches("x =").count(), 3);
+        // casus irreducibilis (3 real roots) deferred → noun, not a wrong answer.
+        assert!(run("solve(x^3-3*x+1, x);").contains("solve("));
+    }
+    #[test]
+    fn eval_solve_radical() {
+        // Quadratic complex/irrational roots in clean form.
+        assert_eq!(run("solve(x^2+1, x);"), "[x = %i,x = -%i]");
+        assert_eq!(run("solve(x^2-2, x);"), "[x = sqrt(2),x = -sqrt(2)]");
+        // Biquadratic via quadratic-in-x^2; quartic factoring into quadratics.
+        let r = run("solve(x^4-5*x^2+6, x);");
+        assert!(r.contains("sqrt(2)") && r.contains("sqrt(3)"), "got {r}");
+        let r = run("solve(x^4-1, x);");
+        assert!(r.contains("%i") && r.contains("x = 1"), "got {r}");
+        let r = run("solve(x^4-4*x^2+1, x);");
+        assert!(r.contains("sqrt(2+sqrt(3))") || r.contains("sqrt(sqrt(3)+2)"), "got {r}");
+        // Cubic with a quadratic factor: 1 + complex conjugate pair.
+        let r = run("solve(x^3-1, x);");
+        assert!(r.contains("x = 1") && r.contains("%i"), "got {r}");
+    }
+    #[test]
     fn eval_solve_quartic() {
         let r = run("solve(x^4-5*x^2+4, x);");
         assert!(r.contains("x = 1") && r.contains("x = -1") && r.contains("x = 2") && r.contains("x = -2"), "got: {}", r);
@@ -7357,6 +7682,69 @@ mod tests {
     fn eval_integrate_log_sq() { assert!(run("integrate(log(x)^2, x);").contains("log")); }
     #[test]
     fn eval_integrate_x3_exp() { assert!(run("integrate(x^3*exp(x), x);").contains("exp")); }
+    #[test]
+    fn eval_integrate_symbolic_power() { assert_eq!(run("integrate(x^n, x);"), "x^(1+n)/(1+n)"); }
+    #[test]
+    fn eval_integrate_poly_product() {
+        // Expand-before-integrate for polynomial integrands (was a noun).
+        assert_eq!(run("integrate(x^2*(x+1), x);"), "x^3/3+x^4/4");
+        assert_eq!(run("integrate((1-x)^4, x, 0, 1);"), "1/5");
+    }
+    #[test]
+    fn eval_limit_rational_sign() {
+        // Positive rational leading coeff was misread as negative → minf.
+        assert_eq!(run("limit(x*(x+1)/2, x, inf);"), "inf");
+        assert_eq!(run("limit((x^2+x)/2, x, inf);"), "inf");
+        // ndeg>ddeg now carries the leading-ratio sign.
+        assert_eq!(run("limit((-x^3)/(x+1), x, inf);"), "minf");
+        // regressions
+        assert_eq!(run("limit((3*x^2+1)/(x^2+1), x, inf);"), "3");
+        assert_eq!(run("limit(x^3, x, minf);"), "minf");
+    }
+    #[test]
+    fn eval_improper_integral_no_inf_leak() {
+        // Unevaluable improper integrals → noun, never an `inf`-containing result.
+        for s in ["integrate(1/(1+x^4), x, minf, inf);",
+                  "integrate(x^2/(x^4+1), x, 0, inf);",
+                  "integrate(1/(1+x^3), x, 0, inf);"] {
+            let r = run(s);
+            // The noun legitimately carries inf/minf as bounds; the *leak* put an
+            // unresolved limit inside a function — e.g. atan(inf/sqrt(2)).
+            assert!(r.starts_with("integrate("), "expected noun, got {r}");
+            assert!(!r.contains("atan"), "inf-limit leaked into result: {r}");
+        }
+        // The ones that genuinely resolve must still work.
+        assert_eq!(run("integrate(1/(x^2+1), x, minf, inf);"), "%pi");
+        assert_eq!(run("integrate(exp(-x), x, 0, inf);"), "1");
+    }
+    #[test]
+    fn eval_infinite_geometric() {
+        // Convergent geometric: exact value (was garbage like 1-1/(1+inf)).
+        assert_eq!(run("sum(1/2^k, k, 0, inf);"), "2");
+        assert_eq!(run("sum(1/2^k, k, 1, inf);"), "1");
+        assert_eq!(run("sum(1/3^k, k, 0, inf);"), "3/2");
+        // Divergent / non-geometric / symbolic → noun (never a wrong closed form).
+        assert!(run("sum(k, k, 1, inf);").contains("sum("));
+        assert!(run("sum(2^k, k, 0, inf);").contains("sum("));
+        assert!(run("sum(q^k, k, 0, inf);").contains("sum("));
+        assert!(run("sum(1/(k*(k+1)), k, 1, inf);").contains("sum("));
+    }
+    #[test]
+    fn eval_linsolve_symbolic() {
+        // Was silently returning [x=0,y=0] for a symbolic RHS.
+        assert_eq!(run("linsolve([x+y=3, x-y=1], [x,y]);"), "[x = 2,y = 1]");
+        // Symbolic RHS now solved (values correct; x=(a+b)/2, y=(a-b)/2).
+        let s = run("linsolve([x+y=a, x-y=b], [x,y]);");
+        assert!(!s.contains("x = 0") && s.contains("x = ") && s.contains('a') && s.contains('b'), "got {s}");
+        // Singular system → noun, not a wrong answer.
+        assert!(run("linsolve([x+y=1, 2*x+2*y=2], [x,y]);").contains("linsolve("));
+    }
+    #[test]
+    fn eval_fib_lucas() {
+        assert_eq!(run("fib(10);"), "55");
+        assert_eq!(run("lucas(7);"), "29");
+        assert_eq!(run("find_recurrence(fib(n),n);"), "[-1,-1,1]");
+    }
     #[test]
     fn eval_integrate_exp_sin() { assert!(run("integrate(exp(x)*sin(x), x);").contains("exp")); }
     #[test]

@@ -16,6 +16,8 @@ pub mod risch_norman;
 pub mod risch_tower;
 pub mod series;
 pub mod numtheory;
+pub mod numeric;
+pub mod specfun_num;
 pub mod ode;
 pub mod pattern;
 pub mod plot;

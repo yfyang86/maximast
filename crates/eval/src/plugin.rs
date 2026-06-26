@@ -97,18 +97,26 @@ fn resolve_plugin_path(name: &str, env: &Environment) -> Option<String> {
         }
     };
 
+    // A bare plugin name like "specfun" also resolves to the cdylib output name
+    // `libmaxima_specfun.<ext>` in the usual build/search directories.
+    let lib_name = format!("libmaxima_{}.{}", name, ext);
     let mut candidates = Vec::new();
     if name.starts_with('/') || name.starts_with("./") || name.starts_with("../") {
         candidates.extend(with_ext(name));
     } else {
         candidates.extend(with_ext(name));
+        for d in ["target/release", "target/debug", "."] {
+            candidates.push(format!("{}/{}", d, lib_name));
+        }
         if let Ok(paths) = std::env::var("MAXIMA_PLUGIN_PATH") {
             for dir in paths.split(':').filter(|d| !d.is_empty()) {
                 candidates.extend(with_ext(&format!("{}/{}", dir, name)));
+                candidates.push(format!("{}/{}", dir, lib_name));
             }
         }
         for dir in &env.search_paths {
             candidates.extend(with_ext(&format!("{}/{}", dir, name)));
+            candidates.push(format!("{}/{}", dir, lib_name));
         }
     }
     candidates.into_iter().find(|p| std::path::Path::new(p).is_file())
