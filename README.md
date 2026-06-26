@@ -15,7 +15,7 @@ cargo run -- -b walkthrough/03_calculus.mac    # run walkthrough
 
 ```
 ╔══════════════════════════════════════════════════╗
-║  Maxima Kernel (Rust)  v12.0.0                   ║
+║  Maxima Kernel (Rust)  v12.1.0                   ║
 ║  A Computer Algebra System                       ║
 ╚══════════════════════════════════════════════════╝
 
@@ -85,6 +85,7 @@ integrate(1/(x^2+x+1), x);              → 2*atan((1+2*x)/sqrt(3))/sqrt(3)
 integrate(1/(x^4+1), x);                → log+atan with √2 coefficients
 integrate(1/((x+1)*sqrt(x^2+5)), x);    → log via Euler substitution
 integrate(1/(x^2+1)^(3/2), x);          → x/sqrt(x^2+1)  (algebraic, Hermite reduction)
+integrate(x^5/sqrt(x^3+1), x);          → elementary R·√(x³+1)  (hyperelliptic; ∫1/√(x³+1) → noun)
 integrate(x^n*exp(-x), x, 0, inf);      → factorial(n)
 integrate(x^(2*n)*exp(-x^2), x, 0, inf);→ (2n)!*sqrt(%pi)/(2*4^n*n!)  (parametric, Almkvist–Zeilberger)
 integrate(exp(-2*x^2)*cos(3*x), x, 0, inf); → Gaussian-cosine
@@ -145,6 +146,13 @@ returns the linear P-recurrence `[c_0(n), …, c_J(n)]` (meaning Σ c_j(n)·S(n+
 ```
 find_recurrence(sum(binomial(n,k)^3,k,0,n), n);  → Franel: [-8-16n-8n², -16-21n-7n², 4+4n+n²]
 find_recurrence(sum(binomial(n,k)*binomial(n+k,k),k,0,n), n);  → central Delannoy
+```
+`solve_rec` closes a C-finite (constant-coefficient) recurrence to a closed form
+via its characteristic roots; `gosper_certificate` returns the Gosper/WZ
+certificate R(k) proving an indefinite sum telescopes (verified symbolically):
+```
+solve_rec(3*2^n - 5, n);         → -5+3*2^n         (roots 2, 1)
+gosper_certificate(k*k!, k);     → 1/k              (T(k)=k!, so Σ k·k! = (n+1)!-1)
 ```
 
 ### Matrices
