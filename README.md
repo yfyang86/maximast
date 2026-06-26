@@ -15,7 +15,7 @@ cargo run -- -b walkthrough/03_calculus.mac    # run walkthrough
 
 ```
 ╔══════════════════════════════════════════════════╗
-║  Maxima Kernel (Rust)  v12.1.0                   ║
+║  Maxima Kernel (Rust)  v12.2.0                   ║
 ║  A Computer Algebra System                       ║
 ╚══════════════════════════════════════════════════╝
 
@@ -123,9 +123,22 @@ engine, with every factor exact-division-verified (correct, never wrong).
 ### Solving
 ```
 solve(x^2 - 5*x + 6, x);          → [x = 2, x = 3]
-solve(a*x^2 + b*x + c = 0, x);    → quadratic formula with √(b²-4ac)
-solve(x^4 - 5*x^2 + 4, x);       → [x = 1, x = -1, x = 2, x = -2]
-linsolve([x+y=3, 2*x-y=0], [x,y]); → [x = 1, y = 2]
+solve(x^2 + 1, x);               → [x = %i, x = -%i]            (complex)
+solve(x^2 - 2, x);               → [x = sqrt(2), x = -sqrt(2)]  (radical)
+solve(x^4 - 4*x^2 + 1, x);       → [±sqrt(2±sqrt(3))]           (biquadratic)
+solve(x^3 - 2, x);               → [2^(1/3), 2^(1/3)·ω, 2^(1/3)·ω²]  (Cardano)
+solve(x^3 - 1, x);               → [1, (-1±%i·sqrt(3))/2]
+linsolve([x+y=a, x-y=b], [x,y]);  → [x = (a+b)/2, y = (a-b)/2]   (symbolic)
+```
+`solve` factors over ℚ then solves each factor by radicals (quadratic, biquadratic
+quartic, pure-cube Cardano); cases not expressible by these radicals return a noun.
+
+### Root analysis
+```
+sturm(x^3-2*x-5, x);     → [x^3-2*x-5, 3*x^2-2, (4/3)*x+5, -643/16]  (Sturm chain)
+nroots(x^5-x-1);         → 1     (distinct real roots over the Cauchy bound)
+nroots(x^4+1);           → 0
+realroots(x^2-2);        → float approximations of ±sqrt(2)
 ```
 
 ### Summation & Creative Telescoping
@@ -159,8 +172,29 @@ gosper_certificate(k*k!, k);     → 1/k              (T(k)=k!, so Σ k·k! = (n
 ```
 determinant(matrix([a,b],[c,d]));    → a*d - b*c
 invert(matrix([1,2],[3,4]));         → matrix([-2,1],[3/2,-1/2])
-eigenvalues(matrix([2,1],[1,2]));    → [[1,3],[1,1]]
 charpoly(matrix([1,2],[3,4]), x);    → x^2 - 5*x - 2
+rank(matrix([a,b],[2*a,2*b]));       → 1                  (exact, incl. symbolic)
+rref(matrix([1,2,3],[4,5,6]));       → matrix([1,0,-1],[0,1,2])
+triangularize(matrix([1,2],[3,4]));  → matrix([1,2],[0,-2])
+nullspace(matrix([1,2],[2,4]));      → [matrix([-2],[1])]
+eigenvalues(matrix([2,1],[1,2]));    → [[1,3],[1,1]]
+eigenvalues(matrix([0,1],[1,1]));    → golden ratio (1±sqrt(5))/2
+eigenvalues(matrix([0,-1],[1,0]));   → [[%i,-%i],[1,1]]
+```
+`rank`/`rref`/`triangularize`/`nullspace` use exact Gaussian elimination;
+`eigenvalues` solves the characteristic polynomial by radicals (irrational/complex).
+
+### Numerics
+```
+find_root(x^2-2, x, 0, 2);           → 1.414213562373095   (bisection)
+find_root(cos(x)-x, x, 0, 1);        → 0.73908513321516
+romberg(sin(x), x, 0, %pi);          → 2.0                 (quadrature)
+quad_qags(exp(-x^2), x, 0, 1);       → 0.746824132812427
+rk(-y, y, 1, [t,0,1,0.5]);           → RK4 trajectory [[t,y],...]
+zeta(2);                             → %pi^2/6
+zeta(3.0);                           → 1.202056903159729   (Apéry)
+lambert_w(1.0);                      → 0.567143290409784   (Omega)
+polylog(2, 1);                       → %pi^2/6
 ```
 
 ### Assumptions
