@@ -38,7 +38,10 @@ eigen · 3c special-function numeric eval · 3d numeric solvers/quadrature/ODE.
   integrate (polynomial-gated) + symbolic `∫x^n`; 0g numeric `fib`/`lucas`
   (`find_recurrence(fib(n))=[-1,-1,1]`). Bundle 1 cheap items done. Remaining/deferred: 0f (→ infra 1e fast poly-expand/
 hash-consing), parser robustness (Result-based parser), 0i (gruntz limit bugs),
-0j (`1/(1/2)` simplify). Next: 0j and 0i (small correctness), then Bundle 2.
+0j (`1/(1/2)` simplify). Next: 0i (gruntz limit bugs), then Bundle 2.
+- **0j** ✅ `simplify_power` folds `(n/d)^e` for `|e|>=1` (was `>=2`), so the
+  reciprocal `(1/2)^(-1)=2`, `1/(2/3)=3/2`, `3/(1/2)=6`. Also cleaned up the
+  symbolic `linsolve` fraction forms as a side benefit.
 - **0f** ⏭️ the `simplified`-flag early-return is ineffective (timeout is in
   `expand`'s 4097-term squaring, not simplify recursion) AND unsafe (flag not
   perfectly reliable — broke an integrate test); reverted. Real fix = route
