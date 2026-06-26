@@ -7354,10 +7354,10 @@ mod tests {
     #[test]
     fn eval_linsolve_symbolic() {
         // Was silently returning [x=0,y=0] for a symbolic RHS.
-        assert_eq!(run("linsolve([x+y=3, x-y=1], [x,y]);"), "[x=2,y=1]");
+        assert_eq!(run("linsolve([x+y=3, x-y=1], [x,y]);"), "[x = 2,y = 1]");
         // Symbolic RHS now solved (values correct; x=(a+b)/2, y=(a-b)/2).
         let s = run("linsolve([x+y=a, x-y=b], [x,y]);");
-        assert!(!s.contains("x=0") && s.contains("x=") && s.contains('a') && s.contains('b'), "got {s}");
+        assert!(!s.contains("x = 0") && s.contains("x = ") && s.contains('a') && s.contains('b'), "got {s}");
         // Singular system → noun, not a wrong answer.
         assert!(run("linsolve([x+y=1, 2*x+2*y=2], [x,y]);").contains("linsolve("));
     }
