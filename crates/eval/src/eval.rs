@@ -1456,6 +1456,27 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
             }
             Expr::call("binomial", evaled_args)
         }
+        "harmonic" => {
+            // harmonic(m) = H_m = Σ_{k=1}^m 1/k ; harmonic(m,p) = Σ_{k=1}^m 1/k^p
+            // (generalized). Evaluates for a non-negative integer m (exact
+            // rational); a symbolic m stays a noun (the closed form Σ produces).
+            let order = match evaled_args.get(1) {
+                None => Some(1i64),
+                Some(Expr::Integer(p)) if *p >= 1 => Some(*p),
+                _ => None,
+            };
+            if let (Some(Expr::Integer(m)), Some(p)) = (evaled_args.first(), order) {
+                if *m >= 0 {
+                    use num::{BigRational, BigInt, One, Zero};
+                    let mut acc = BigRational::zero();
+                    for k in 1..=*m {
+                        acc += BigRational::new(BigInt::one(), BigInt::from(k).pow(p as u32));
+                    }
+                    return crate::helpers::bigrat_to_expr(&acc);
+                }
+            }
+            Expr::call("harmonic", evaled_args)
+        }
         "gcd" => {
             if evaled_args.len() >= 2 {
                 if let (Expr::Integer(a), Expr::Integer(b)) = (&evaled_args[0], &evaled_args[1]) {
@@ -3668,6 +3689,21 @@ fn eval_sum(args: &[Expr], env: &mut Environment) -> Expr {
                 }
             }
         }
+        // p-series Σ_{k=1}^∞ 1/k^p: diverges (→ inf) for p=1, else ζ(p)
+        // (ζ(2)=%pi²/6, … via the zeta handler; ζ(odd) stays a noun).
+        if to_i64(&lo) == Some(1) {
+            if let Some(p) = inverse_power_order(&body_evaled, &var_expr) {
+                if p == 1 { return Expr::sym("inf"); }
+                return meval(&Expr::call("zeta", vec![Expr::int(p)]), env);
+            }
+        }
+        // Generating function Σ_{k=lo}^∞ p(k)·xᵏ → rational in x (numerically
+        // verified); falls through to a noun when the shape/check fails.
+        if let Some(lo_i) = to_i64(&lo) {
+            if let Some(gf) = crate::genfunc::geometric_poly_gf(&body_evaled, var, lo_i, env) {
+                return gf;
+            }
+        }
         let evaled: Vec<Expr> = args.iter().map(|a| meval(a, env)).collect();
         return Expr::call("sum", evaled);
     }
@@ -3691,6 +3727,19 @@ fn eval_sum(args: &[Expr], env: &mut Environment) -> Expr {
     Expr::call("sum", evaled)
 }
 
+/// If `body` is `var^(-p)` for a positive integer p, return p (so 1/k → 1,
+/// 1/k² → 2). Used to recognise harmonic / generalized-harmonic summands.
+fn inverse_power_order(body: &Expr, var: &Expr) -> Option<i64> {
+    if let Expr::List { op: Operator::MExpt, args, .. } = body {
+        if args.len() == 2 && args[0] == *var {
+            if let Expr::Integer(e) = &args[1] {
+                if *e < 0 { return Some(-*e); }
+            }
+        }
+    }
+    None
+}
+
 /// Try to evaluate Σ_{k=lo}^{hi} body as a closed form.
 fn try_closed_form_sum(body: &Expr, var: &Expr, lo: &Expr, hi: &Expr) -> Option<Expr> {
     let n = hi;
@@ -3703,6 +3752,17 @@ fn try_closed_form_sum(body: &Expr, var: &Expr, lo: &Expr, hi: &Expr) -> Option<
                 let from_one = *lo == Expr::int(1);
                 return poly_sum_closed_form(&poly, n, from_one);
             }
+        }
+    }
+
+    // Harmonic sums: Σ_{k=1}^{n} 1/k^p = harmonic(n) (p=1) or harmonic(n,p).
+    if *lo == Expr::int(1) {
+        if let Some(p) = inverse_power_order(body, var) {
+            return Some(if p == 1 {
+                Expr::call("harmonic", vec![n.clone()])
+            } else {
+                Expr::call("harmonic", vec![n.clone(), Expr::int(p)])
+            });
         }
     }
 
@@ -7927,10 +7987,12 @@ mod tests {
         assert_eq!(run("sum(1/2^k, k, 0, inf);"), "2");
         assert_eq!(run("sum(1/2^k, k, 1, inf);"), "1");
         assert_eq!(run("sum(1/3^k, k, 0, inf);"), "3/2");
-        // Divergent / non-geometric / symbolic → noun (never a wrong closed form).
+        // Symbolic geometric now resolves to its generating function (verified
+        // numerically): Σ_{k≥0} q^k = 1/(1-q).
+        assert_eq!(run("sum(q^k, k, 0, inf);"), "1/(1-q)");
+        // Divergent / non-geometric → noun (never a wrong closed form).
         assert!(run("sum(k, k, 1, inf);").contains("sum("));
         assert!(run("sum(2^k, k, 0, inf);").contains("sum("));
-        assert!(run("sum(q^k, k, 0, inf);").contains("sum("));
         assert!(run("sum(1/(k*(k+1)), k, 1, inf);").contains("sum("));
     }
     #[test]
@@ -8274,10 +8336,16 @@ mod tests {
         assert!(!r.contains("sum"), "should telescope, got: {}", r);
     }
     #[test]
-    fn eval_sum_harmonic_noun() {
-        // Σ 1/k has no closed form — should return noun
-        let r = run("sum(1/k, k, 1, n);");
-        assert!(r.contains("sum"), "harmonic should be noun form, got: {}", r);
+    fn eval_sum_harmonic() {
+        // Σ_{k=1}^n 1/k^p → harmonic(n) / harmonic(n,p); round-trips to the
+        // numeric harmonic number at integer n.
+        assert_eq!(run("sum(1/k, k, 1, n);"), "harmonic(n)");
+        assert_eq!(run("sum(1/k^2, k, 1, n);"), "harmonic(n,2)");
+        assert_eq!(run("harmonic(5);"), "137/60");
+        assert_eq!(run("sum(1/k, k, 1, 5);"), "137/60");
+        // Infinite: divergent harmonic → inf; p≥2 → ζ(p).
+        assert_eq!(run("sum(1/k, k, 1, inf);"), "inf");
+        assert_eq!(run("sum(1/k^2, k, 1, inf);"), "%pi^2/6");
     }
     #[test]
     fn eval_sum_numeric() {

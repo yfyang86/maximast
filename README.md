@@ -160,9 +160,17 @@ sum(1/(k*(k+1)), k, 1, n);       → 1-1/(n+1)    (telescoping)
 sum(binomial(n,k), k, 0, n);     → 2^n
 sum(k*binomial(n,k), k, 0, n);   → n*2^(n-1)
 sum(binomial(n,k)^2, k, 0, n);   → (2n)!/(n!)^2  (= binomial(2n,n))
+sum(1/k, k, 1, n);               → harmonic(n)        (harmonic number)
+sum(1/k^2, k, 1, n);             → harmonic(n,2)      (generalized)
+sum(1/k^2, k, 1, inf);           → %pi^2/6            (ζ(2); ζ(p) for p≥2)
+sum(k*x^k, k, 1, inf);           → x/(1-x)^2          (generating function)
+sum(k*(1/2)^k, k, 1, inf);       → 2                  (numeric base, verified)
 ```
 Definite hypergeometric sums are resolved by order-1 recurrence detection
 (integer & half-integer shifts), every closed form numerically verified.
+Harmonic sums `Σ 1/k^p` give `harmonic(n)` / `harmonic(n,p)` (→ ζ(p) when
+infinite); generating-function sums `Σ p(k)·xᵏ` give a rational in x, numerically
+verified before return (divergent series stay nouns).
 
 For D-finite sequences with **no** elementary closed form, `find_recurrence`
 returns the linear P-recurrence `[c_0(n), …, c_J(n)]` (meaning Σ c_j(n)·S(n+j)=0):
