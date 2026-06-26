@@ -10,6 +10,7 @@ pub mod cre;
 pub mod alg_field;
 pub mod poly_alg;
 pub mod mpoly;
+pub mod mpoly_recgcd;
 pub mod buchberger;
 pub use poly_alg::{factor_over_extension, cyclotomic_poly};
 

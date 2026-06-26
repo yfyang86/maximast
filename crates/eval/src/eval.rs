@@ -401,6 +401,19 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
             }
             return Expr::call("nusum", evaled);
         }
+        "gosper_certificate" => {
+            // gosper_certificate(t, k): rational certificate R(k) proving the
+            // indefinite hypergeometric sum telescopes (t(k) = T(k+1)−T(k)).
+            let evaled: Vec<Expr> = args.iter().map(|a| meval(a, env)).collect();
+            if evaled.len() == 2 {
+                if let Expr::Symbol(_) = &evaled[1] {
+                    if let Some(r) = crate::gosper::gosper_certificate(&evaled[0], &evaled[1]) {
+                        return r;
+                    }
+                }
+            }
+            return Expr::call("gosper_certificate", evaled);
+        }
         "find_recurrence" => {
             // find_recurrence(expr, n): minimal linear P-recurrence of the
             // sequence expr(n), as the coefficient list [c_0(n),…,c_J(n)].
@@ -413,6 +426,19 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
                 }
             }
             return Expr::call("find_recurrence", evaled);
+        }
+        "solve_rec" => {
+            // solve_rec(expr, n): closed form of a C-finite sequence expr(n)
+            // (constant-coefficient recurrence, distinct rational roots).
+            let evaled: Vec<Expr> = args.iter().map(|a| meval(a, env)).collect();
+            if evaled.len() == 2 {
+                if let Expr::Symbol(nid) = &evaled[1] {
+                    if let Some(cf) = crate::recurrence::solve_rec(&evaled[0], *nid, env) {
+                        return cf;
+                    }
+                }
+            }
+            return Expr::call("solve_rec", evaled);
         }
         "product" => return eval_product(args, env),
         // makelist/create_list bind a loop var; the body must NOT be eagerly
@@ -1386,12 +1412,17 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
             if evaled_args.len() == 2 {
                 if let (Expr::Integer(n), Expr::Integer(k)) = (&evaled_args[0], &evaled_args[1]) {
                     if *k < 0 || *k > *n { return Expr::int(0); }
-                    let mut result = 1i64;
-                    let k_val = (*k).min(*n - *k) as u64;
+                    // Exact via BigInt — the i64 product overflows for n ≳ 67
+                    // (e.g. binomial(70,35) used to wrap to a negative number).
+                    let k_val = (*k).min(*n - *k);
+                    let mut result = num::BigInt::from(1);
                     for i in 0..k_val {
-                        result = result * (*n - i as i64) / (i as i64 + 1);
+                        result = result * num::BigInt::from(*n - i) / num::BigInt::from(i + 1);
                     }
-                    return Expr::int(result);
+                    return match num::ToPrimitive::to_i64(&result) {
+                        Some(v) => Expr::int(v),
+                        None => Expr::BigInt(Box::new(result)),
+                    };
                 }
             }
             Expr::call("binomial", evaled_args)
@@ -4575,6 +4606,33 @@ pub(crate) fn ratsimp(expr: &Expr) -> Expr {
                         return simplify(&num_e);
                     }
                     return simplify(&Expr::div(num_e, den_e));
+                }
+            }
+        }
+
+        // Multivariate fraction cancellation via the recursive multivariate GCD
+        // (the univariate path above fails when coefficients are symbolic).
+        let mut vars: Vec<maxima_core::SymbolId> = Vec::new();
+        crate::groebner::collect_symbols(&num_expr, &mut vars);
+        crate::groebner::collect_symbols(&den_expr, &mut vars);
+        if vars.len() >= 2 {
+            if let (Some(np), Some(dp)) = (
+                maxima_poly::expr_to_mpoly(&num_expr, &vars, maxima_poly::MonomialOrder::Grevlex),
+                maxima_poly::expr_to_mpoly(&den_expr, &vars, maxima_poly::MonomialOrder::Grevlex),
+            ) {
+                if let Some(g) = maxima_poly::mpoly_gcd(&np, &dp) {
+                    let nontrivial = g.lm().map_or(false, |m| !m.is_one());
+                    if nontrivial {
+                        if let (Some(nn), Some(nd)) = (np.exact_div(&g), dp.exact_div(&g)) {
+                            let num_e = maxima_poly::mpoly_to_expr(&nn);
+                            let den_e = maxima_poly::mpoly_to_expr(&nd);
+                            let den_one = nd.lm().map_or(true, |m| m.is_one());
+                            if den_one {
+                                return simplify(&num_e);
+                            }
+                            return simplify(&Expr::div(num_e, den_e));
+                        }
+                    }
                 }
             }
         }

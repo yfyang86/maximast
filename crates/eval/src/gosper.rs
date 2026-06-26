@@ -261,6 +261,39 @@ pub fn gosper_sum(t: &Expr, k: &Expr) -> Option<Expr> {
     if telescopes(&big_t, t, k) { Some(big_t) } else { None }
 }
 
+/// Gosper/WZ certificate of an indefinite hypergeometric sum: the rational
+/// R(k) with antidifference T(k) = R(k)·t(k), i.e. t(k) = T(k+1) − T(k). The
+/// certifying identity is  R(k+1)·r(k) − R(k) = 1  where r(k) = t(k+1)/t(k);
+/// it is checked SYMBOLICALLY (a rigorous proof of Σ t(k) = T(b+1) − T(a)),
+/// with a numeric telescoping fall-back for terms a symbolic zero-test can't
+/// cancel (factorials).
+pub fn gosper_certificate(t: &Expr, k: &Expr) -> Option<Expr> {
+    let k_id = if let Expr::Symbol(id) = k { *id } else { return None; };
+    let ratio = simplify(&crate::eval::ratsimp_pub(&hyper_ratio(t, k, k_id)?));
+    let cre = expr_to_cre(&ratio, k_id)?;
+    if cre.num.is_zero() { return None; }
+
+    let (a, b, c) = gosper_petkovsek(&cre.num, &cre.den, k_id)?;
+    let bsh = poly_shift(&b, -1, k_id);
+    let x = solve_gosper_equation(&a, &bsh, &c, k_id)?;
+    if x.is_zero() { return None; }
+
+    // Certificate R(k) = b(k−1)·x(k) / c(k).
+    let r_cert = simplify(&Expr::div(poly_to_expr(&bsh.mul(&x)), poly_to_expr(&c)));
+
+    // Verify R(k+1)·r(k) − R(k) − 1 = 0. Try symbolic (rigorous) first.
+    let k1 = Expr::add(k.clone(), Expr::int(1));
+    let r_shift = subst(&k1, k, &r_cert);
+    let residual = Expr::sub(Expr::sub(Expr::mul(r_shift, ratio.clone()), r_cert.clone()), Expr::int(1));
+    let simp = simplify(&crate::eval::ratsimp_pub(&residual));
+    if matches!(simp, Expr::Integer(0)) {
+        return Some(r_cert);
+    }
+    // Numeric fall-back: T(k) = R(k)·t(k) must telescope to t(k).
+    let big_t = simplify(&Expr::mul(r_cert.clone(), t.clone()));
+    if telescopes(&big_t, t, k) { Some(r_cert) } else { None }
+}
+
 /// Definite hypergeometric sum Σ_{k=lo}^{hi} t(k) = T(hi+1) − T(lo).
 pub fn gosper_definite(t: &Expr, k: &Expr, lo: &Expr, hi: &Expr) -> Option<Expr> {
     let big_t = gosper_sum(t, k)?;
@@ -317,6 +350,16 @@ mod tests {
         assert_eq!(run("nusum(1/(k*(k+1)),k,1,3);"), "3/4");
     }
 
+    #[test] fn gosper_cert_factorial() {
+        // T(k)=k!, certificate R(k)=1/k (k*k! = (k+1)!-k!).
+        assert_eq!(run("gosper_certificate(k*k!,k);"), "1/k");
+    }
+    #[test] fn gosper_cert_geometric() {
+        assert_eq!(run("gosper_certificate(2^k,k);"), "1");
+    }
+    #[test] fn gosper_cert_not_summable_is_noun() {
+        assert!(run("gosper_certificate(1/k,k);").contains("gosper_certificate"));
+    }
     #[test] fn gosper_not_summable_is_noun() {
         // 1/k^2 is not Gosper-summable → stays a noun (never a wrong closed form).
         assert!(run("nusum(1/k^2,k,1,n);").contains("nusum"));

@@ -3276,6 +3276,12 @@ pub(crate) fn table_integrate(f: &Expr, var: &Expr) -> Expr {
         return result;
     }
 
+    // ∫ P(x)/√(C) dx with deg C ≥ 3 (Trager/Hermite on a hyperelliptic curve):
+    // elementary R·√C iff P lies in the derivative space, else nonelementary.
+    if let Some(result) = try_sqrt_curve_integrate(f, var) {
+        return result;
+    }
+
     // ∫ R(x)·exp(c·x) dx with rational R — Risch DE with a rational solution.
     if let Some(result) = try_exp_rational_integrate(f, var) {
         return result;
@@ -3867,6 +3873,88 @@ fn power_of(fac: &Expr) -> Option<(Expr, i64)> {
     }
 }
 
+/// ∫ P(x)/√(C) dx for polynomial P and C of degree ≥ 3 (Trager/Hermite on a
+/// hyperelliptic curve). The antiderivative is elementary iff P lies in the
+/// image of R ↦ R'·C + ½·R·C' (then ∫ = R·√C); otherwise the residual is an
+/// elliptic/abelian integral and the result is nonelementary (noun).
+fn try_sqrt_curve_integrate(f: &Expr, var: &Expr) -> Option<Expr> {
+    let var_id = match var { Expr::Symbol(id) => *id, _ => return None };
+    let mut factors = Vec::new();
+    collect_mult_factors(f, &mut factors);
+
+    // Find a √C factor with deg C ≥ 3.
+    let mut cpoly: Option<maxima_poly::Poly> = None;
+    for fac in &factors {
+        if let Some((base, -1)) = power_of(fac) {
+            if let Some(p) = maxima_poly::expr_to_poly(&base, var_id) {
+                if p.degree().unwrap_or(0) >= 3 { cpoly = Some(p); break; }
+            }
+        }
+    }
+    let c = cpoly?;
+
+    // Total power of C must be exactly −1 (a single √C in the denominator);
+    // everything else must be a polynomial numerator P.
+    let mut e2: i64 = 0;
+    let mut n_factors: Vec<Expr> = Vec::new();
+    for fac in &factors {
+        match power_of(fac) {
+            Some((base, h)) if maxima_poly::expr_to_poly(&base, var_id).as_ref() == Some(&c) => e2 += h,
+            _ => n_factors.push(fac.clone()),
+        }
+    }
+    if e2 != -1 { return None; }
+    let p_expr = if n_factors.is_empty() {
+        Expr::int(1)
+    } else {
+        simplify(&Expr::List { op: Operator::MTimes, simplified: false, args: n_factors })
+    };
+    let p = maxima_poly::expr_to_poly(&p_expr, var_id)?;
+
+    let cand = integrate_poly_over_sqrt_curve(&c, &p, var, var_id)?;
+    if verify_antiderivative(&cand, f, var) {
+        Some(cand)
+    } else {
+        let neg = simplify(&Expr::neg(cand));
+        if verify_antiderivative(&neg, f, var) { Some(neg) } else { None }
+    }
+}
+
+/// Solve R'·C + ½·R·C' = P for polynomial R (deg P − deg C + 1). Returns R·√C
+/// if an exact solution exists (∫ is elementary), else None (nonelementary).
+fn integrate_poly_over_sqrt_curve(c: &maxima_poly::Poly, p: &maxima_poly::Poly, _var: &Expr, var_id: maxima_core::SymbolId) -> Option<Expr> {
+    use maxima_poly::{Poly, Coeff};
+    let dc = c.degree()? as i64;
+    let dp = p.degree().map(|d| d as i64).unwrap_or(-1);
+    let dr = dp - dc + 1;
+    if dr < 0 { return None; } // deg P < deg C − 1 ⇒ pure abelian integral, nonelementary
+    let dr = dr as usize;
+    let cprime = c.derivative();
+    let half = Coeff::Rat(1, 2);
+
+    // Column i is the image of R = x^i: (x^i)'·C + ½·x^i·C'.
+    let mut cols: Vec<Poly> = Vec::new();
+    for i in 0..=dr {
+        let mono = Poly::monomial(var_id, i as u32, Coeff::one());
+        let t1 = mono.derivative().mul(c);
+        let t2 = mono.mul(&cprime).scale(&half);
+        cols.push(t1.add(&t2));
+    }
+    let maxdeg = cols.iter().filter_map(|c| c.degree()).chain(p.degree()).max().unwrap_or(0);
+    let mut mat: Vec<Vec<Coeff>> = Vec::new();
+    let mut rhs: Vec<Coeff> = Vec::new();
+    for pw in 0..=maxdeg {
+        mat.push(cols.iter().map(|col| get_coeff(col, pw)).collect());
+        rhs.push(get_coeff(p, pw));
+    }
+    // Exact solution ⇒ P is in the derivative space ⇒ elementary.
+    let sol = solve_linear_coeff(mat, rhs)?;
+    let mut r = Poly::zero(var_id);
+    for i in 0..=dr { r = r.add(&Poly::monomial(var_id, i as u32, sol[i].clone())); }
+    let result = Expr::mul(maxima_poly::poly_to_expr(&r), Expr::call("sqrt", vec![maxima_poly::poly_to_expr(c)]));
+    Some(simplify(&result))
+}
+
 /// Solve the Hermite ansatz ∫ P/Q^(m+1/2) = R/Q^(m−1/2) + κ·∫1/√Q, i.e.
 /// R'·Q − (m−1/2)·R·Q' + κ·Q^m = P, for polynomial R and constant κ.
 fn integrate_poly_over_q_power(qpoly: &maxima_poly::Poly, p_coeffs: &[maxima_poly::Coeff], m: i64, var: &Expr, var_id: maxima_core::SymbolId) -> Option<Expr> {
@@ -4095,5 +4183,16 @@ mod r4_quadratic_power_tests {
     }
     #[test] fn elliptic_stays_noun() {
         assert!(run("integrate(1/sqrt(x^3+1),x);").contains("integrate("));
+    }
+
+    // T3 — hyperelliptic ∫P/√C (deg C ≥ 3): elementary iff reducible.
+    #[test] fn hyperelliptic_reducible_is_elementary() {
+        // ∫x^5/sqrt(x^3+1) is elementary (verified by differentiation).
+        assert!(!run("integrate(x^5/sqrt(x^3+1),x);").contains("integrate("));
+        assert!(!run("integrate(4*x^3/sqrt(x^4+1),x);").contains("integrate("));
+    }
+    #[test] fn elliptic_first_kind_stays_noun() {
+        assert!(run("integrate(x/sqrt(x^3+1),x);").contains("integrate("));
+        assert!(run("integrate(x^2/sqrt(x^3+x),x);").contains("integrate("));
     }
 }

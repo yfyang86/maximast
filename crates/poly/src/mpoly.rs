@@ -10,7 +10,6 @@ use num::{BigInt, BigRational, One, Zero, ToPrimitive};
 use maxima_core::{Expr, Operator, SymbolId};
 use crate::poly::Poly;
 use crate::coeff::Coeff;
-use crate::gcd::poly_gcd;
 use crate::factor::factor_poly;
 
 pub type MCoeff = BigRational;
@@ -135,7 +134,7 @@ impl MPoly {
         self.terms.iter().map(|(m, _)| m.total_degree()).max().unwrap_or(0)
     }
 
-    fn canonicalize(&mut self) {
+    pub(crate) fn canonicalize(&mut self) {
         self.terms.retain(|(_, c)| !c.is_zero());
         let ord = self.order;
         // Descending: ord.cmp(b, a) so larger comes first.
@@ -416,7 +415,7 @@ fn from_kronecker(p: &Poly, d: u32, nvars: usize, vars: Vec<SymbolId>, order: Mo
     result
 }
 
-fn make_monic(p: &MPoly) -> MPoly {
+pub(crate) fn make_monic(p: &MPoly) -> MPoly {
     match p.lc() {
         Some(lc) if !lc.is_zero() => p.scalar_mul(&(MCoeff::one() / lc.clone())),
         _ => p.clone(),
@@ -438,31 +437,11 @@ fn make_monic(p: &MPoly) -> MPoly {
 ///   is actually proven.
 pub fn mpoly_gcd(a: &MPoly, b: &MPoly) -> Option<MPoly> {
     assert_eq!(a.vars, b.vars, "mpoly_gcd: variable mismatch");
-    let one = MPoly::constant(a.vars.clone(), a.order, MCoeff::one());
-    if a.is_zero() { return Some(make_monic(b)); }
-    if b.is_zero() { return Some(make_monic(a)); }
-    // gcd with a (nonzero) constant is a unit → 1
-    if a.lm().map_or(true, |m| m.is_one()) || b.lm().map_or(true, |m| m.is_one()) {
-        return Some(one);
-    }
-    let d = 1 + max_var_exp(a).max(max_var_exp(b));
-    // Guard against Kronecker blow-up: the univariate image has degree < d^nvars,
-    // and `poly_gcd` on a very high-degree image is prohibitively slow.
-    const KRON_DEGREE_CAP: u64 = 1024;
-    match (d as u64).checked_pow(a.nvars() as u32) {
-        Some(kd) if kd <= KRON_DEGREE_CAP => {}
-        _ => return None,
-    }
-    let var = a.vars[0];
-    let (ka, kb) = (to_kronecker(a, d, var)?, to_kronecker(b, d, var)?);
-    let g_uni = poly_gcd(&ka, &kb);
-    if g_uni.terms.is_empty() { return None; }
-    let g = make_monic(&from_kronecker(&g_uni, d, a.nvars(), a.vars.clone(), a.order));
-    // Constant image gcd ⇒ gcd(K(a),K(b))=1 ⇒ gcd(a,b)=1 (proven coprime).
-    if g.lm().map_or(true, |m| m.is_one()) {
-        return Some(one);
-    }
-    // Otherwise accept only if it verifiably divides both (else spurious).
+    // Complete recursive multivariate GCD (primitive PRS over Q). The
+    // exact-division check is a safety net — the algorithm is exact, so it
+    // succeeds; we fall back to a noun only if (a bug means) it doesn't divide.
+    let g = crate::mpoly_recgcd::gcd_rec(a, b);
+    if g.is_zero() { return None; }
     if a.exact_div(&g).is_some() && b.exact_div(&g).is_some() {
         Some(g)
     } else {
