@@ -15,7 +15,7 @@ cargo run -- -b walkthrough/03_calculus.mac    # run walkthrough
 
 ```
 ╔══════════════════════════════════════════════════╗
-║  Maxima Kernel (Rust)  v12.2.0                   ║
+║  Maxima Kernel (Rust)  v12.3.0                   ║
 ║  A Computer Algebra System                       ║
 ╚══════════════════════════════════════════════════╝
 
