@@ -13,8 +13,8 @@ discipline: **compute → verify → return; correct-or-noun, never wrong.**
 | 0a | parametric/symbolic `linsolve` (was `[x=0,y=0]`) | ✅ |
 | 0b | infinite sums: convergent geometric exact, rest noun (was substituting `inf`) | ✅ |
 | 0c | definite-integral `inf`-leak gating (→ noun) | ✅ |
-| 0f | `simplify` honors the `simplified` flag (iterated-squaring timeout) | 📋 |
-| 0h | plugin name resolution; `,numer`/`,modulus` ev-modifier parse | 📋 |
+| 0f | iterated-squaring timeout — **re-scoped**: real cost in `expand` (4097-term poly²); needs fast poly-expand / hash-consing (→ infra 1e), not the simplify flag (ineffective + flag unreliable) | ⏭️ |
+| 0h | plugin name resolution ✅; parser `,numer` panic → deferred (Result-based parser refactor; ev-modifier is a feature) | ◑ |
 
 ## Bundle 2 — Solve & numbers
 
@@ -36,7 +36,18 @@ eigen · 3c special-function numeric eval · 3d numeric solvers/quadrature/ODE.
 
 - **Bundle 1a** ✅ (PR): 0d negative/rational power-base parens; 0e expand-before-
   integrate (polynomial-gated) + symbolic `∫x^n`; 0g numeric `fib`/`lucas`
-  (`find_recurrence(fib(n))=[-1,-1,1]`). Next: 0f, then 0h.
+  (`find_recurrence(fib(n))=[-1,-1,1]`). Bundle 1 cheap items done. Remaining/deferred: 0f (→ infra 1e fast poly-expand/
+hash-consing), parser robustness (Result-based parser), 0i (gruntz limit bugs),
+0j (`1/(1/2)` simplify). Next: 0j and 0i (small correctness), then Bundle 2.
+- **0f** ⏭️ the `simplified`-flag early-return is ineffective (timeout is in
+  `expand`'s 4097-term squaring, not simplify recursion) AND unsafe (flag not
+  perfectly reliable — broke an integrate test); reverted. Real fix = route
+  polynomial `expand` through the poly crate / hash-consing (infra).
+- **0h** ◑ `resolve_plugin_path` now finds `libmaxima_<name>.<ext>` in
+  target/{release,debug} + search dirs: `load_plugin("specfun")` works
+  (`bessel_j(0,1.0)=0.7652`), `load_plugin("orthopoly")` works. Parser
+  `panic!`-on-bad-input (incl. `,numer` ev-modifier) deferred to a Result-based
+  parser task.
 - **0c** ✅ improper integrals no longer leak `inf`: any infinite-bound
   candidate still containing inf/minf/und (failed limit, e.g. unresolved
   `atan(inf/√2)`) → noun; a 4-arg definite that falls through returns the
