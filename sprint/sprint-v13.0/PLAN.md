@@ -102,5 +102,12 @@ hash-consing), parser robustness (Result-based parser), 0i (gruntz limit bugs),
   real roots isolated by Sturm bisection in exact BigRational arithmetic within
   a rational eps. No f64 in the result.
 
-Remaining (architectural — flagged sign-off): RootOf + general Cardano (p≠0) /
-Ferrari (general quartic), 1c arbitrary-precision bigfloat backend.
+- **1a** ✅ now complete (Cardano/Ferrari): general cubic via Cardano —
+  depressed t³+pt+q, real radicals when D≥0, complex radicals (u, v=−p/(3u))
+  when D<0 (casus irreducibilis, 3 real roots). General quartic via Ferrari —
+  resolvent cubic 8t³+8pt²+(2p²−8r)t−q² supplies t₀ (q=0 falls back to
+  biquadratic-in-y). Foundation: a Complex64 verifier (expr_to_complex) checks
+  |p(r)|<1e-6 for every root, real or complex; a failed root → noun.
+
+Remaining (architectural — flagged sign-off): 1c arbitrary-precision bigfloat
+backend; RootOf object (quintics / unsolvable-by-radicals).

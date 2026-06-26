@@ -127,11 +127,15 @@ solve(x^2 + 1, x);               → [x = %i, x = -%i]            (complex)
 solve(x^2 - 2, x);               → [x = sqrt(2), x = -sqrt(2)]  (radical)
 solve(x^4 - 4*x^2 + 1, x);       → [±sqrt(2±sqrt(3))]           (biquadratic)
 solve(x^3 - 2, x);               → [2^(1/3), 2^(1/3)·ω, 2^(1/3)·ω²]  (Cardano)
-solve(x^3 - 1, x);               → [1, (-1±%i·sqrt(3))/2]
+solve(x^3 + x + 1, x);           → real radical root + 2 complex (general Cardano)
+solve(x^3 - 3*x + 1, x);         → 3 real roots in complex radicals (casus irreducibilis)
+solve(x^4 + x + 1, x);           → 4 roots (Ferrari resolvent cubic)
 linsolve([x+y=a, x-y=b], [x,y]);  → [x = (a+b)/2, y = (a-b)/2]   (symbolic)
 ```
-`solve` factors over ℚ then solves each factor by radicals (quadratic, biquadratic
-quartic, pure-cube Cardano); cases not expressible by these radicals return a noun.
+`solve` factors over ℚ then solves each factor by radicals: quadratic, general
+cubic (Cardano, incl. casus irreducibilis via complex radicals), and general
+quartic (Ferrari). Every root is verified numerically (|p(r)| < 1e-6 over ℂ)
+before it is returned; anything not expressible by radicals returns a noun.
 
 ### Root analysis
 ```
