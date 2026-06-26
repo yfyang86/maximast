@@ -5758,7 +5758,7 @@ fn matrix_cofactor(mat: &[Vec<Expr>], row: usize, col: usize, env: &mut Environm
     }
 }
 
-fn eval_linsolve(eqs: &[Expr], vars: &[Expr], _env: &mut Environment) -> Expr {
+fn eval_linsolve(eqs: &[Expr], vars: &[Expr], env: &mut Environment) -> Expr {
     let n = vars.len();
     if n == 0 || eqs.len() < n { return Expr::call("linsolve", vec![Expr::list(eqs.to_vec()), Expr::list(vars.to_vec())]); }
 
@@ -5799,58 +5799,44 @@ fn eval_linsolve(eqs: &[Expr], vars: &[Expr], _env: &mut Environment) -> Expr {
         mat.push(row);
     }
 
-    // Gaussian elimination (numeric for now)
+    // Exact symbolic Gauss–Jordan elimination over the Expr matrix, using full
+    // `meval` for the arithmetic so nested fractions collapse. (The old f64 path
+    // forced every entry through to_f64(e).unwrap_or(0.0), silently zeroing
+    // symbolic coefficients/RHS — e.g. returning [x=0,y=0] for a symbolic RHS.)
     let ncols = n + 1;
-    let mut fmat: Vec<Vec<f64>> = mat.iter().map(|row| {
-        row.iter().map(|e| to_f64(e).unwrap_or(0.0)).collect()
-    }).collect();
-
+    let is_zero = |e: &Expr| matches!(simplify(e), Expr::Integer(0));
     for col in 0..n {
-        // Find pivot
-        let mut pivot_row = None;
-        for r in col..fmat.len() {
-            if fmat[r][col].abs() > 1e-12 {
-                pivot_row = Some(r);
-                break;
-            }
-        }
-        let pr = match pivot_row {
+        let pr = match (col..mat.len()).find(|&r| !is_zero(&mat[r][col])) {
             Some(r) => r,
-            None => continue,
+            None => continue, // free column; handled as singular below
         };
-        fmat.swap(col, pr);
-
-        let pivot = fmat[col][col];
-        for r in (col + 1)..fmat.len() {
-            let factor = fmat[r][col] / pivot;
-            for c in col..ncols {
-                let val = fmat[col][c];
-                fmat[r][c] -= factor * val;
+        mat.swap(col, pr);
+        let pivot = mat[col][col].clone();
+        for r in 0..mat.len() {
+            if r != col && !is_zero(&mat[r][col]) {
+                let factor = meval(&Expr::div(mat[r][col].clone(), pivot.clone()), env);
+                for c in col..ncols {
+                    let e = Expr::sub(mat[r][c].clone(), Expr::mul(factor.clone(), mat[col][c].clone()));
+                    mat[r][c] = meval(&e, env);
+                }
             }
         }
     }
 
-    // Back substitution
-    let mut solutions = vec![0.0f64; n];
-    for i in (0..n).rev() {
-        let mut sum = fmat[i][n];
-        for j in (i + 1)..n {
-            sum -= fmat[i][j] * solutions[j];
+    // Diagonal form ⇒ x_i = rhs_i / diag_i. A zero diagonal means the system is
+    // singular/dependent — return a noun rather than a wrong answer.
+    let mut result: Vec<Expr> = Vec::new();
+    for i in 0..n {
+        if is_zero(&mat[i][i]) {
+            return Expr::call("linsolve", vec![Expr::list(eqs.to_vec()), Expr::list(vars.to_vec())]);
         }
-        if fmat[i][i].abs() > 1e-12 {
-            solutions[i] = sum / fmat[i][i];
-        }
+        let val = ratsimp(&meval(&Expr::div(mat[i][n].clone(), mat[i][i].clone()), env));
+        result.push(Expr::List {
+            op: Operator::MEqual,
+            simplified: false,
+            args: vec![vars[i].clone(), val],
+        });
     }
-
-    let result: Vec<Expr> = vars.iter().zip(solutions.iter()).map(|(v, s)| {
-        let val = if (*s - s.round()).abs() < 1e-10 {
-            Expr::int(s.round() as i64)
-        } else {
-            Expr::Float(*s)
-        };
-        Expr::List { op: Operator::MEqual, simplified: false, args: vec![v.clone(), val] }
-    }).collect();
-
     Expr::list(result)
 }
 
@@ -7364,6 +7350,16 @@ mod tests {
         // Expand-before-integrate for polynomial integrands (was a noun).
         assert_eq!(run("integrate(x^2*(x+1), x);"), "x^3/3+x^4/4");
         assert_eq!(run("integrate((1-x)^4, x, 0, 1);"), "1/5");
+    }
+    #[test]
+    fn eval_linsolve_symbolic() {
+        // Was silently returning [x=0,y=0] for a symbolic RHS.
+        assert_eq!(run("linsolve([x+y=3, x-y=1], [x,y]);"), "[x = 2,y = 1]");
+        // Symbolic RHS now solved (values correct; x=(a+b)/2, y=(a-b)/2).
+        let s = run("linsolve([x+y=a, x-y=b], [x,y]);");
+        assert!(!s.contains("x = 0") && s.contains("x = ") && s.contains('a') && s.contains('b'), "got {s}");
+        // Singular system → noun, not a wrong answer.
+        assert!(run("linsolve([x+y=1, 2*x+2*y=2], [x,y]);").contains("linsolve("));
     }
     #[test]
     fn eval_fib_lucas() {

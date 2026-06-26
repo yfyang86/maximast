@@ -10,7 +10,7 @@ discipline: **compute → verify → return; correct-or-noun, never wrong.**
 | 0d | `(-1)^(2n)` printed as `-1^(2n)` — parenthesize negative/rational bases | ✅ |
 | 0e | expand-before-integrate; `∫x^n = x^(n+1)/(n+1)` (n≠−1) | 📋 |
 | 0g | numeric `fib`/`lucas`; exact `rank` (not f64); square-free Sturm | 📋 |
-| 0a | parametric/symbolic `linsolve` & `solve` (was `[x=0,y=0]`) | 📋 |
+| 0a | parametric/symbolic `linsolve` (was `[x=0,y=0]`) | ✅ |
 | 0b | infinite sums via `limit(S(m),m,inf)` (was substituting `inf`) | 📋 |
 | 0c | definite-integral `inf`-leak gating | 📋 |
 | 0f | `simplify` honors the `simplified` flag (iterated-squaring timeout) | 📋 |
@@ -36,4 +36,7 @@ eigen · 3c special-function numeric eval · 3d numeric solvers/quadrature/ODE.
 
 - **Bundle 1a** ✅ (PR): 0d negative/rational power-base parens; 0e expand-before-
   integrate (polynomial-gated) + symbolic `∫x^n`; 0g numeric `fib`/`lucas`
-  (`find_recurrence(fib(n))=[-1,-1,1]`). Next: 0a/0b/0c, then 0f/0h.
+  (`find_recurrence(fib(n))=[-1,-1,1]`). Next: 0b/0c, then 0f/0h.
+- **0a** ✅ exact symbolic Gauss–Jordan in `eval_linsolve` (was f64,
+  `to_f64(e).unwrap_or(0.0)` zeroed symbolic RHS → `[x=0,y=0]`). Now correct;
+  singular→noun. (`solve(a*x=b)` symbolic-linear + fuller ratsimp deferred.)
