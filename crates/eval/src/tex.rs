@@ -5,6 +5,7 @@ pub fn expr_to_tex(expr: &Expr) -> String {
         Expr::Integer(n) => n.to_string(),
         Expr::BigInt(n) => n.to_string(),
         Expr::Float(f) => format!("{}", f),
+        Expr::BigFloat(_) => expr.to_string(),
         Expr::Rational { num, den } => format!("\\frac{{{}}}{{{}}}", num, den),
         Expr::Symbol(id) => {
             let name = resolve(*id);

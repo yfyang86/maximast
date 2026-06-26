@@ -18,7 +18,8 @@ use crate::integrate::{
 
 pub fn meval(expr: &Expr, env: &mut Environment) -> Expr {
     match expr {
-        Expr::Integer(_) | Expr::BigInt(_) | Expr::Float(_) | Expr::String(_) => expr.clone(),
+        Expr::Integer(_) | Expr::BigInt(_) | Expr::Float(_) | Expr::BigFloat(_)
+        | Expr::String(_) => expr.clone(),
         Expr::Rational { .. } => expr.clone(),
 
         Expr::Symbol(id) => {
@@ -131,6 +132,7 @@ fn expr_from(op: &Operator, args: &[Expr]) -> Expr {
 
 fn eval_plus(args: &[Expr], env: &mut Environment) -> Expr {
     let evaled: Vec<Expr> = args.iter().map(|a| meval(a, env)).collect();
+    if let Some(b) = crate::bigfloat::fold_numeric(&Operator::MPlus, &evaled) { return b; }
     // Matrix + Matrix: element-wise addition
     if evaled.len() == 2 {
         if let (
@@ -158,6 +160,7 @@ fn eval_plus(args: &[Expr], env: &mut Environment) -> Expr {
 
 fn eval_times(args: &[Expr], env: &mut Environment) -> Expr {
     let evaled: Vec<Expr> = args.iter().map(|a| meval(a, env)).collect();
+    if let Some(b) = crate::bigfloat::fold_numeric(&Operator::MTimes, &evaled) { return b; }
     // Scalar * Matrix: broadcast multiplication
     if evaled.len() == 2 {
         for (si, mi) in [(0,1), (1,0)] {
@@ -184,6 +187,9 @@ fn eval_power(args: &[Expr], env: &mut Environment) -> Expr {
     let base = meval(&args[0], env);
     let exp = meval(&args[1], env);
 
+    if let Some(b) = crate::bigfloat::fold_numeric(&Operator::MExpt, &[base.clone(), exp.clone()]) {
+        return b;
+    }
     // %e^f → exp(f)
     if base == Expr::sym("%e") {
         return meval(&Expr::call("exp", vec![exp]), env);
@@ -4368,7 +4374,7 @@ fn build_series(coeffs: &[Expr], shift: i64, var: &Expr, a: &Expr) -> Expr {
 
 pub(crate) fn diff_once(expr: &Expr, var: &Expr) -> Expr {
     match expr {
-        Expr::Integer(_) | Expr::BigInt(_) | Expr::Float(_)
+        Expr::Integer(_) | Expr::BigInt(_) | Expr::Float(_) | Expr::BigFloat(_)
         | Expr::Rational { .. } | Expr::String(_) => Expr::int(0),
 
         Expr::Symbol(_) => {

@@ -109,5 +109,12 @@ hash-consing), parser robustness (Result-based parser), 0i (gruntz limit bugs),
   biquadratic-in-y). Foundation: a Complex64 verifier (expr_to_complex) checks
   |p(r)|<1e-6 for every root, real or complex; a failed root → noun.
 
-Remaining (architectural — flagged sign-off): 1c arbitrary-precision bigfloat
-backend; RootOf object (quintics / unsolvable-by-radicals).
+- **1c** ✅ now complete: arbitrary-precision bigfloat backend (astro-float).
+  New `Expr::BigFloat` core atom stores a precision-tagged decimal (core keeps
+  no bignum-float dep — all compute is in eval). `bfloat(expr)` evaluates the
+  whole argument at fpprec digits (constants, arithmetic, powers, elementary
+  functions); a bigfloat in +/*/^ folds at the widest operand precision
+  (contagion). Display in Maxima `…bN` notation.
+
+Remaining (architectural — flagged sign-off): RootOf object (quintics /
+unsolvable-by-radicals).

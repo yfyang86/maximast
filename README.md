@@ -202,6 +202,18 @@ lambert_w(1.0);                      → 0.567143290409784   (Omega)
 polylog(2, 1);                       → %pi^2/6
 ```
 
+### Arbitrary-precision bigfloats
+```
+fpprec: 40;  bfloat(%pi);    → 3.141592653589793238462643383279502884197b0
+bfloat(sqrt(2));             → 1.414213562373095048801688724209698078569b0
+bfloat(%pi + %e);            → 5.859874482048838473822930854632165381954b0
+bfloat(%pi)*2;               → contagion: arithmetic with a bigfloat stays bigfloat
+```
+`bfloat(expr)` evaluates the whole expression to `fpprec` digits via an
+arbitrary-precision backend (astro-float): constants (`%pi`, `%e`, `%phi`,
+`%gamma`), arithmetic, powers, and elementary functions. A bigfloat mixed with
+other numbers in `+`/`*`/`^` folds at the widest operand precision.
+
 ### Assumptions
 ```
 assume(x > 0);
