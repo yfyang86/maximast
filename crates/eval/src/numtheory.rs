@@ -107,10 +107,15 @@ pub(crate) fn eval_numtheory_func(name: &str, args: &[Expr]) -> Option<Expr> {
                 } else { None }
             } else { None }
         }
-        "fibonacci" => {
+        "fibonacci" | "fib" => {
             let n = if let Expr::Integer(i) = args.first()? { *i } else { return None };
             if n < 0 { return None; }
             Some(fib_expr(n as u64))
+        }
+        "lucas" => {
+            let n = if let Expr::Integer(i) = args.first()? { *i } else { return None };
+            if n < 0 { return None; }
+            Some(lucas_expr(n as u64))
         }
         _ => None,
     }
@@ -210,6 +215,23 @@ fn fib_expr(n: u64) -> Expr {
     use num::ToPrimitive;
     if n <= 1 { return Expr::int(n as i64); }
     let (mut a, mut b) = (BigInt::from(0), BigInt::from(1));
+    for _ in 2..=n {
+        let c = &a + &b;
+        a = b;
+        b = c;
+    }
+    match b.to_i64() {
+        Some(v) => Expr::int(v),
+        None => Expr::BigInt(Box::new(b)),
+    }
+}
+
+fn lucas_expr(n: u64) -> Expr {
+    use num::BigInt;
+    use num::ToPrimitive;
+    // L(0)=2, L(1)=1, L(n)=L(n-1)+L(n-2).
+    let (mut a, mut b) = (BigInt::from(2), BigInt::from(1));
+    if n == 0 { return Expr::int(2); }
     for _ in 2..=n {
         let c = &a + &b;
         a = b;
