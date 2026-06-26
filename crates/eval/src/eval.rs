@@ -1032,7 +1032,7 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
             Expr::call(&func_name, evaled_args)
         }
         "resultant" | "discriminant" | "content" | "primpart"
-        | "nroots" | "realroots" => {
+        | "nroots" | "realroots" | "sturm" => {
             if let Some(result) = crate::poly_analysis::eval_sturm_func(&func_name, &evaled_args) {
                 return result;
             }
@@ -7530,6 +7530,15 @@ mod tests {
     fn eval_solve_cubic() {
         let r = run("solve(x^3-6*x^2+11*x-6, x);");
         assert!(r.contains("x = 1") && r.contains("x = 2") && r.contains("x = 3"), "got: {}", r);
+    }
+    #[test]
+    fn eval_sturm_nroots() {
+        // Sturm sequence exposed; whole-line nroots.
+        assert!(run("sturm(x^3-2*x-5, x);").contains("3*x^2-2"));
+        assert_eq!(run("nroots(x^5-x-1);"), "1");
+        assert_eq!(run("nroots((x-1)*(x-2)*(x-3));"), "3");
+        assert_eq!(run("nroots(x^4+1);"), "0");
+        assert_eq!(run("nroots(x^5-x-1, -2, 2);"), "1"); // 3-arg regression
     }
     #[test]
     fn eval_solve_cubic_cardano() {
