@@ -1,4 +1,24 @@
 use maxima_core::{Expr, Operator, resolve};
+use num::{BigInt, BigRational, One, ToPrimitive};
+
+/// A `BigInt` as the smallest exact `Expr` (Integer when it fits i64, else BigInt).
+pub fn bigint_to_expr(b: &BigInt) -> Expr {
+    b.to_i64().map(Expr::int).unwrap_or_else(|| Expr::BigInt(Box::new(b.clone())))
+}
+
+/// A reduced `BigRational` as an `Expr`: Integer/BigInt when integral, an
+/// `Expr::Rational` when num and den both fit i64, else a `num*den^-1` product
+/// (this kernel has no atomic big-rational — such a value is correct but not
+/// fully folded).
+pub fn bigrat_to_expr(r: &BigRational) -> Expr {
+    if r.denom().is_one() {
+        bigint_to_expr(r.numer())
+    } else if let (Some(n), Some(d)) = (r.numer().to_i64(), r.denom().to_i64()) {
+        Expr::Rational { num: n, den: d }
+    } else {
+        Expr::div(bigint_to_expr(r.numer()), bigint_to_expr(r.denom()))
+    }
+}
 
 pub fn to_f64(expr: &Expr) -> Option<f64> {
     match expr {

@@ -62,8 +62,15 @@ integrate(1/sqrt(x^3+1), x)                           → NONELEMENTARY (noun)
   `∫1/√(x^3+1)`, `∫x/√(x^3+1)`, `∫x^2/√(x^3+x)` correctly noun. Differentiation-
   verified. (Full Trager — log part over algebraic extensions, P/√C with poles —
   remains.)
-- **P1** — ✅ binomial → BigInt (i64-overflow fix). Deeper simplifier-`Coef`
-  BigRational refactor (rational-sum overflow) remains, guarded.
+- **P1** — ✅ binomial → BigInt (part 1). ✅ simplifier `Coef` → BigRational
+  (part 2): `simplify_plus` keeps a fast i64 accumulator that promotes to an
+  exact BigRational on overflow / first rational / bigint, so integer and
+  rational sums never overflow (`sum(1/(k^2+1),k,1,12)` exact, `i64::MAX+i64::MAX`
+  exact). Shared `bigint_to_expr`/`bigrat_to_expr` in helpers.rs. Code-reviewed
+  (3 finder angles): restored the i64 fast path (~2× on int-heavy loops),
+  consolidated duplicated converters. Known limit: a rational whose num AND den
+  both exceed i64 has no atomic kernel representation (renders as num*den^-1,
+  correct in value) — a kernel BigRational Expr type is the deeper fix.
 
 ## Carried-forward backlog
 

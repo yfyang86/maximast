@@ -11,7 +11,7 @@
 
 use maxima_core::{Expr, SymbolId};
 use num::{BigInt, BigRational, Zero, One, ToPrimitive, Signed};
-use crate::helpers::subst;
+use crate::helpers::{subst, bigrat_to_expr as bigrat_expr};
 use crate::env::Environment;
 use crate::simp::simplify;
 
@@ -21,18 +21,6 @@ fn to_bigrat(e: &Expr) -> Option<BigRational> {
         Expr::BigInt(b) => Some(BigRational::from((**b).clone())),
         Expr::Rational { num, den } => Some(BigRational::new(BigInt::from(*num), BigInt::from(*den))),
         _ => None,
-    }
-}
-
-fn bigint_expr(b: &BigInt) -> Expr {
-    b.to_i64().map(Expr::int).unwrap_or_else(|| Expr::BigInt(Box::new(b.clone())))
-}
-
-fn bigrat_expr(r: &BigRational) -> Expr {
-    if r.denom().is_one() {
-        bigint_expr(r.numer())
-    } else {
-        Expr::div(bigint_expr(r.numer()), bigint_expr(r.denom()))
     }
 }
 
