@@ -2314,21 +2314,20 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
                     let factors = maxima_poly::factor_poly(&poly);
                     let mut eigenvals = Vec::new();
                     let mut multiplicities = Vec::new();
+                    let mut complete = true;
+                    // Each charpoly factor (multiplicity m) contributes its roots
+                    // — rational, irrational, or complex — each with multiplicity m.
                     for (f, m) in &factors {
-                        if f.degree() == Some(1) {
-                            let a = f.leading_coeff();
-                            let b = f.constant_term();
-                            if let Some(root) = b.neg().div(&a) {
-                                let re = match root {
-                                    maxima_poly::Coeff::Int(n) => Expr::int(n),
-                                    maxima_poly::Coeff::Rat(n, d) => Expr::Rational { num: n, den: d },
-                                };
-                                eigenvals.push(re);
+                        if f.degree().unwrap_or(0) == 0 { continue; }
+                        match factor_radical_roots(f) {
+                            Some(roots) => for r in roots {
+                                eigenvals.push(radical_eval(&r));
                                 multiplicities.push(Expr::int(*m as i64));
-                            }
+                            },
+                            None => complete = false, // an unsolvable factor (e.g. casus cubic)
                         }
                     }
-                    if !eigenvals.is_empty() {
+                    if complete && !eigenvals.is_empty() {
                         return Expr::list(vec![Expr::list(eigenvals), Expr::list(multiplicities)]);
                     }
                 }
@@ -7581,6 +7580,16 @@ mod tests {
     fn eval_solve_cubic() {
         let r = run("solve(x^3-6*x^2+11*x-6, x);");
         assert!(r.contains("x = 1") && r.contains("x = 2") && r.contains("x = 3"), "got: {}", r);
+    }
+    #[test]
+    fn eval_eigenvalues_general() {
+        // Irrational (golden ratio) and complex eigenvalues (was a noun).
+        let r = run("eigenvalues(matrix([0,1],[1,1]));");
+        assert!(r.contains("sqrt(5") && r.contains("1/2"), "got {r}");
+        assert_eq!(run("eigenvalues(matrix([0,-1],[1,0]));"), "[[%i,-%i],[1,1]]");
+        // rational + multiplicity regressions
+        assert_eq!(run("eigenvalues(matrix([2,1],[1,2]));"), "[[1,3],[1,1]]");
+        assert_eq!(run("eigenvalues(matrix([2,1,0],[0,2,1],[0,0,2]));"), "[[2],[3]]");
     }
     #[test]
     fn eval_matrix_decomp() {
