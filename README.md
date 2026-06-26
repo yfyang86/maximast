@@ -15,7 +15,7 @@ cargo run -- -b walkthrough/03_calculus.mac    # run walkthrough
 
 ```
 ╔══════════════════════════════════════════════════╗
-║  Maxima Kernel (Rust)  v12.2.0                   ║
+║  Maxima Kernel (Rust)  v12.3.0                   ║
 ║  A Computer Algebra System                       ║
 ╚══════════════════════════════════════════════════╝
 
@@ -127,18 +127,28 @@ solve(x^2 + 1, x);               → [x = %i, x = -%i]            (complex)
 solve(x^2 - 2, x);               → [x = sqrt(2), x = -sqrt(2)]  (radical)
 solve(x^4 - 4*x^2 + 1, x);       → [±sqrt(2±sqrt(3))]           (biquadratic)
 solve(x^3 - 2, x);               → [2^(1/3), 2^(1/3)·ω, 2^(1/3)·ω²]  (Cardano)
-solve(x^3 - 1, x);               → [1, (-1±%i·sqrt(3))/2]
+solve(x^3 + x + 1, x);           → real radical root + 2 complex (general Cardano)
+solve(x^3 - 3*x + 1, x);         → 3 real roots in complex radicals (casus irreducibilis)
+solve(x^4 + x + 1, x);           → 4 roots (Ferrari resolvent cubic)
+solve(x^5 - x - 1, x);           → [x = rootof(x^5-x-1, x, 1), …, x, 5)]  (no radicals)
+float(rootof(x^5-x-1, x, 1));    → 1.167303978261419   (real root first)
+bfloat(rootof(x^5-x-1, x, 1));   → 1.16730397826141868425604589985b0  (Newton-refined)
 linsolve([x+y=a, x-y=b], [x,y]);  → [x = (a+b)/2, y = (a-b)/2]   (symbolic)
 ```
-`solve` factors over ℚ then solves each factor by radicals (quadratic, biquadratic
-quartic, pure-cube Cardano); cases not expressible by these radicals return a noun.
+`solve` factors over ℚ then solves each factor by radicals: quadratic, general
+cubic (Cardano, incl. casus irreducibilis via complex radicals), and general
+quartic (Ferrari). Every radical root is verified numerically (|p(r)| < 1e-6
+over ℂ). Factors with no radical solution (e.g. a general quintic) return
+`rootof(p, x, k)` nouns — all roots via Durand–Kerner, real roots first — which
+`float`/`bfloat` evaluate (real roots refined to full precision by Newton).
 
 ### Root analysis
 ```
 sturm(x^3-2*x-5, x);     → [x^3-2*x-5, 3*x^2-2, (4/3)*x+5, -643/16]  (Sturm chain)
 nroots(x^5-x-1);         → 1     (distinct real roots over the Cauchy bound)
 nroots(x^4+1);           → 0
-realroots(x^2-2);        → float approximations of ±sqrt(2)
+realroots(x^2-2);        → [x = -97184015997/68719476736, x = 97184015997/68719476736]  (exact rationals within eps)
+realroots(x^3-x);        → [x = -1, x = 0, x = 1]   (exact rational roots)
 ```
 
 ### Summation & Creative Telescoping
@@ -196,6 +206,18 @@ zeta(3.0);                           → 1.202056903159729   (Apéry)
 lambert_w(1.0);                      → 0.567143290409784   (Omega)
 polylog(2, 1);                       → %pi^2/6
 ```
+
+### Arbitrary-precision bigfloats
+```
+fpprec: 40;  bfloat(%pi);    → 3.141592653589793238462643383279502884197b0
+bfloat(sqrt(2));             → 1.414213562373095048801688724209698078569b0
+bfloat(%pi + %e);            → 5.859874482048838473822930854632165381954b0
+bfloat(%pi)*2;               → contagion: arithmetic with a bigfloat stays bigfloat
+```
+`bfloat(expr)` evaluates the whole expression to `fpprec` digits via an
+arbitrary-precision backend (astro-float): constants (`%pi`, `%e`, `%phi`,
+`%gamma`), arithmetic, powers, and elementary functions. A bigfloat mixed with
+other numbers in `+`/`*`/`^` folds at the widest operand precision.
 
 ### Assumptions
 ```

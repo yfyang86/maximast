@@ -35,6 +35,8 @@ pub fn to_f64(expr: &Expr) -> Option<f64> {
         Expr::Integer(n) => Some(*n as f64),
         Expr::Float(f) => Some(*f),
         Expr::Rational { num, den } => Some(*num as f64 / *den as f64),
+        // The stored decimal (e.g. "3.1415...e+0") parses directly as f64.
+        Expr::BigFloat(b) => b.digits.parse::<f64>().ok(),
         _ => None,
     }
 }
@@ -178,7 +180,7 @@ pub fn has_free_variable(expr: &Expr) -> bool {
             !reserved.contains(&name.as_str())
         }
         Expr::Integer(_) | Expr::Float(_) | Expr::Rational { .. }
-        | Expr::BigInt(_) | Expr::String(_) => false,
+        | Expr::BigInt(_) | Expr::BigFloat(_) | Expr::String(_) => false,
         Expr::List { args, .. } => args.iter().any(has_free_variable),
     }
 }
@@ -282,6 +284,11 @@ pub fn expr_to_float(expr: &Expr) -> Expr {
         }
         Expr::List { op: Operator::MList, args, .. } => {
             Expr::list(args.iter().map(|a| expr_to_float(a)).collect())
+        }
+        Expr::List { op: Operator::Named(id), args, .. }
+            if maxima_core::resolve(*id) == "rootof" =>
+        {
+            crate::rootof::eval_rootof_float(args).unwrap_or_else(|| expr.clone())
         }
         Expr::List { op: Operator::MPlus, args, .. } => {
             let floated: Vec<Expr> = args.iter().map(|a| expr_to_float(a)).collect();

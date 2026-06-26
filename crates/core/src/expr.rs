@@ -4,12 +4,24 @@ use num::BigInt;
 
 use crate::{Operator, SymbolId, resolve};
 
+/// An arbitrary-precision float. The value is kept as the decimal string
+/// produced by the bigfloat backend (astro-float `Radix::Dec` format, e.g.
+/// `"3.14159...e+0"`) together with its working precision in bits, so `core`
+/// needs no bignum-float dependency — all computation happens in the evaluator
+/// and only the rendered value and its precision are stored here.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BigFloatVal {
+    pub digits: Box<str>,
+    pub bits: u32,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     Integer(i64),
     BigInt(Box<BigInt>),
     Rational { num: i64, den: i64 },
     Float(f64),
+    BigFloat(Box<BigFloatVal>),
     Symbol(SymbolId),
     String(Box<str>),
     List {
@@ -114,6 +126,33 @@ fn format_float_maxima(x: f64) -> String {
     }
 }
 
+/// Render a backend decimal string (`"3.1415...e+0"`, `"8.41...e-1"`) in
+/// Maxima bigfloat notation (`"3.1415...b0"`, `"8.41...b-1"`). The exponent
+/// marker `e` becomes `b`; a `+` sign on the exponent is dropped.
+fn format_bigfloat_maxima(digits: &str) -> String {
+    match digits.split_once(['e', 'E']) {
+        Some((mantissa, exp)) => {
+            let exp = exp.strip_prefix('+').unwrap_or(exp);
+            format!("{mantissa}b{exp}")
+        }
+        None => format!("{digits}b0"),
+    }
+}
+
+impl BigFloatVal {
+    pub fn is_negative(&self) -> bool {
+        self.digits.starts_with('-')
+    }
+    /// The value with its sign flipped (toggles a leading `-`).
+    pub fn negated(&self) -> BigFloatVal {
+        let digits = match self.digits.strip_prefix('-') {
+            Some(rest) => rest.to_string(),
+            None => format!("-{}", self.digits),
+        };
+        BigFloatVal { digits: digits.into_boxed_str(), bits: self.bits }
+    }
+}
+
 fn needs_parens_in_product(expr: &Expr) -> bool {
     match expr {
         Expr::List { op: Operator::MPlus, .. } => true,
@@ -159,6 +198,7 @@ fn is_negative_term(expr: &Expr) -> bool {
     match expr {
         Expr::Integer(n) => *n < 0,
         Expr::Float(f) => *f < 0.0,
+        Expr::BigFloat(b) => b.is_negative(),
         Expr::Rational { num, den } => (*num < 0) != (*den < 0),
         Expr::List { op: Operator::MTimes, args, .. } => {
             if let Some(first) = args.first() {
@@ -175,6 +215,7 @@ fn negate_term(expr: &Expr) -> Expr {
     match expr {
         Expr::Integer(n) => Expr::Integer(-n),
         Expr::Float(f) => Expr::Float(-f),
+        Expr::BigFloat(b) => Expr::BigFloat(Box::new(b.negated())),
         Expr::Rational { num, den } => Expr::Rational { num: -num, den: *den },
         Expr::List { op: Operator::MTimes, args, simplified } => {
             if let Some(first) = args.first() {
@@ -217,6 +258,7 @@ impl fmt::Display for Expr {
                     write!(f, "{}", format_float_maxima(*x))
                 }
             }
+            Expr::BigFloat(b) => write!(f, "{}", format_bigfloat_maxima(&b.digits)),
             Expr::Symbol(id) => write!(f, "{}", resolve(*id)),
             Expr::String(s) => write!(f, "\"{}\"", s),
             Expr::List { op, args, .. } => match op {
