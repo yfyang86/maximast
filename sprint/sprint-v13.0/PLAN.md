@@ -87,3 +87,11 @@ hash-consing), parser robustness (Result-based parser), 0i (gruntz limit bugs),
 - **0a** ✅ exact symbolic Gauss–Jordan in `eval_linsolve` (was f64,
   `to_f64(e).unwrap_or(0.0)` zeroed symbolic RHS → `[x=0,y=0]`). Now correct;
   singular→noun. (`solve(a*x=b)` symbolic-linear + fuller ratsimp deferred.)
+- **3c** ✅ special-function numerics in `specfun_num.rs`: `zeta` (exact
+  even values %pi^2/6,%pi^4/90,…; Euler–Maclaurin numeric: zeta(3.0)=1.20206),
+  `lambert_w` (Halley: 1.0→0.56714), `polylog` (Li_2(1)=%pi^2/6, series numeric).
+  f64; arbitrary precision follows a bigfloat backend.
+
+## Bundle 2 self-contained items DONE (1a-i/ii, 1b, 3a, 3b, 3c, 3d). Remaining:
+RootOf + general Cardano/Ferrari, 1c bigfloat (both architectural — sign-off),
+eigenvectors for non-rational eigenvalues, exact realroots intervals.
