@@ -38,7 +38,14 @@ eigen · 3c special-function numeric eval · 3d numeric solvers/quadrature/ODE.
   integrate (polynomial-gated) + symbolic `∫x^n`; 0g numeric `fib`/`lucas`
   (`find_recurrence(fib(n))=[-1,-1,1]`). Bundle 1 cheap items done. Remaining/deferred: 0f (→ infra 1e fast poly-expand/
 hash-consing), parser robustness (Result-based parser), 0i (gruntz limit bugs),
-0j (`1/(1/2)` simplify). Next: 0i (gruntz limit bugs), then Bundle 2.
+0j (`1/(1/2)` simplify). Bundle 1 essentially done. Next: Bundle 2 (Solve & numbers).
+- **0i** ◑ (partial) limit pre-pass fixes: positive *rational* leading
+  coefficient was misread as negative (`limit((x^2+x)/2,x,inf)` gave minf →
+  now inf) via `coeff_positive`; rational `ndeg>ddeg` now carries the
+  leading-ratio sign (`-x^3/(x+1)→minf`). The remaining cases are Gruntz
+  omega-rewrite-internals bugs — `1-1/(x+1)→0`, `2-3/(x^2+1)→-1`,
+  `2-(1/2)^x→0` — deferred to a **limit-engine hardening** task (patching
+  Gruntz internals risks the many working exp/log limits).
 - **0j** ✅ `simplify_power` folds `(n/d)^e` for `|e|>=1` (was `>=2`), so the
   reciprocal `(1/2)^(-1)=2`, `1/(2/3)=3/2`, `3/(1/2)=6`. Also cleaned up the
   symbolic `linsolve` fraction forms as a side benefit.
