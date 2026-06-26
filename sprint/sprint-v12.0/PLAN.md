@@ -22,7 +22,7 @@ form.
 | Sprint | Content | Status |
 |--------|---------|--------|
 | **T1** | `find_recurrence(expr,n)` — minimal linear P-recurrence of a D-finite sequence via exact sampling + null-space, verified. (Zeilberger-package spirit.) | ✅ |
-| **T2** | Solve found recurrences to closed form when possible (order-1 already; order-2 hypergeometric via Petkovšek/d'Alembertian); wire into `sum`/`integrate`. | 📋 |
+| **T2** | `solve_rec(expr,n)` — closed form of C-finite (constant-coeff) sequences via characteristic roots. | ✅ (C-finite, rational roots) |
 | **T3** | Trager/Hermite on cubic+ curves: ∫P(x)/√C (deg C≥3) — elementary R·√C iff reducible, else nonelementary. | ✅ (∫P/√C case) |
 | **T4** | Certificate-based proof: turn a sampled recurrence into a verified telescoping certificate. | 📋 |
 
@@ -36,6 +36,13 @@ integrate((x^2+1)/sqrt(x^3+x), x)                     → elementary
 integrate(1/sqrt(x^3+1), x)                           → NONELEMENTARY (noun)
 ```
 
+- **T2** — ✅ (C-finite case) `recurrence.rs` `solve_rec(expr,n)`: find the
+  recurrence; if constant-coefficient with distinct rational characteristic
+  roots, return the closed form Σ A_i r_i^n (A_i from a Vandermonde fit to the
+  initial values, verified on held-out samples). `solve_rec(3*2^n-5,n)=-5+3*2^n`,
+  `solve_rec(5^n-2*4^n,n)`. Variable-coefficient (Franel, n!) and
+  irrational/repeated roots → noun. (Full Petkovšek for variable-coefficient
+  hypergeometric solutions, and repeated/irrational roots, remain.)
 - **P2** — ✅ Recursive multivariate GCD (primitive PRS over Q) in
   `crates/poly/src/mpoly_recgcd.rs`, replacing the incomplete Kronecker GCD:
   `gcd(x^2-y^2,(x+y)^2)=x+y`, `gcd(x+y,x-y)=1` (coprime detected). Wired into
