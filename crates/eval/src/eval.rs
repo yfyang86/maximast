@@ -2405,18 +2405,31 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
             Expr::call("eigenvectors", evaled_args)
         }
         "rank" => {
-            if let Some(Expr::List { op: Operator::MMatrix, args: rows, .. }) = evaled_args.first() {
-                let mut mat: Vec<Vec<f64>> = Vec::new();
-                for row in rows {
-                    if let Expr::List { op: Operator::MList, args: cols, .. } = row {
-                        let r: Vec<f64> = cols.iter().map(|c| to_f64(c).unwrap_or(0.0)).collect();
-                        mat.push(r);
-                    }
-                }
-                let r = numeric_rank(&mat);
-                return Expr::int(r as i64);
+            // Exact rank = number of pivots from exact Gaussian elimination
+            // (the old f64 path was silently wrong on symbolic/large entries).
+            if let Some(m) = evaled_args.first().and_then(mat_rows) {
+                let mut mm = m;
+                let pivots = gauss_eliminate(&mut mm, false, env);
+                return Expr::int(pivots.len() as i64);
             }
             Expr::call("rank", evaled_args)
+        }
+        "triangularize" | "echelon" | "rref" | "rowreduce" => {
+            // triangularize → upper triangular; echelon/rref → reduced row
+            // echelon form (pivots normalized to 1).
+            if let Some(m) = evaled_args.first().and_then(mat_rows) {
+                let reduced = func_name != "triangularize";
+                let mut mm = m;
+                gauss_eliminate(&mut mm, reduced, env);
+                return rows_to_matrix(mm);
+            }
+            Expr::call(&func_name, evaled_args)
+        }
+        "nullspace" => {
+            if let Some(m) = evaled_args.first().and_then(mat_rows) {
+                return matrix_nullspace(&m, env);
+            }
+            Expr::call("nullspace", evaled_args)
         }
         "trigexpand" => {
             if let Some(arg) = evaled_args.first() {
@@ -3104,6 +3117,80 @@ fn eval_ev(args: &[Expr], env: &mut Environment) -> Expr {
 
 fn poly_coeff_at(p: &maxima_poly::Poly, e: u32) -> maxima_poly::Coeff {
     p.terms.iter().find(|(x, _)| *x == e).map(|(_, c)| c.clone()).unwrap_or_else(maxima_poly::Coeff::zero)
+}
+
+/// Extract an MMatrix expression as Vec<Vec<Expr>> (rows of MList).
+fn mat_rows(e: &Expr) -> Option<Vec<Vec<Expr>>> {
+    if let Expr::List { op: Operator::MMatrix, args: rows, .. } = e {
+        let mut m = Vec::with_capacity(rows.len());
+        for row in rows {
+            if let Expr::List { op: Operator::MList, args: cols, .. } = row {
+                m.push(cols.clone());
+            } else { return None; }
+        }
+        if m.is_empty() || m.iter().any(|r| r.len() != m[0].len()) { return None; }
+        Some(m)
+    } else { None }
+}
+
+fn rows_to_matrix(m: Vec<Vec<Expr>>) -> Expr {
+    Expr::List {
+        op: Operator::MMatrix, simplified: false,
+        args: m.into_iter().map(Expr::list).collect(),
+    }
+}
+
+/// Exact Gaussian elimination over Expr entries (meval for arithmetic).
+/// `reduced` ⇒ RREF (normalize pivots to 1, clear above & below); else upper
+/// triangular (clear below only). Returns the pivot column indices.
+fn gauss_eliminate(m: &mut Vec<Vec<Expr>>, reduced: bool, env: &mut Environment) -> Vec<usize> {
+    let rows = m.len();
+    if rows == 0 { return Vec::new(); }
+    let cols = m[0].len();
+    let is_zero = |e: &Expr| matches!(simplify(e), Expr::Integer(0));
+    let mut pivots = Vec::new();
+    let mut r = 0;
+    for c in 0..cols {
+        if r >= rows { break; }
+        let Some(pr) = (r..rows).find(|&i| !is_zero(&m[i][c])) else { continue };
+        m.swap(r, pr);
+        if reduced {
+            let piv = m[r][c].clone();
+            for j in 0..cols { m[r][j] = meval(&Expr::div(m[r][j].clone(), piv.clone()), env); }
+        }
+        let piv = m[r][c].clone();
+        let lo = if reduced { 0 } else { r + 1 };
+        for i in lo..rows {
+            if i != r && !is_zero(&m[i][c]) {
+                let factor = meval(&Expr::div(m[i][c].clone(), piv.clone()), env);
+                for j in 0..cols {
+                    m[i][j] = meval(&Expr::sub(m[i][j].clone(), Expr::mul(factor.clone(), m[r][j].clone())), env);
+                }
+            }
+        }
+        pivots.push(c);
+        r += 1;
+    }
+    pivots
+}
+
+/// Null-space basis of a matrix (columns v with M·v = 0), as a list of column
+/// matrices — one per free (non-pivot) column.
+fn matrix_nullspace(m: &[Vec<Expr>], env: &mut Environment) -> Expr {
+    let cols = m[0].len();
+    let mut rref = m.to_vec();
+    let pivots = gauss_eliminate(&mut rref, true, env);
+    let pivot_set: std::collections::HashSet<usize> = pivots.iter().copied().collect();
+    let mut basis = Vec::new();
+    for free in (0..cols).filter(|c| !pivot_set.contains(c)) {
+        let mut v = vec![Expr::int(0); cols];
+        v[free] = Expr::int(1);
+        for (p, &pc) in pivots.iter().enumerate() {
+            v[pc] = meval(&Expr::neg(rref[p][free].clone()), env);
+        }
+        basis.push(rows_to_matrix(v.into_iter().map(|x| vec![x]).collect()));
+    }
+    Expr::list(basis)
 }
 
 fn coeff_to_expr_c(c: &maxima_poly::Coeff) -> Expr {
@@ -6041,42 +6128,6 @@ fn eval_linsolve(eqs: &[Expr], vars: &[Expr], env: &mut Environment) -> Expr {
     Expr::list(result)
 }
 
-fn numeric_rank(mat: &[Vec<f64>]) -> usize {
-    let m = mat.len();
-    if m == 0 { return 0; }
-    let n = mat[0].len();
-    let mut work: Vec<Vec<f64>> = mat.to_vec();
-    let mut rank = 0;
-    let mut col = 0;
-    for row in 0..m {
-        if col >= n { break; }
-        let mut pivot = None;
-        for r in row..m {
-            if work[r][col].abs() > 1e-12 {
-                pivot = Some(r);
-                break;
-            }
-        }
-        match pivot {
-            Some(pr) => {
-                work.swap(row, pr);
-                let pv = work[row][col];
-                for r in (row + 1)..m {
-                    let f = work[r][col] / pv;
-                    for c in col..n {
-                        let val = work[row][c];
-                        work[r][c] -= f * val;
-                    }
-                }
-                rank += 1;
-            }
-            None => {}
-        }
-        col += 1;
-    }
-    rank
-}
-
 /// Evaluate a string input and return the result as a string.
 pub fn eval_str(input: &str) -> String {
     let mut env = Environment::new();
@@ -7530,6 +7581,17 @@ mod tests {
     fn eval_solve_cubic() {
         let r = run("solve(x^3-6*x^2+11*x-6, x);");
         assert!(r.contains("x = 1") && r.contains("x = 2") && r.contains("x = 3"), "got: {}", r);
+    }
+    #[test]
+    fn eval_matrix_decomp() {
+        assert_eq!(run("rank(matrix([1,2],[2,4]));"), "1");
+        assert_eq!(run("rank(matrix([1,2],[3,4]));"), "2");
+        // exact symbolic rank (the old f64 path was silently wrong)
+        assert_eq!(run("rank(matrix([a,b],[2*a,2*b]));"), "1");
+        assert_eq!(run("rref(matrix([1,2,3],[4,5,6]));"), "matrix([1,0,-1],[0,1,2])");
+        assert_eq!(run("triangularize(matrix([1,2],[3,4]));"), "matrix([1,2],[0,-2])");
+        // nullspace vector satisfies M*v=0
+        assert_eq!(run("nullspace(matrix([1,2],[2,4]));"), "[matrix([-2],[1])]");
     }
     #[test]
     fn eval_sturm_nroots() {
