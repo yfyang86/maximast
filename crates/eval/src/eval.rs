@@ -1205,32 +1205,32 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
                             if result.to_string().starts_with("integrate"));
 
                         if have_antideriv {
-                            // Infinite bounds: use limits
+                            // Infinite bounds: use limits. Any candidate that still
+                            // contains inf/minf/und is a failed limit (e.g. an
+                            // unresolved atan(inf/√2)); fall through to a noun
+                            // rather than leak it into the output.
                             if is_inf(b) && !is_inf(a) && !is_minf(a) {
                                 let fa = meval(&subst(a, var, &result), env);
-                                let lim = crate::gruntz::gruntz_limit(&result, var);
-                                if let Some(fb) = lim {
-                                    if !matches!(&fb, Expr::Symbol(id) if { let n = resolve(*id); n == "inf" || n == "minf" || n == "und" }) {
-                                        // meval (not simplify) so named-function limit
-                                        // values like erf(inf) collapse: ∫₀^∞ exp(-x²)=√π/2.
-                                        return meval(&Expr::sub(fb, fa), env);
-                                    }
+                                if let Some(fb) = crate::gruntz::gruntz_limit(&result, var) {
+                                    let cand = meval(&Expr::sub(fb, fa), env);
+                                    if !contains_inf_sym(&cand) { return cand; }
                                 }
                             } else if is_minf(a) && is_inf(b) {
                                 // (-∞, ∞): need both limits
                                 let lim_pos = crate::gruntz::gruntz_limit(&result, var);
-                                // For -∞: substitute x → -x, take limit as x → ∞
                                 let neg_var = Expr::neg(var.clone());
                                 let result_neg = simplify(&subst(&neg_var, var, &result));
                                 let lim_neg = crate::gruntz::gruntz_limit(&result_neg, var);
                                 if let (Some(fp), Some(fn_)) = (lim_pos, lim_neg) {
-                                    return meval(&Expr::sub(fp, fn_), env);
+                                    let cand = meval(&Expr::sub(fp, fn_), env);
+                                    if !contains_inf_sym(&cand) { return cand; }
                                 }
                             } else {
                                 // Finite bounds
                                 let fa = meval(&subst(a, var, &result), env);
                                 let fb = meval(&subst(b, var, &result), env);
-                                return simplify(&Expr::sub(fb, fa));
+                                let cand = simplify(&Expr::sub(fb, fa));
+                                if !contains_inf_sym(&cand) { return cand; }
                             }
                         }
 
@@ -1246,6 +1246,9 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
                     if let Some(res) = crate::hypersum::try_parametric_integral(f, var, a, b, env) {
                         return res;
                     }
+                    // A definite integral we couldn't evaluate: return the noun,
+                    // not the indefinite antiderivative (which would be wrong).
+                    return Expr::call("integrate", evaled_args);
                 }
                 return result;
             }
@@ -3080,6 +3083,16 @@ fn eval_ev(args: &[Expr], env: &mut Environment) -> Expr {
     let result = meval(&base_expr, env);
     env.pop_scope();
     result
+}
+
+/// True if the expression mentions inf/minf/infinity/und anywhere — used to
+/// reject a definite-integral candidate whose limit failed to resolve.
+fn contains_inf_sym(e: &Expr) -> bool {
+    match e {
+        Expr::Symbol(id) => matches!(resolve(*id).as_str(), "inf" | "minf" | "infinity" | "und"),
+        Expr::List { args, .. } => args.iter().any(contains_inf_sym),
+        _ => false,
+    }
 }
 
 fn eval_sum(args: &[Expr], env: &mut Environment) -> Expr {
@@ -7379,6 +7392,20 @@ mod tests {
         // Expand-before-integrate for polynomial integrands (was a noun).
         assert_eq!(run("integrate(x^2*(x+1), x);"), "x^3/3+x^4/4");
         assert_eq!(run("integrate((1-x)^4, x, 0, 1);"), "1/5");
+    }
+    #[test]
+    fn eval_improper_integral_no_inf_leak() {
+        // Unevaluable improper integrals → noun, never an `inf`-containing result.
+        for s in ["integrate(1/(1+x^4), x, minf, inf);",
+                  "integrate(x^2/(x^4+1), x, 0, inf);",
+                  "integrate(1/(1+x^3), x, 0, inf);"] {
+            let r = run(s);
+            assert!(r.contains("integrate("), "expected noun, got {r}");
+            assert!(!r.contains("inf/") && !r.contains("(inf") && !r.contains("minf"), "inf leaked: {r}");
+        }
+        // The ones that genuinely resolve must still work.
+        assert_eq!(run("integrate(1/(x^2+1), x, minf, inf);"), "%pi");
+        assert_eq!(run("integrate(exp(-x), x, 0, inf);"), "1");
     }
     #[test]
     fn eval_infinite_geometric() {
