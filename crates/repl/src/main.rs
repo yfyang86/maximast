@@ -291,7 +291,7 @@ fn run_script(content: &str, quiet: bool) -> i32 {
 fn print_banner(color: bool) {
     if color {
         println!("{BOLD}{BLUE}╔══════════════════════════════════════════════════╗{RESET}");
-        println!("{BOLD}{BLUE}║{RESET}  {BOLD}Maxima Kernel{RESET} {DIM}(Rust){RESET}  {YELLOW}v{VERSION}{RESET}  {BOLD}    /\\_/\\ {RESET}   ╔══╗ {BOLD}{BLUE}║{RESET}");
+        println!("{BOLD}{BLUE}║{RESET}  {BOLD}Maxima Kernel{RESET} {DIM}(Rust){RESET}  {YELLOW}v{VERSION}{RESET}  {BOLD}   /\\_/\\ {RESET}   ╔══╗ {BOLD}{BLUE}║{RESET}");
         println!("{BOLD}{BLUE}║{RESET}  {DIM}A Computer Algebra System{RESET}        {BOLD}( o.o ) {RESET}  ║⊙⊙║ {BOLD}{BLUE}║{RESET}");
         println!("{BOLD}{BLUE}║{RESET}  {DIM}MIT / Apache-2.0{RESET}                {BOLD}  > ^ < {RESET}   ╚══╝ {BOLD}{BLUE}║{RESET}");
         println!("{BOLD}{BLUE}║{RESET}  {DIM}Author: Yifan Yang{RESET}              {BOLD} /     \\{RESET}   ╲__╱ {BOLD}{BLUE}║{RESET}");
