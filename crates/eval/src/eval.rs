@@ -3158,6 +3158,35 @@ fn factor_radical_roots(f: &maxima_poly::Poly) -> Option<Vec<Expr>> {
             &coeff_to_expr_c(&poly_coeff_at(f, 1)),
             &coeff_to_expr_c(&poly_coeff_at(f, 0)),
         )),
+        3 => {
+            // Depress monic x³+B x²+C x+D → t³+p t+q via t = x − B/3. Handle the
+            // pure-cube case p=0 (t³=−q) with the three cube roots k^(1/3)·ω^j;
+            // the general/casus-irreducibilis cubic is deferred (→ None).
+            let lead = coeff_to_expr_c(&poly_coeff_at(f, 3));
+            let bb = radical_eval(&Expr::div(coeff_to_expr_c(&poly_coeff_at(f, 2)), lead.clone()));
+            let cc = radical_eval(&Expr::div(coeff_to_expr_c(&poly_coeff_at(f, 1)), lead.clone()));
+            let dd = radical_eval(&Expr::div(coeff_to_expr_c(&poly_coeff_at(f, 0)), lead));
+            // p = C − B²/3
+            let p = radical_eval(&Expr::sub(cc.clone(),
+                Expr::div(Expr::pow(bb.clone(), Expr::int(2)), Expr::int(3))));
+            if p != Expr::int(0) { return None; }
+            // q = 2B³/27 − B·C/3 + D ; t³ = −q
+            let q = radical_eval(&Expr::add(
+                Expr::sub(Expr::div(Expr::mul(Expr::int(2), Expr::pow(bb.clone(), Expr::int(3))), Expr::int(27)),
+                          Expr::div(Expr::mul(bb.clone(), cc), Expr::int(3))),
+                dd));
+            let k = radical_eval(&Expr::neg(q));
+            let cbrt = radical_eval(&Expr::pow(k, Expr::Rational { num: 1, den: 3 }));
+            let shift = radical_eval(&Expr::div(bb, Expr::int(3)));
+            // ω = (−1+%i√3)/2, ω² = (−1−%i√3)/2
+            let isqrt3 = Expr::mul(Expr::sym("%i"), Expr::call("sqrt", vec![Expr::int(3)]));
+            let omega = Expr::div(Expr::add(Expr::int(-1), isqrt3.clone()), Expr::int(2));
+            let omega2 = Expr::div(Expr::sub(Expr::int(-1), isqrt3), Expr::int(2));
+            let roots: Vec<Expr> = [Expr::int(1), omega, omega2].into_iter()
+                .map(|w| radical_eval(&Expr::sub(Expr::mul(w, cbrt.clone()), shift.clone())))
+                .collect();
+            Some(roots)
+        }
         4 if poly_coeff_at(f, 3) == zero && poly_coeff_at(f, 1) == zero => {
             // a·x⁴ + c·x² + e: roots are ±√u for the roots u of a·u²+c·u+e.
             let us = quad_radical_roots(
@@ -7501,6 +7530,15 @@ mod tests {
     fn eval_solve_cubic() {
         let r = run("solve(x^3-6*x^2+11*x-6, x);");
         assert!(r.contains("x = 1") && r.contains("x = 2") && r.contains("x = 3"), "got: {}", r);
+    }
+    #[test]
+    fn eval_solve_cubic_cardano() {
+        // Pure depressed cube x^3 = k: real cube root + two complex (Cardano).
+        let r = run("solve(x^3-2, x);");
+        assert!(r.contains("2^(1/3)") && r.contains("%i"), "got {r}");
+        assert_eq!(r.matches("x =").count(), 3);
+        // casus irreducibilis (3 real roots) deferred → noun, not a wrong answer.
+        assert!(run("solve(x^3-3*x+1, x);").contains("solve("));
     }
     #[test]
     fn eval_solve_radical() {

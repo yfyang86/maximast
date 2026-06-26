@@ -24,7 +24,10 @@ discipline: **compute → verify → return; correct-or-noun, never wrong.**
   `solve(x^2+1)=±%i`, `solve(x^4-5x^2+6)=±√2,±√3`, `solve(x^4-4x^2+1)=±√(2±√3)`,
   `solve(x^4-1)=±1,±%i`, `solve(x^3-1)=1,(-1±%i√3)/2`. (Used meval for radicand
   reduction — simplify alone doesn't reduce div(12,4)→3, a noted gap.)
-  TODO: general Cardano (irreducible cubic `x^3-2`), Ferrari (general quartic),
+- **1a-ii** ◑ Cardano pure-cube (`solve(x^3-2)=2^(1/3),2^(1/3)ω,2^(1/3)ω²`): depress
+  to t³+pt+q, handle p=0 (t³=−q → k^(1/3)·ω^j). Casus irreducibilis (p≠0, 3 real
+  roots) deferred → noun.
+  TODO: general Cardano (p≠0), Ferrari (general quartic),
   `RootOf` object (architectural — sign-off first), `polysys_solve` cascade.
 
 
