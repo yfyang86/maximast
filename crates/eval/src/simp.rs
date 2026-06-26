@@ -1,76 +1,72 @@
 use maxima_core::{Expr, Operator};
+use num::{BigInt, BigRational, Zero, One, ToPrimitive};
+use crate::helpers::bigrat_to_expr;
 
 /// Coefficient of a like-term during sum collection. Rationals are kept exact
-/// so that e.g. (1/2)*x + (-1/2)*x cancels to 0; any contact with a float
-/// coefficient degrades to float (preserving prior behavior, no exactness
-/// claim for floats).
-#[derive(Clone, Copy, PartialEq)]
+/// (arbitrary precision) so that e.g. (1/2)*x + (-1/2)*x cancels to 0 and large
+/// integer/rational sums never overflow; any contact with a float coefficient
+/// degrades to float (preserving prior behavior, no exactness claim for floats).
+#[derive(Clone, PartialEq)]
 enum Coef {
-    Rat(i64, i64), // num/den, den > 0, reduced
+    Rat(BigRational),
     Flt(f64),
 }
 
 impl Coef {
+    fn zero() -> Coef { Coef::Rat(BigRational::zero()) }
+    fn one() -> Coef { Coef::Rat(BigRational::one()) }
+    fn int(n: i64) -> Coef { Coef::Rat(BigRational::from(BigInt::from(n))) }
+    fn from_bigint(b: BigInt) -> Coef { Coef::Rat(BigRational::from(b)) }
+    fn from_bigrat(r: BigRational) -> Coef { Coef::Rat(r) }
+
     fn rat(num: i64, den: i64) -> Coef {
         if den == 0 { return Coef::Flt(f64::NAN); }
-        let sign = if (num < 0) ^ (den < 0) { -1i64 } else { 1 };
-        let (mut a, mut b) = (num.unsigned_abs(), den.unsigned_abs());
-        while b != 0 { let t = b; b = a % b; a = t; }
-        let g = a.max(1);
-        let n = (num.unsigned_abs() / g) as i64 * sign;
-        let d = (den.unsigned_abs() / g) as i64;
-        Coef::Rat(n, d)
+        Coef::Rat(BigRational::new(BigInt::from(num), BigInt::from(den)))
     }
 
-    fn add(self, other: Coef) -> Coef {
+    fn add(&self, other: &Coef) -> Coef {
         match (self, other) {
-            (Coef::Rat(a, b), Coef::Rat(c, d)) => {
-                // a/b + c/d = (a*d + c*b)/(b*d)
-                let n = a * d + c * b;
-                let den = b * d;
-                Coef::rat(n, den)
-            }
+            (Coef::Rat(a), Coef::Rat(b)) => Coef::Rat(a + b),
             (x, y) => Coef::Flt(x.to_f64() + y.to_f64()),
         }
     }
 
-    fn to_f64(self) -> f64 {
+    fn to_f64(&self) -> f64 {
         match self {
-            Coef::Rat(n, d) => n as f64 / d as f64,
-            Coef::Flt(f) => f,
+            Coef::Rat(r) => r.to_f64().unwrap_or(f64::NAN),
+            Coef::Flt(f) => *f,
         }
     }
 
-    fn is_zero(self) -> bool {
+    fn is_zero(&self) -> bool {
         match self {
-            Coef::Rat(n, _) => n == 0,
-            Coef::Flt(f) => f == 0.0,
+            Coef::Rat(r) => r.is_zero(),
+            Coef::Flt(f) => *f == 0.0,
         }
     }
 
     /// Render this coefficient as a standalone numeric expression.
-    fn to_expr(self) -> Expr {
+    fn to_expr(&self) -> Expr {
         match self {
-            Coef::Rat(n, 1) => Expr::int(n),
-            Coef::Rat(n, d) => Expr::Rational { num: n, den: d },
-            Coef::Flt(f) => Expr::Float(f),
+            Coef::Rat(r) => bigrat_to_expr(r),
+            Coef::Flt(f) => Expr::Float(*f),
         }
     }
 
     /// Build `coef * base`, normalizing the common small cases.
-    fn times(self, base: Expr) -> Option<Expr> {
+    fn times(&self, base: Expr) -> Option<Expr> {
         match self {
-            Coef::Rat(0, _) => None,
-            Coef::Rat(1, 1) => Some(base),
-            Coef::Rat(-1, 1) => Some(Expr::neg(base)),
-            Coef::Rat(n, 1) => Some(Expr::mul(Expr::int(n), base)),
-            Coef::Rat(n, d) => Some(Expr::mul(Expr::Rational { num: n, den: d }, base)),
-            Coef::Flt(f) if f == 0.0 => None,
-            Coef::Flt(f) if f == 1.0 => Some(base),
-            Coef::Flt(f) if f == -1.0 => Some(Expr::neg(base)),
-            Coef::Flt(f) if f == f.floor() && f.abs() < i64::MAX as f64 =>
-                Some(Expr::mul(Expr::int(f as i64), base)),
-            Coef::Flt(f) => Some(Expr::mul(Expr::Float(f), base)),
+            Coef::Rat(r) if r.is_zero() => None,
+            Coef::Rat(r) if r.is_one() => Some(base),
+            Coef::Rat(r) if r.denom().is_one() && r.numer() == &BigInt::from(-1) =>
+                Some(Expr::neg(base)),
+            Coef::Rat(r) => Some(Expr::mul(bigrat_to_expr(r), base)),
+            Coef::Flt(f) if *f == 0.0 => None,
+            Coef::Flt(f) if *f == 1.0 => Some(base),
+            Coef::Flt(f) if *f == -1.0 => Some(Expr::neg(base)),
+            Coef::Flt(f) if *f == f.floor() && f.abs() < i64::MAX as f64 =>
+                Some(Expr::mul(Expr::int(*f as i64), base)),
+            Coef::Flt(f) => Some(Expr::mul(Expr::Float(*f), base)),
         }
     }
 }
@@ -81,7 +77,8 @@ fn extract_coeff_c(expr: &Expr) -> (Coef, Expr) {
     if let Expr::List { op: Operator::MTimes, args, .. } = expr {
         if !args.is_empty() {
             let coef = match &args[0] {
-                Expr::Integer(n) => Some(Coef::Rat(*n, 1)),
+                Expr::Integer(n) => Some(Coef::int(*n)),
+                Expr::BigInt(b) => Some(Coef::from_bigint((**b).clone())),
                 Expr::Rational { num, den } => Some(Coef::rat(*num, *den)),
                 Expr::Float(f) => Some(Coef::Flt(*f)),
                 _ => None,
@@ -99,10 +96,10 @@ fn extract_coeff_c(expr: &Expr) -> (Coef, Expr) {
             // No numeric leading factor: canonicalize the product as the base.
             let mut sorted = args.clone();
             sorted.sort_by(|a, b| expr_sort_key(a).cmp(&expr_sort_key(b)));
-            return (Coef::Rat(1, 1), Expr::List { op: Operator::MTimes, simplified: true, args: sorted });
+            return (Coef::one(), Expr::List { op: Operator::MTimes, simplified: true, args: sorted });
         }
     }
-    (Coef::Rat(1, 1), expr.clone())
+    (Coef::one(), expr.clone())
 }
 
 /// Simplify an expression: collect like terms, flatten nested ops, canonical ordering.
@@ -243,59 +240,47 @@ fn simplify_plus(args: &[Expr]) -> Expr {
         return Expr::list(new_items);
     }
 
-    // Separate numeric and symbolic, collect like terms
-    let mut num_sum: i64 = 0;
+    // Separate numeric and symbolic, collect like terms. The common all-small-
+    // integer case stays on a fast i64 accumulator; it promotes to an exact
+    // BigRational accumulator on overflow or first rational/bigint term, so
+    // large sums never overflow. Any float contact degrades to float.
+    let mut int_acc: i64 = 0;
+    let mut rat_acc: Option<BigRational> = None;
     let mut float_sum: Option<f64> = None;
-    let mut rat_sum: Option<(i64, i64)> = None; // (num, den) accumulator
     let mut term_map: Vec<(Expr, Coef)> = Vec::new(); // (base_expr, exact coefficient)
+
+    // Promote the i64 accumulator into the exact one (folding int_acc in once).
+    fn rat_mut<'a>(int_acc: &mut i64, rat_acc: &'a mut Option<BigRational>) -> &'a mut BigRational {
+        rat_acc.get_or_insert_with(|| BigRational::from(BigInt::from(*int_acc)))
+    }
 
     for term in &terms {
         match term {
             Expr::Integer(n) => {
-                if let Some(ref mut f) = float_sum {
-                    *f += *n as f64;
-                } else if let Some((ref mut rn, ref mut rd)) = rat_sum {
-                    *rn += *n * *rd;
-                    let g = gcd(rn.unsigned_abs(), rd.unsigned_abs()) as i64;
-                    *rn /= g;
-                    *rd /= g;
-                } else {
-                    num_sum += n;
-                }
+                if let Some(f) = &mut float_sum { *f += *n as f64; }
+                else if let Some(r) = &mut rat_acc { *r += BigInt::from(*n); }
+                else if let Some(s) = int_acc.checked_add(*n) { int_acc = s; }
+                else { *rat_mut(&mut int_acc, &mut rat_acc) += BigInt::from(*n); }
+            }
+            Expr::BigInt(b) => {
+                if let Some(f) = &mut float_sum { *f += (**b).to_f64().unwrap_or(f64::NAN); }
+                else { *rat_mut(&mut int_acc, &mut rat_acc) += (**b).clone(); }
             }
             Expr::Rational { num, den } => {
-                if let Some(ref mut f) = float_sum {
-                    *f += *num as f64 / *den as f64;
-                } else if let Some((ref mut rn, ref mut rd)) = rat_sum {
-                    // rn/rd + num/den = (rn*den + num*rd) / (rd*den)
-                    *rn = *rn * *den + *num * *rd;
-                    *rd *= *den;
-                    let g = gcd(rn.unsigned_abs(), rd.unsigned_abs()) as i64;
-                    *rn /= g;
-                    *rd /= g;
-                } else {
-                    // Start rational accumulator, fold in num_sum
-                    rat_sum = Some((num_sum * *den + *num, *den));
-                    let (ref mut rn, ref mut rd) = rat_sum.as_mut().unwrap();
-                    let g = gcd(rn.unsigned_abs(), rd.unsigned_abs()) as i64;
-                    *rn /= g;
-                    *rd /= g;
-                    num_sum = 0;
-                }
+                if let Some(f) = &mut float_sum { *f += *num as f64 / *den as f64; }
+                else { *rat_mut(&mut int_acc, &mut rat_acc) += BigRational::new(BigInt::from(*num), BigInt::from(*den)); }
             }
             Expr::Float(f) => {
-                let base = if let Some((rn, rd)) = rat_sum.take() {
-                    rn as f64 / rd as f64
-                } else {
-                    float_sum.unwrap_or(num_sum as f64)
-                };
+                let base = float_sum.unwrap_or_else(||
+                    rat_acc.as_ref().and_then(|r| r.to_f64()).unwrap_or(int_acc as f64));
                 float_sum = Some(base + f);
-                num_sum = 0;
+                rat_acc = None;
+                int_acc = 0;
             }
             _ => {
                 let (coeff, base) = extract_coeff_c(term);
                 if let Some(entry) = term_map.iter_mut().find(|(b, _)| *b == base) {
-                    entry.1 = entry.1.add(coeff);
+                    entry.1 = entry.1.add(&coeff);
                 } else {
                     term_map.push((base, coeff));
                 }
@@ -309,15 +294,18 @@ fn simplify_plus(args: &[Expr]) -> Expr {
 
     let mut result: Vec<Expr> = Vec::new();
 
-    // Exactly one of float_sum / rat_sum / num_sum carries the constant
-    // (the loop folds them together). Combine with the Pythagorean contribution.
+    // The running constant lives in float_sum (if a float appeared), else the
+    // exact BigRational accumulator, else the fast i64 accumulator. Combine with
+    // the Pythagorean contribution. (NB: a constant whose numerator AND
+    // denominator both exceed i64 has no atomic representation in this kernel —
+    // it renders as a `num*den^-1` product; correct in value, not fully folded.)
     let const_coef = if let Some(f) = float_sum {
         Coef::Flt(f)
-    } else if let Some((rn, rd)) = rat_sum {
-        Coef::Rat(rn, rd)
+    } else if let Some(r) = rat_acc {
+        Coef::from_bigrat(r)
     } else {
-        Coef::Rat(num_sum, 1)
-    }.add(pyth_coef);
+        Coef::int(int_acc)
+    }.add(&pyth_coef);
 
     if !const_coef.is_zero() || term_map.is_empty() {
         result.push(const_coef.to_expr());
@@ -694,11 +682,11 @@ fn extract_trig_sq(expr: &Expr) -> Option<(&str, &Expr)> {
 }
 
 fn apply_pythagorean(term_map: &mut Vec<(Expr, Coef)>) -> Coef {
-    let mut added = Coef::Rat(0, 1);
+    let mut added = Coef::zero();
     // Collect trig² info: (index, "sin"|"cos", argument, coefficient)
     let trig_info: Vec<(usize, String, Expr, Coef)> = term_map.iter().enumerate()
         .filter_map(|(i, (base, coeff))| {
-            extract_trig_sq(base).map(|(name, arg)| (i, name.to_string(), arg.clone(), *coeff))
+            extract_trig_sq(base).map(|(name, arg)| (i, name.to_string(), arg.clone(), coeff.clone()))
         })
         .collect();
 
@@ -709,8 +697,8 @@ fn apply_pythagorean(term_map: &mut Vec<(Expr, Coef)>) -> Coef {
         if used.contains(&i) { continue; }
         for j in (i+1)..trig_info.len() {
             if used.contains(&j) { continue; }
-            let (idx_i, ref name_i, ref arg_i, coeff_i) = trig_info[i];
-            let (idx_j, ref name_j, ref arg_j, coeff_j) = trig_info[j];
+            let (idx_i, ref name_i, ref arg_i, ref coeff_i) = trig_info[i];
+            let (idx_j, ref name_j, ref arg_j, ref coeff_j) = trig_info[j];
             // sin²(e) + cos²(e) with the same coefficient → contributes that
             // coefficient to the constant term.
             if name_i != name_j && *arg_i == *arg_j
@@ -813,6 +801,22 @@ mod tests {
         let expr = maxima_parser::parse(input);
         let simplified = simplify(&expr);
         simplified.to_string()
+    }
+
+    #[test]
+    fn integer_sum_no_overflow() {
+        // i64::MAX + i64::MAX promotes to BigInt instead of overflowing.
+        assert_eq!(s("9223372036854775807 + 9223372036854775807"), "18446744073709551614");
+        // Small-int fast path stays canonical.
+        assert_eq!(s("2 + 3"), "5");
+    }
+
+    #[test]
+    fn rational_sum_exact() {
+        // Exact rational fold through the full eval path; the second pair has a
+        // denominator product that overflows an i64 (was wrong/panicking before).
+        assert_eq!(crate::eval::eval_str("1/2 + 1/3;"), "5/6");
+        assert_eq!(crate::eval::eval_str("1/1000000 + 1/1000003;"), "2000003/1000003000000");
     }
 
     #[test]
