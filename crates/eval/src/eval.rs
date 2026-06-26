@@ -2367,45 +2367,55 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
                     let mut eigenvals = Vec::new();
                     let mut multiplicities = Vec::new();
                     let mut eigenvecs = Vec::new();
+                    let mut complete = true;
 
+                    // Each charpoly factor (multiplicity m) contributes its roots —
+                    // rational, irrational, or complex. For each eigenvalue λ the
+                    // eigenvectors are an exact basis of null(M − λI) over Expr.
                     for (f, m) in &factors {
-                        if f.degree() == Some(1) {
-                            let a = f.leading_coeff();
-                            let b = f.constant_term();
-                            if let Some(root) = b.neg().div(&a) {
-                                let re = match root {
-                                    maxima_poly::Coeff::Int(n) => Expr::int(n),
-                                    maxima_poly::Coeff::Rat(n, d) => Expr::Rational { num: n, den: d },
-                                };
-                                eigenvals.push(re.clone());
+                        if f.degree().unwrap_or(0) == 0 { continue; }
+                        match factor_radical_roots(f) {
+                            Some(roots) => for r in roots {
+                                let lam = radical_eval(&r);
+                                eigenvals.push(lam.clone());
                                 multiplicities.push(Expr::int(*m as i64));
 
-                                // Find eigenvector via null space of (M - λI)
-                                let mut aug: Vec<Vec<f64>> = Vec::new();
+                                // Build M − λI exactly, then take its null space.
+                                let mut mlam: Vec<Vec<Expr>> = Vec::new();
                                 for (i, row) in rows.iter().enumerate() {
                                     if let Expr::List { op: Operator::MList, args: cols, .. } = row {
-                                        let r: Vec<f64> = cols.iter().enumerate().map(|(j, c)| {
-                                            let val = to_f64(c).unwrap_or(0.0);
+                                        let new_row: Vec<Expr> = cols.iter().enumerate().map(|(j, c)| {
                                             if i == j {
-                                                val - to_f64(&re).unwrap_or(0.0)
+                                                meval(&Expr::sub(c.clone(), lam.clone()), env)
                                             } else {
-                                                val
+                                                c.clone()
                                             }
                                         }).collect();
-                                        aug.push(r);
+                                        mlam.push(new_row);
                                     }
                                 }
-                                // Row reduce to find null space
-                                let evec = null_space_vector(&aug);
-                                eigenvecs.push(Expr::list(vec![
-                                    Expr::list(evec.iter().map(|v| {
-                                        if *v == v.round() { Expr::int(*v as i64) } else { Expr::Float(*v) }
-                                    }).collect()),
-                                ]));
-                            }
+                                // Exact null space; if the simplifier can't prove
+                                // M − λI singular for a radical λ (empty basis),
+                                // fall back to an adjugate column (polynomial in
+                                // λ, reduces under expand). A genuine eigenvalue
+                                // always has ≥1 eigenvector, so an empty result
+                                // with no adjugate vector means incomplete → noun.
+                                let ns = matrix_nullspace(&mlam, env);
+                                let empty = matches!(&ns,
+                                    Expr::List { op: Operator::MList, args, .. } if args.is_empty());
+                                if empty {
+                                    match nullvec_via_adjugate(&mlam, env) {
+                                        Some(v) => eigenvecs.push(Expr::list(vec![v])),
+                                        None => complete = false,
+                                    }
+                                } else {
+                                    eigenvecs.push(ns);
+                                }
+                            },
+                            None => complete = false, // unsolvable factor (e.g. casus cubic)
                         }
                     }
-                    if !eigenvals.is_empty() {
+                    if complete && !eigenvals.is_empty() {
                         return Expr::list(vec![
                             Expr::list(vec![Expr::list(eigenvals), Expr::list(multiplicities)]),
                             Expr::list(eigenvecs),
@@ -3202,6 +3212,31 @@ fn matrix_nullspace(m: &[Vec<Expr>], env: &mut Environment) -> Expr {
         basis.push(rows_to_matrix(v.into_iter().map(|x| vec![x]).collect()));
     }
     Expr::list(basis)
+}
+
+/// One null vector of a square matrix `a` that is known to be singular, taken
+/// from a nonzero column of its adjugate: A·adj(A) = det(A)·I = 0, so every
+/// column of adj(A) lies in null(A). Cofactors are polynomial in the matrix
+/// entries, so a radical eigenvalue λ reduces under `expand` where the
+/// divide-based RREF leaves an unreducible 1/λ residue. Returns the column as
+/// a column matrix, or None if the adjugate vanishes (geometric multiplicity
+/// > 1 — handled by the exact null-space path instead).
+fn nullvec_via_adjugate(a: &[Vec<Expr>], env: &mut Environment) -> Option<Expr> {
+    let n = a.len();
+    for k in 0..n {
+        let mut col = Vec::with_capacity(n);
+        let mut nonzero = false;
+        for i in 0..n {
+            // adj(A)[i][k] = cofactor C_{k,i}.
+            let c = expand(&matrix_cofactor(a, k, i, env));
+            if !matches!(simplify(&c), Expr::Integer(0)) { nonzero = true; }
+            col.push(c);
+        }
+        if nonzero {
+            return Some(rows_to_matrix(col.into_iter().map(|x| vec![x]).collect()));
+        }
+    }
+    None
 }
 
 fn coeff_to_expr_c(c: &maxima_poly::Coeff) -> Expr {
@@ -5641,53 +5676,6 @@ fn eval_require(filename: &str, env: &mut Environment) -> Expr {
         }
     }
     eval_load(filename, env)
-}
-
-fn null_space_vector(mat: &[Vec<f64>]) -> Vec<f64> {
-    let m = mat.len();
-    if m == 0 { return vec![]; }
-    let n = mat[0].len();
-    let mut work: Vec<Vec<f64>> = mat.to_vec();
-
-    // Row echelon form
-    let mut pivot_cols = Vec::new();
-    let mut row = 0;
-    for col in 0..n {
-        if row >= m { break; }
-        let mut pr = None;
-        for r in row..m {
-            if work[r][col].abs() > 1e-10 {
-                pr = Some(r);
-                break;
-            }
-        }
-        if let Some(p) = pr {
-            work.swap(row, p);
-            let pv = work[row][col];
-            for c in 0..n { work[row][c] /= pv; }
-            for r in 0..m {
-                if r != row && work[r][col].abs() > 1e-10 {
-                    let f = work[r][col];
-                    for c in 0..n { work[r][c] -= f * work[row][c]; }
-                }
-            }
-            pivot_cols.push(col);
-            row += 1;
-        }
-    }
-
-    // Find a free variable (column not in pivot_cols)
-    let free_col = (0..n).find(|c| !pivot_cols.contains(c)).unwrap_or(n - 1);
-
-    // Construct null space vector: set free variable to 1
-    let mut vec = vec![0.0; n];
-    vec[free_col] = 1.0;
-    for (i, &pc) in pivot_cols.iter().enumerate() {
-        if i < work.len() {
-            vec[pc] = -work[i][free_col];
-        }
-    }
-    vec
 }
 
 /// trigexpand: expand trig of sums
