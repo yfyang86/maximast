@@ -141,6 +141,9 @@ enum Mode {
     Stdin,
     Help,
     Version,
+    /// Argument-parsing failure: the diagnostic has already been printed; carry
+    /// the exit code so `main` can return it without `process::exit`.
+    Fail(u8),
 }
 
 fn parse_args(args: &[String]) -> Mode {
@@ -162,7 +165,7 @@ fn parse_args(args: &[String]) -> Mode {
                     i += 2;
                 } else {
                     eprintln!("Error: -e requires an expression argument");
-                    std::process::exit(1);
+                    return Mode::Fail(1);
                 }
             }
             "-b" | "--batch" => {
@@ -171,7 +174,7 @@ fn parse_args(args: &[String]) -> Mode {
                     i += 2;
                 } else {
                     eprintln!("Error: --batch requires a filename argument");
-                    std::process::exit(1);
+                    return Mode::Fail(1);
                 }
             }
             arg if !arg.starts_with('-') => {
@@ -180,7 +183,7 @@ fn parse_args(args: &[String]) -> Mode {
             }
             other => {
                 eprintln!("Unknown option: {}", other);
-                std::process::exit(1);
+                return Mode::Fail(1);
             }
         }
     }
@@ -470,20 +473,23 @@ fn run_repl(quiet: bool) -> i32 {
 
 // ==================== Entry Point ====================
 
-fn main() {
+fn main() -> std::process::ExitCode {
     let args: Vec<String> = std::env::args().collect();
     let mode = parse_args(&args);
 
-    let exit_code = match mode {
+    let exit_code: u8 = match mode {
         Mode::Help => { print_help(); 0 }
         Mode::Version => { println!("maxima-kernel v{}", VERSION); 0 }
-        Mode::Eval { expr } => run_eval(&expr),
-        Mode::Batch { file, quiet } => run_batch(&file, quiet),
-        Mode::Stdin => run_stdin(),
-        Mode::Repl { quiet } => run_repl(quiet),
+        Mode::Eval { expr } => run_eval(&expr) as u8,
+        Mode::Batch { file, quiet } => run_batch(&file, quiet) as u8,
+        Mode::Stdin => run_stdin() as u8,
+        Mode::Repl { quiet } => run_repl(quiet) as u8,
+        Mode::Fail(code) => code,
     };
 
-    std::process::exit(exit_code);
+    // Return rather than `process::exit` so all destructors run normally
+    // (flush-on-drop, and no "still reachable" noise for leak detectors).
+    std::process::ExitCode::from(exit_code)
 }
 
 fn atty_stdout() -> bool { unsafe { libc_isatty(1) != 0 } }
