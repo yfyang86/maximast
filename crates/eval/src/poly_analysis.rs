@@ -118,20 +118,31 @@ fn coeff_to_expr(c: &maxima_poly::Coeff) -> Expr {
 
 pub(crate) fn eval_sturm_func(name: &str, args: &[Expr]) -> Option<Expr> {
     match name {
+        "sturm" => {
+            // sturm(poly[, x]) → the Sturm sequence as a list of polynomials.
+            if args.is_empty() { return None; }
+            let var_id = find_main_var(&args[0])?;
+            let p = maxima_poly::expr_to_poly(&crate::eval::expand(&args[0]), var_id)?;
+            let seq = sturm_sequence(&p);
+            Some(Expr::list(seq.iter().map(maxima_poly::poly_to_expr).collect()))
+        }
         "nroots" => {
-            if args.len() == 3 {
-                if let Expr::Symbol(_var_id) = &args[0] {
-                    return None; // Need poly, not var
-                }
-                // nroots(poly, lo, hi) — count real roots in [lo, hi]
-                // Detect variable from the polynomial
-                let var_id = find_main_var(&args[0])?;
-                let p = maxima_poly::expr_to_poly(&crate::eval::expand(&args[0]), var_id)?;
+            if matches!(args.first(), Some(Expr::Symbol(_))) {
+                return None; // Need poly, not a bare var
+            }
+            let var_id = find_main_var(&args[0])?;
+            let p = maxima_poly::expr_to_poly(&crate::eval::expand(&args[0]), var_id)?;
+            let count = if args.len() >= 3 {
+                // nroots(poly, lo, hi) — count distinct real roots in [lo, hi].
                 let lo = crate::helpers::to_f64(&args[1])?;
                 let hi = crate::helpers::to_f64(&args[2])?;
-                let count = sturm_count(&p, lo, hi);
-                Some(Expr::int(count as i64))
-            } else { None }
+                sturm_count(&p, lo, hi)
+            } else {
+                // nroots(poly) — all real roots (over the Cauchy root bound).
+                let b = root_bound(&p) + 1.0;
+                sturm_count(&p, -b, b)
+            };
+            Some(Expr::int(count as i64))
         }
         "realroots" => {
             if args.len() >= 1 {
