@@ -289,7 +289,7 @@ mod tests {
         assert!(!run("sum(binomial(n,k)^2,k,0,n);").contains("sum("));
         assert_eq!(run("sum(binomial(6,k)^2,k,0,6);"), "924");
     }
-    #[test] fn non_hypergeometric_is_noun() { assert!(run("sum(1/k^2,k,1,n);").contains("sum(")); }
+    #[test] fn generalized_harmonic() { assert_eq!(run("sum(1/k^2,k,1,n);"), "harmonic(n,2)"); }
 
     #[test] fn parametric_gaussian_moment() {
         // ∫₀^∞ x^(2n) e^(-x²) dx = (2n)!√π/(2·4^n·n!); closed form found…
