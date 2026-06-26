@@ -168,6 +168,139 @@ pub fn find_recurrence(expr: &Expr, n_id: SymbolId, env: &mut Environment) -> Op
     None
 }
 
+// ---------------------------------------------------------------------------
+// T2 — closed-form solving for C-finite (constant-coefficient) recurrences.
+// ---------------------------------------------------------------------------
+
+fn contains_symbol(e: &Expr, id: SymbolId) -> bool {
+    match e {
+        Expr::Symbol(s) => *s == id,
+        Expr::List { args, .. } => args.iter().any(|a| contains_symbol(a, id)),
+        _ => false,
+    }
+}
+
+/// Evaluate the integer polynomial Σ c_j x^j at a rational point.
+fn poly_eval(c: &[BigInt], x: &BigRational) -> BigRational {
+    let mut acc = BigRational::zero();
+    let mut xp = BigRational::one();
+    for cj in c {
+        acc += BigRational::from(cj.clone()) * &xp;
+        xp *= x;
+    }
+    acc
+}
+
+fn divisors(n: &BigInt) -> Vec<BigInt> {
+    let Some(k) = n.abs().to_i64() else { return vec![BigInt::one()] }; // too big → give up cheaply
+    if k == 0 { return vec![BigInt::one()]; }
+    let mut out = Vec::new();
+    let mut d = 1i64;
+    while d * d <= k {
+        if k % d == 0 {
+            out.push(BigInt::from(d));
+            if d != k / d { out.push(BigInt::from(k / d)); }
+        }
+        d += 1;
+    }
+    out
+}
+
+/// Distinct rational roots of Σ c_j x^j (rational root theorem). Returns None if
+/// the coefficients are too large to enumerate divisors cheaply.
+fn rational_roots(c: &[BigInt]) -> Vec<BigRational> {
+    let j = c.len() - 1;
+    let (c0, cj) = (&c[0], &c[j]);
+    if c0.is_zero() || cj.is_zero() { return Vec::new(); }
+    let ps = divisors(c0);
+    let qs = divisors(cj);
+    let mut roots: Vec<BigRational> = Vec::new();
+    for p in &ps {
+        for q in &qs {
+            for sign in [1i64, -1] {
+                let r = BigRational::new(p * BigInt::from(sign), q.clone());
+                if poly_eval(c, &r).is_zero() && !roots.contains(&r) {
+                    roots.push(r);
+                }
+            }
+        }
+    }
+    roots
+}
+
+/// Solve the square system M·a = b over Q (Gaussian elimination). None if singular.
+fn solve_square(mut m: Vec<Vec<BigRational>>, mut b: Vec<BigRational>) -> Option<Vec<BigRational>> {
+    let n = m.len();
+    for col in 0..n {
+        let piv = (col..n).find(|&r| !m[r][col].is_zero())?;
+        m.swap(col, piv); b.swap(col, piv);
+        let d = m[col][col].clone();
+        for j in 0..n { m[col][j] = &m[col][j] / &d; }
+        b[col] = &b[col] / &d;
+        for r in 0..n {
+            if r != col && !m[r][col].is_zero() {
+                let f = m[r][col].clone();
+                for j in 0..n { m[r][j] = &m[r][j] - &(&f * &m[col][j]); }
+                b[r] = &b[r] - &(&f * &b[col]);
+            }
+        }
+    }
+    Some(b)
+}
+
+/// Closed form of a C-finite sequence T(n) (constant-coefficient recurrence with
+/// distinct rational characteristic roots): T(n) = Σ A_i r_i^n. Returns None for
+/// variable-coefficient (e.g. Franel) or irrational/repeated-root recurrences.
+pub fn solve_rec(expr: &Expr, n_id: SymbolId, env: &mut Environment) -> Option<Expr> {
+    let coeffs = find_recurrence(expr, n_id, env)?;
+    let order = coeffs.len() - 1;
+    if order < 1 { return None; }
+
+    // C-finite: every coefficient must be a constant rational (no n).
+    let consts: Vec<BigRational> = coeffs.iter()
+        .map(|c| if contains_symbol(c, n_id) { None } else { to_bigrat(c) })
+        .collect::<Option<_>>()?;
+    // Clear denominators to an integer characteristic polynomial.
+    let mut lcm = BigInt::one();
+    for r in &consts { lcm = num::integer::lcm(lcm, r.denom().clone()); }
+    let ic: Vec<BigInt> = consts.iter().map(|r| (r * BigRational::from(lcm.clone())).to_integer()).collect();
+
+    let roots = rational_roots(&ic);
+    if roots.len() != order { return None; } // need all roots rational & distinct
+
+    let n = Expr::Symbol(n_id);
+    let sample = |m: i64, env: &mut Environment| -> Option<BigRational> {
+        to_bigrat(&crate::eval::meval(&subst(&Expr::int(m), &n, expr), env))
+    };
+    // Initial values T(0..order-1).
+    let mut s = Vec::with_capacity(order);
+    for m in 0..order as i64 { s.push(sample(m, env)?); }
+
+    // Vandermonde: Σ_i A_i r_i^m = T(m), m = 0..order-1.
+    let mat: Vec<Vec<BigRational>> = (0..order).map(|m| {
+        roots.iter().map(|r| {
+            let mut p = BigRational::one();
+            for _ in 0..m { p *= r; }
+            p
+        }).collect()
+    }).collect();
+    let a = solve_square(mat, s)?;
+
+    // Build Σ A_i r_i^n and verify on held-out samples.
+    let mut term = Expr::int(0);
+    for (ai, ri) in a.iter().zip(&roots) {
+        if ai.is_zero() { continue; }
+        term = Expr::add(term, Expr::mul(bigrat_expr(ai), Expr::pow(bigrat_expr(ri), n.clone())));
+    }
+    let cf = simplify(&term);
+    for m in 0..=(order as i64 + 6) {
+        let want = sample(m, env)?;
+        let got = to_bigrat(&crate::eval::meval(&subst(&Expr::int(m), &n, &cf), env))?;
+        if want != got { return None; }
+    }
+    Some(cf)
+}
+
 #[cfg(test)]
 mod tests {
     use crate::eval::eval_str;
@@ -187,5 +320,19 @@ mod tests {
     #[test] fn rec_nonholonomic_is_noun() {
         // n^n is not P-finite (no fixed-order polynomial-coefficient recurrence).
         assert!(run("find_recurrence(n^n,n);").contains("find_recurrence"));
+    }
+
+    // T2 — C-finite closed-form solving (constant coeffs, distinct rational roots).
+    #[test] fn solve_rec_sum_of_geometrics() {
+        assert_eq!(run("solve_rec(2^n+3^n,n);"), "2^n+3^n");
+        assert_eq!(run("solve_rec(5^n-2*4^n,n);"), "-2*4^n+5^n");
+    }
+    #[test] fn solve_rec_with_constant_term() {
+        // roots 2 and 1
+        assert_eq!(run("solve_rec(3*2^n-5,n);"), "-5+3*2^n");
+    }
+    #[test] fn solve_rec_non_cfinite_is_noun() {
+        assert!(run("solve_rec(sum(binomial(n,k)^3,k,0,n),n);").contains("solve_rec"));
+        assert!(run("solve_rec(n!,n);").contains("solve_rec"));
     }
 }

@@ -414,6 +414,19 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
             }
             return Expr::call("find_recurrence", evaled);
         }
+        "solve_rec" => {
+            // solve_rec(expr, n): closed form of a C-finite sequence expr(n)
+            // (constant-coefficient recurrence, distinct rational roots).
+            let evaled: Vec<Expr> = args.iter().map(|a| meval(a, env)).collect();
+            if evaled.len() == 2 {
+                if let Expr::Symbol(nid) = &evaled[1] {
+                    if let Some(cf) = crate::recurrence::solve_rec(&evaled[0], *nid, env) {
+                        return cf;
+                    }
+                }
+            }
+            return Expr::call("solve_rec", evaled);
+        }
         "product" => return eval_product(args, env),
         // makelist/create_list bind a loop var; the body must NOT be eagerly
         // evaluated in the outer scope (where the loop var is unbound). Doing
