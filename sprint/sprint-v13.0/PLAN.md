@@ -92,6 +92,15 @@ hash-consing), parser robustness (Result-based parser), 0i (gruntz limit bugs),
   `lambert_w` (Halley: 1.0→0.56714), `polylog` (Li_2(1)=%pi^2/6, series numeric).
   f64; arbitrary precision follows a bigfloat backend.
 
-## Bundle 2 self-contained items DONE (1a-i/ii, 1b, 3a, 3b, 3c, 3d). Remaining:
-RootOf + general Cardano/Ferrari, 1c bigfloat (both architectural — sign-off),
-eigenvectors for non-rational eigenvalues, exact realroots intervals.
+## Bundle 2 self-contained items DONE (1a-i/ii, 1b, 3a, 3b, 3c, 3d).
+- **3b** ✅ now complete: eigenvectors for irrational/complex eigenvalues. Exact
+  null space of M−λI for every radical eigenvalue; where the divide-based RREF
+  leaves an unreducible 1/λ residue, an adjugate column (polynomial in λ,
+  reduces under expand) supplies the eigenvector. correct-or-noun.
+- **1b** ✅ now complete: `realroots` returns exact rationals (Maxima
+  `[x = r, …]`). Factor over Q → linear factors exact; each irreducible factor's
+  real roots isolated by Sturm bisection in exact BigRational arithmetic within
+  a rational eps. No f64 in the result.
+
+Remaining (architectural — flagged sign-off): RootOf + general Cardano (p≠0) /
+Ferrari (general quartic), 1c arbitrary-precision bigfloat backend.
