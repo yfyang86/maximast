@@ -21,6 +21,19 @@ fn contains_k(e: &Expr, k_id: SymbolId) -> bool {
     }
 }
 
+/// True if the expression contains a factorial or binomial anywhere — those
+/// need the recursive shift-ratio path (the generic ratio can't reduce them).
+fn has_factorial_or_binomial(e: &Expr) -> bool {
+    match e {
+        Expr::List { op: Operator::Named(id), args, .. } => {
+            let n = maxima_core::resolve(*id);
+            n == "factorial" || n == "binomial" || args.iter().any(has_factorial_or_binomial)
+        }
+        Expr::List { args, .. } => args.iter().any(has_factorial_or_binomial),
+        _ => false,
+    }
+}
+
 fn as_small_int(e: &Expr) -> Option<i64> {
     match e {
         Expr::Integer(n) if n.abs() <= 16 => Some(*n),
@@ -46,10 +59,18 @@ fn hyper_ratio(t: &Expr, k: &Expr, k_id: SymbolId) -> Option<Expr> {
         Expr::List { op: Operator::MExpt, args, .. } if args.len() == 2 => {
             let (base, exp) = (&args[0], &args[1]);
             if contains_k(base, k_id) {
-                // (poly)^integer (incl. negatives, e.g. 1/(k(k+1))) ⇒ the shift
-                // ratio is rational; let the generic ratio + expr_to_cre handle it.
                 if matches!(exp, Expr::Integer(_)) {
-                    Some(simplify(&Expr::div(subst(&k1, k, t), t.clone())))
+                    if has_factorial_or_binomial(base) {
+                        // factorial/binomial base: the generic subst-and-divide
+                        // can't reduce e.g. (k−3)!^(−1); recurse so it becomes
+                        // 1/(k−2) and binomials are Gosper-summable.
+                        let br = hyper_ratio(base, k, k_id)?;
+                        Some(simplify(&Expr::pow(br, exp.clone())))
+                    } else {
+                        // (poly/rational)^integer ⇒ the generic ratio is already
+                        // a clean rational function of k.
+                        Some(simplify(&Expr::div(subst(&k1, k, t), t.clone())))
+                    }
                 } else { None }
             } else {
                 // a^e(k): ratio = a^(e(k+1) − e(k)); valid iff that exponent is k-free
@@ -74,6 +95,22 @@ fn hyper_ratio(t: &Expr, k: &Expr, k_id: SymbolId) -> Option<Expr> {
             } else {
                 Some(Expr::int(1))
             }
+        }
+        // binomial(a,b) = a!/(b!·(a−b)!): reduce to the factorial form so its
+        // k-shift ratio is rational (e.g. binomial(k,m) → (k+1)/(k+1−m),
+        // binomial(n+k,k) → (n+k+1)/(k+1)). Reuses the factorial arm above.
+        Expr::List { op: Operator::Named(id), args, .. }
+            if *id == maxima_core::intern("binomial") && args.len() == 2 =>
+        {
+            let (a, b) = (&args[0], &args[1]);
+            let expanded = Expr::div(
+                Expr::call("factorial", vec![a.clone()]),
+                Expr::mul(
+                    Expr::call("factorial", vec![b.clone()]),
+                    Expr::call("factorial", vec![simplify(&Expr::sub(a.clone(), b.clone()))]),
+                ),
+            );
+            hyper_ratio(&expanded, k, k_id)
         }
         // Plain polynomial / rational in k (incl. the symbol k itself, sums).
         _ => Some(simplify(&Expr::div(subst(&k1, k, t), t.clone()))),
@@ -363,5 +400,13 @@ mod tests {
     #[test] fn gosper_not_summable_is_noun() {
         // 1/k^2 is not Gosper-summable → stays a noun (never a wrong closed form).
         assert!(run("nusum(1/k^2,k,1,n);").contains("nusum"));
+    }
+    #[test] fn gosper_binomial_hockey_stick() {
+        // Σ_{k=0}^n binomial(k,m) = binomial(n+1,m+1) — binomials now reduce to
+        // factorials in the shift ratio, so Gosper telescopes them.
+        assert_eq!(run("subst(5, n, nusum(binomial(k,3), k, 0, n));"), "15"); // binomial(6,4)
+        assert_eq!(run("subst(7, n, nusum(binomial(k,2), k, 0, n));"), "56"); // binomial(8,3)
+        // WZ certificate of binomial(k,2): R(k)=(k-2)/3 (T(k)=binomial(k,3)).
+        assert!(!run("gosper_certificate(binomial(k,2), k);").contains("gosper_certificate"));
     }
 }

@@ -50,8 +50,16 @@ eigen · 3c special-function numeric eval · 3d numeric solvers/quadrature/ODE.
   base with |base|<1 (`sum(k·(1/2)^k)=2`); every closed form numerically
   verified at a convergent point, divergent series → noun. (`genfunc.rs`.)
 - **2a** order-≥2 Zeilberger proven certificate — `find_recurrence` already
-  emits the recurrence (Franel/Apéry); a verified Gosper certificate over Q(n)
-  is the remaining rigor step. TODO.
+  emits the recurrence (Franel/Apéry, exact + held-out-verified). Certificate
+  engine foundation **landed**: the symbolic Gosper now handles binomials
+  (reduced to factorials in the shift ratio), so binomial terms telescope and
+  carry WZ certificates (`Σ binomial(k,m)=binomial(n+1,m+1)`;
+  `gosper_certificate(binomial(k,2))=(k-2)/3`). **Remaining (→ Bundle 4):** the
+  symbolic *parametrized* Gosper over Q(n) — the existing Gosper/Petkovsek
+  linear algebra is over Q, and the Zeilberger combination `Σ c_j(n)·F(n+j,k)`
+  needs both a similar-hypergeometric-sum front-end and Q(n) coefficients
+  (confirmed: a rushed reuse of the numeric Gosper can't produce the symbolic
+  certificate). A new Q(n)[k] polynomial layer is the right next step.
 
 ## Bundle 4 — Analysis
 
