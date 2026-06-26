@@ -138,7 +138,8 @@ quartic, pure-cube Cardano); cases not expressible by these radicals return a no
 sturm(x^3-2*x-5, x);     → [x^3-2*x-5, 3*x^2-2, (4/3)*x+5, -643/16]  (Sturm chain)
 nroots(x^5-x-1);         → 1     (distinct real roots over the Cauchy bound)
 nroots(x^4+1);           → 0
-realroots(x^2-2);        → float approximations of ±sqrt(2)
+realroots(x^2-2);        → [x = -97184015997/68719476736, x = 97184015997/68719476736]  (exact rationals within eps)
+realroots(x^3-x);        → [x = -1, x = 0, x = 1]   (exact rational roots)
 ```
 
 ### Summation & Creative Telescoping
