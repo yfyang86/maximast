@@ -3339,6 +3339,52 @@ fn factor_radical_roots(f: &maxima_poly::Poly) -> Option<Vec<Expr>> {
     }
 }
 
+/// Numeric value of a closed-form radical expression as a complex f64, for
+/// verifying solver output (principal branches). Handles arithmetic, integer/
+/// rational/float atoms, %i/%pi/%e, sqrt, and powers; returns None on a free
+/// symbol or an unsupported function (verification is then skipped).
+fn expr_to_complex(e: &Expr) -> Option<num::complex::Complex64> {
+    use num::complex::Complex64;
+    use num::ToPrimitive;
+    let c = |re: f64| Complex64::new(re, 0.0);
+    match e {
+        Expr::Integer(n) => Some(c(*n as f64)),
+        Expr::BigInt(b) => (**b).to_f64().map(c),
+        Expr::Rational { num, den } => Some(c(*num as f64 / *den as f64)),
+        Expr::Float(f) => Some(c(*f)),
+        Expr::Symbol(id) => match resolve(*id).as_str() {
+            "%i" => Some(Complex64::new(0.0, 1.0)),
+            "%pi" => Some(c(std::f64::consts::PI)),
+            "%e" => Some(c(std::f64::consts::E)),
+            _ => None,
+        },
+        Expr::List { op: Operator::MPlus, args, .. } => {
+            let mut s = Complex64::new(0.0, 0.0);
+            for a in args { s += expr_to_complex(a)?; }
+            Some(s)
+        }
+        Expr::List { op: Operator::MTimes, args, .. } => {
+            let mut s = Complex64::new(1.0, 0.0);
+            for a in args { s *= expr_to_complex(a)?; }
+            Some(s)
+        }
+        Expr::List { op: Operator::MExpt, args, .. } if args.len() == 2 => {
+            let base = expr_to_complex(&args[0])?;
+            // Integer exponents via powi keep real results real; else powc.
+            if let Expr::Integer(n) = &args[1] {
+                if let Ok(k) = i32::try_from(*n) { return Some(base.powi(k)); }
+            }
+            Some(base.powc(expr_to_complex(&args[1])?))
+        }
+        Expr::List { op: Operator::Named(id), args, .. }
+            if resolve(*id) == "sqrt" && args.len() == 1 =>
+        {
+            Some(expr_to_complex(&args[0])?.sqrt())
+        }
+        _ => None,
+    }
+}
+
 /// Solve a univariate polynomial by factoring over Q and solving each factor
 /// with radicals. Returns the full solution list, or None if any factor can't
 /// be radical-solved (caller falls through to a noun — correct-or-noun).
@@ -3353,14 +3399,14 @@ fn solve_factors_radical(poly: &maxima_poly::Poly, var: maxima_core::SymbolId) -
         }
     }
     if roots.is_empty() { return None; }
-    // Numeric sanity check on roots that evaluate to a real number.
+    // Numeric sanity check: every root, real OR complex, must satisfy p(r)≈0.
+    // (The earlier real-only to_f64 check let a wrong complex radical slip
+    // through — Cardano/Ferrari produce complex roots, so verify them too.)
     let p_expr = maxima_poly::poly_to_expr(poly);
     let var_e = Expr::Symbol(var);
     for r in &roots {
-        let mut env = Environment::new();
-        let val = meval(&subst(r, &var_e, &p_expr), &mut env);
-        if let Some(v) = crate::helpers::to_f64(&val) {
-            if v.abs() > 1e-6 { return None; } // a real root that doesn't satisfy p ⇒ bug
+        if let Some(c) = expr_to_complex(&subst(r, &var_e, &p_expr)) {
+            if c.norm() > 1e-6 { return None; } // doesn't satisfy p ⇒ bug → noun
         }
     }
     let v = Expr::sym(&resolve(var));
