@@ -1,6 +1,16 @@
 use maxima_core::{Expr, Operator, resolve};
 use num::{BigInt, BigRational, One, ToPrimitive};
 
+/// Exact `BigRational` value of a numeric `Expr` (Integer/BigInt/Rational), else None.
+pub fn expr_to_bigrat(e: &Expr) -> Option<BigRational> {
+    match e {
+        Expr::Integer(n) => Some(BigRational::from(BigInt::from(*n))),
+        Expr::BigInt(b) => Some(BigRational::from((**b).clone())),
+        Expr::Rational { num, den } => Some(BigRational::new(BigInt::from(*num), BigInt::from(*den))),
+        _ => None,
+    }
+}
+
 /// A `BigInt` as the smallest exact `Expr` (Integer when it fits i64, else BigInt).
 pub fn bigint_to_expr(b: &BigInt) -> Expr {
     b.to_i64().map(Expr::int).unwrap_or_else(|| Expr::BigInt(Box::new(b.clone())))

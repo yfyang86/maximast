@@ -3129,6 +3129,35 @@ fn eval_sum(args: &[Expr], env: &mut Environment) -> Expr {
     };
     let var_expr = Expr::Symbol(var);
 
+    // Infinite upper bound: the finite closed-form paths below substitute `hi`
+    // into an antidifference, which for hi=inf produced garbage like
+    // `1-1/(1+inf)` or `inf*(1+inf)/2`. Handle only the unambiguous convergent
+    // case (numeric geometric Σ c·r^k with |r|<1 → c·r^lo/(1-r)); everything
+    // else (telescoping/zeta tails, divergent, symbolic ratio) returns a noun.
+    // (Fuller infinite summation + the Gruntz limit-at-∞ bugs are tracked
+    // separately; correct-or-noun beats a wrong closed form.)
+    if matches!(&hi, Expr::Symbol(id) if { let n = resolve(*id); n == "inf" || n == "infinity" }) {
+        // Detect a convergent geometric series by exact sampling: with numeric
+        // lo, the terms t_i = body(lo+i) form a geometric progression iff
+        // t1/t0 == t2/t1 = r; if |r|<1 the sum is t0/(1-r) (computed in exact
+        // rationals, sidestepping `1/(1/2)`-style un-simplification).
+        if let Some(lo_i) = to_i64(&lo) {
+            use num::{Zero, One, Signed};
+            let at = |i: i64, env: &mut Environment|
+                crate::helpers::expr_to_bigrat(&meval(&subst(&Expr::int(i), &var_expr, &body_evaled), env));
+            if let (Some(t0), Some(t1), Some(t2)) = (at(lo_i, env), at(lo_i + 1, env), at(lo_i + 2, env)) {
+                if !t0.is_zero() && !t1.is_zero() {
+                    let r = &t1 / &t0;
+                    if r == &t2 / &t1 && r.abs() < num::BigRational::one() {
+                        return crate::helpers::bigrat_to_expr(&(&t0 / &(num::BigRational::one() - &r)));
+                    }
+                }
+            }
+        }
+        let evaled: Vec<Expr> = args.iter().map(|a| meval(a, env)).collect();
+        return Expr::call("sum", evaled);
+    }
+
     if let Some(result) = try_closed_form_sum(&body_evaled, &var_expr, &lo, &hi) {
         return result;
     }
@@ -7350,6 +7379,18 @@ mod tests {
         // Expand-before-integrate for polynomial integrands (was a noun).
         assert_eq!(run("integrate(x^2*(x+1), x);"), "x^3/3+x^4/4");
         assert_eq!(run("integrate((1-x)^4, x, 0, 1);"), "1/5");
+    }
+    #[test]
+    fn eval_infinite_geometric() {
+        // Convergent geometric: exact value (was garbage like 1-1/(1+inf)).
+        assert_eq!(run("sum(1/2^k, k, 0, inf);"), "2");
+        assert_eq!(run("sum(1/2^k, k, 1, inf);"), "1");
+        assert_eq!(run("sum(1/3^k, k, 0, inf);"), "3/2");
+        // Divergent / non-geometric / symbolic → noun (never a wrong closed form).
+        assert!(run("sum(k, k, 1, inf);").contains("sum("));
+        assert!(run("sum(2^k, k, 0, inf);").contains("sum("));
+        assert!(run("sum(q^k, k, 0, inf);").contains("sum("));
+        assert!(run("sum(1/(k*(k+1)), k, 1, inf);").contains("sum("));
     }
     #[test]
     fn eval_linsolve_symbolic() {
