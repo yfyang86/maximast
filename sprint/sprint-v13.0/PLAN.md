@@ -12,7 +12,7 @@ discipline: **compute → verify → return; correct-or-noun, never wrong.**
 | 0g | numeric `fib`/`lucas`; exact `rank` (not f64); square-free Sturm | 📋 |
 | 0a | parametric/symbolic `linsolve` (was `[x=0,y=0]`) | ✅ |
 | 0b | infinite sums: convergent geometric exact, rest noun (was substituting `inf`) | ✅ |
-| 0c | definite-integral `inf`-leak gating | 📋 |
+| 0c | definite-integral `inf`-leak gating (→ noun) | ✅ |
 | 0f | `simplify` honors the `simplified` flag (iterated-squaring timeout) | 📋 |
 | 0h | plugin name resolution; `,numer`/`,modulus` ev-modifier parse | 📋 |
 
@@ -36,7 +36,13 @@ eigen · 3c special-function numeric eval · 3d numeric solvers/quadrature/ODE.
 
 - **Bundle 1a** ✅ (PR): 0d negative/rational power-base parens; 0e expand-before-
   integrate (polynomial-gated) + symbolic `∫x^n`; 0g numeric `fib`/`lucas`
-  (`find_recurrence(fib(n))=[-1,-1,1]`). Next: 0c, then 0f/0h.
+  (`find_recurrence(fib(n))=[-1,-1,1]`). Next: 0f, then 0h.
+- **0c** ✅ improper integrals no longer leak `inf`: any infinite-bound
+  candidate still containing inf/minf/und (failed limit, e.g. unresolved
+  `atan(inf/√2)`) → noun; a 4-arg definite that falls through returns the
+  definite noun, not the indefinite antiderivative. Working cases (`%pi`,
+  `√π/2`, …) unchanged. (Proper rational-improper evaluation = Bundle 4 / 2e
+  contour engine.)
 - **0b** ✅ `eval_sum` infinite-bound gate: convergent numeric geometric (ratio
   by exact sampling, |r|<1) → exact value; divergent/non-geometric/symbolic →
   noun (was substituting `inf` → garbage `1-1/(1+inf)`, `inf*(1+inf)/2`).
