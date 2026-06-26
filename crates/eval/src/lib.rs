@@ -35,6 +35,7 @@ pub mod zeilberger;
 pub mod gosper;
 pub mod hypersum;
 pub mod gammafn;
+pub mod genfunc;
 pub mod recurrence;
 
 pub use env::{Environment, NativeFn, NativeFuncDef};

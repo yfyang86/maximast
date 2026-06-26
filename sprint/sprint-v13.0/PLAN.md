@@ -35,10 +35,23 @@ discipline: **compute → verify → return; correct-or-noun, never wrong.**
 1c arbitrary-precision bigfloat backend · 3a matrix decompositions · 3b general
 eigen · 3c special-function numeric eval · 3d numeric solvers/quadrature/ODE.
 
-## Bundle 3 — Summation completion
+## Bundle 3 — Summation completion 🚧
 
 2a order-≥2 Zeilberger (proven certificate) · 2b harmonic/Karr–Schneider sums ·
 3k generating functions / holonomic→GF.
+
+- **2b** ✅ (harmonic): `sum(1/k^p,k,1,n)` → `harmonic(n)` / `harmonic(n,p)`;
+  `harmonic(m[,p])` evaluates to the exact rational at integer m (so the closed
+  form round-trips to the numeric sum). Infinite: p=1 → `inf` (divergent),
+  p≥2 → `zeta(p)` (`%pi^2/6`, `%pi^4/90`, … for even p). Full Karr–Schneider
+  ΠΣ (nested S-sums) still future.
+- **3k** ✅ (generating functions): `sum(p(k)·xᵏ,k,0/1,inf)` → rational in x via
+  the `(x·d/dx)` operator on `1/(1-x)`. Symbolic base (`x/(1-x)^2`) and numeric
+  base with |base|<1 (`sum(k·(1/2)^k)=2`); every closed form numerically
+  verified at a convergent point, divergent series → noun. (`genfunc.rs`.)
+- **2a** order-≥2 Zeilberger proven certificate — `find_recurrence` already
+  emits the recurrence (Franel/Apéry); a verified Gosper certificate over Q(n)
+  is the remaining rigor step. TODO.
 
 ## Bundle 4 — Analysis
 
