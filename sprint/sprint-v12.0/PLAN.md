@@ -24,7 +24,7 @@ form.
 | **T1** | `find_recurrence(expr,n)` — minimal linear P-recurrence of a D-finite sequence via exact sampling + null-space, verified. (Zeilberger-package spirit.) | ✅ |
 | **T2** | `solve_rec(expr,n)` — closed form of C-finite (constant-coeff) sequences via characteristic roots. | ✅ (C-finite, rational roots) |
 | **T3** | Trager/Hermite on cubic+ curves: ∫P(x)/√C (deg C≥3) — elementary R·√C iff reducible, else nonelementary. | ✅ (∫P/√C case) |
-| **T4** | Certificate-based proof: turn a sampled recurrence into a verified telescoping certificate. | 📋 |
+| **T4** | `gosper_certificate(t,k)` — Gosper/WZ certificate of an indefinite sum, symbolically verified. | ✅ (indefinite/order-0) |
 
 ## Targets
 
@@ -36,6 +36,13 @@ integrate((x^2+1)/sqrt(x^3+x), x)                     → elementary
 integrate(1/sqrt(x^3+1), x)                           → NONELEMENTARY (noun)
 ```
 
+- **T4** — ✅ (indefinite case) `gosper.rs` `gosper_certificate(t,k)`: the
+  rational R(k) with antidifference T(k)=R(k)·t(k), proving Σt(k)=T(b+1)−T(a).
+  The certifying identity R(k+1)·r(k)−R(k)=1 is checked SYMBOLICALLY (rigorous),
+  with numeric telescoping fall-back for factorial terms.
+  `gosper_certificate(k*k!,k)=1/k`, `(k,k)→(k-1)/2`, `1/(k(k+1))→-(k+1)`;
+  non-summable (1/k) → noun. (Full order-≥2 Zeilberger certificate needs
+  symbolic-parameter Gosper / bivariate CRE over Q[n] — a larger effort.)
 - **T2** — ✅ (C-finite case) `recurrence.rs` `solve_rec(expr,n)`: find the
   recurrence; if constant-coefficient with distinct rational characteristic
   roots, return the closed form Σ A_i r_i^n (A_i from a Vandermonde fit to the
