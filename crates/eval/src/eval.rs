@@ -1112,6 +1112,12 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
             }
             Expr::call(&func_name, evaled_args)
         }
+        "fourier_transform" | "fourier" => {
+            if let Some(result) = crate::fourier::eval_fourier(&func_name, &evaled_args, env) {
+                return result;
+            }
+            Expr::call(&func_name, evaled_args)
+        }
         "laplace" | "ilt" => {
             if let Some(result) = crate::laplace::eval_laplace(&func_name, &evaled_args, env) {
                 return result;

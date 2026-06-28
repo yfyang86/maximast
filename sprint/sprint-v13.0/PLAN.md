@@ -90,9 +90,17 @@ eigen · 3c special-function numeric eval · 3d numeric solvers/quadrature/ODE.
   `(Bα+C)·π·C(2m−2,m−1)/4^(m−1)/ω^(2m−1)`. `∫1/(x²+2x+5)=π/2`,
   `∫1/(x²+1)³=3π/8` (also fixed a wrong `∫1/(x²+1)²=π/4`→`π/2`). A real pole
   (linear factor) → noun (divergent). Shares the PFD engine with `ilt`.
-  **Remaining (→ 2c algebraic numbers):** Q irreducible-over-Q of degree ≥4
-  (`x⁴+1`) needs ℝ-factorisation with irrational coefficients; Fourier/Jordan
-  (`∫cos(ax)P/Q`) and unit-circle `∫₀^{2π}R(cos,sin)` still future.
+  **2e extended** ✅: Fourier/Jordan integrals `∫_{−∞}^{∞} cos(ax)·P/Q` and
+  `sin(ax)·P/Q` via `(π/ω)e^(−aω)[…]` per quadratic (`∫cos(x)/(x²+1)=πe^{−1}`,
+  `∫x sin(x)/(x²+1)=πe^{−1}`); unit-circle `∫₀^{2π} c/(a+b·cos θ)=c·2π/√(a²−b²)`
+  (and the sin analogue). **Remaining (→ 2c algebraic numbers):** Q
+  irreducible-over-Q of degree ≥4 (`x⁴+1`) needs ℝ-factorisation with irrational
+  coefficients; repeated/general unit-circle integrands.
+- **3e** ✅ (Fourier transforms) — `fourier_transform(f,x,w)=∫f(x)e^(−iωx)dx`
+  via the canonical pairs: Gaussian `exp(−ax²)→√(π/a)e^(−ω²/4a)`, two-sided
+  exponential `exp(−a|x|)→2a/(a²+ω²)`, Lorentzian `1/(x²+a²)→(π/a)e^(−a|ω|)`,
+  with linearity and constant factoring (cross-checks the 2e Fourier integrals
+  at ω=1). General rational FT via 2e residues still future.
 
 ## Progress notes
 

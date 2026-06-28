@@ -1071,6 +1071,178 @@ fn meval_fresh(e: &Expr) -> Expr {
     meval(e, &mut crate::env::Environment::new())
 }
 
+/// ∫_0^{2π} c/(a + b·cos θ) dθ = c·2π/√(a²−b²) (and the sin analogue), the
+/// canonical unit-circle (|z|=1) residue integral. Requires a²>b² (no pole on
+/// the circle); other rational R(cos,sin) → None.
+fn unit_circle_integral(f: &Expr, var: &Expr, lo: &Expr, hi: &Expr) -> Option<Expr> {
+    // bounds must be 0 .. 2π
+    if *lo != Expr::int(0) { return None; }
+    let two_pi = simplify(&Expr::mul(Expr::int(2), Expr::sym("%pi")));
+    if simplify(hi) != two_pi { return None; }
+
+    // f = c · (a + b·trig(var))^(−1), c and a,b free of var.
+    let (c, denom) = match f {
+        Expr::List { op: Operator::MExpt, args, .. }
+            if args.len() == 2 && args[1] == Expr::int(-1) => (Expr::int(1), args[0].clone()),
+        Expr::List { op: Operator::MTimes, args, .. } => {
+            let mut c_parts = Vec::new();
+            let mut denom = None;
+            for a in args {
+                if denom.is_none() {
+                    if let Expr::List { op: Operator::MExpt, args: pa, .. } = a {
+                        if pa.len() == 2 && pa[1] == Expr::int(-1) { denom = Some(pa[0].clone()); continue; }
+                    }
+                }
+                if contains_var(a, var) { return None; } // numerator must be constant
+                c_parts.push(a.clone());
+            }
+            let denom = denom?;
+            let c = if c_parts.is_empty() { Expr::int(1) }
+                else { simplify(&Expr::List { op: Operator::MTimes, simplified: false, args: c_parts }) };
+            (c, denom)
+        }
+        _ => return None,
+    };
+
+    let (a_co, b_co) = extract_linear_trig(&denom, var)?;
+    // a² − b² must be a positive constant.
+    let disc = simplify(&Expr::sub(Expr::pow(a_co.clone(), Expr::int(2)), Expr::pow(b_co.clone(), Expr::int(2))));
+    if let Some(d) = to_f64(&disc) { if d <= 0.0 { return None; } }
+    let result = Expr::div(
+        Expr::mul(c, two_pi),
+        Expr::call("sqrt", vec![disc]));
+    Some(meval_fresh(&result))
+}
+
+/// Split `a + b·cos(var)` or `a + b·sin(var)` into (a, b); both var-free.
+fn extract_linear_trig(denom: &Expr, var: &Expr) -> Option<(Expr, Expr)> {
+    let Expr::List { op: Operator::MPlus, args, .. } = denom else { return None };
+    let mut a_parts = Vec::new();
+    let mut b = None;
+    for term in args {
+        if let Some(coef) = trig_coeff(term, var) {
+            if b.is_some() { return None; } // only one trig term
+            b = Some(coef);
+        } else if !contains_var(term, var) {
+            a_parts.push(term.clone());
+        } else {
+            return None;
+        }
+    }
+    let b = b?;
+    let a = if a_parts.is_empty() { Expr::int(0) }
+        else if a_parts.len() == 1 { a_parts.pop().unwrap() }
+        else { simplify(&Expr::List { op: Operator::MPlus, simplified: false, args: a_parts }) };
+    Some((a, b))
+}
+
+/// Coefficient b in `b·cos(var)` / `b·sin(var)` (or 1 for a bare `cos(var)`).
+fn trig_coeff(term: &Expr, var: &Expr) -> Option<Expr> {
+    let is_trig = |e: &Expr| matches!(e, Expr::List { op: Operator::Named(id), args, .. }
+        if (resolve(*id) == "cos" || resolve(*id) == "sin") && args.len() == 1 && args[0] == *var);
+    if is_trig(term) { return Some(Expr::int(1)); }
+    if let Expr::List { op: Operator::MTimes, args, .. } = term {
+        if args.len() == 2 {
+            if is_trig(&args[1]) && !contains_var(&args[0], var) { return Some(args[0].clone()); }
+            if is_trig(&args[0]) && !contains_var(&args[1], var) { return Some(args[1].clone()); }
+        }
+    }
+    None
+}
+
+/// ∫_{-∞}^{∞} trig(ax)·P(x)/Q(x) dx (trig = cos or sin, a≠0) by Jordan's lemma,
+/// realised via partial fractions over Q (simple irreducible quadratics only).
+/// For a quadratic (x−α)²+ω² with numerator Bx+C and frequency a>0:
+///   ∫(Bx+C)cos(ax)/((x−α)²+ω²) = (π/ω)e^(−aω)[(Bα+C)cos(aα) − Bω sin(aα)]
+///   ∫(Bx+C)sin(ax)/((x−α)²+ω²) = (π/ω)e^(−aω)[(Bα+C)sin(aα) + Bω cos(aα)]
+fn fourier_rational_integral(f: &Expr, var: &Expr) -> Option<Expr> {
+    use num::{BigRational, BigInt, Zero};
+    let Expr::Symbol(var_id) = var else { return None };
+    let (is_sin, a_expr, rational) = split_trig_rational(f, var)?;
+    // Frequency must be a positive real for Jordan's lemma; flip sign of an
+    // odd/even integrand for a<0.
+    let av = to_f64(&a_expr)?;
+    if av == 0.0 { return None; }
+    let (a_pos, sin_sign) = if av < 0.0 {
+        (simplify(&Expr::neg(a_expr.clone())), if is_sin { -1 } else { 1 })
+    } else { (a_expr.clone(), 1) };
+
+    let terms = crate::laplace::partial_fraction_terms(&rational, *var_id)?;
+    let four = BigRational::from(BigInt::from(4));
+    let two = BigRational::from(BigInt::from(2));
+    let pi = Expr::sym("%pi");
+    let br = crate::helpers::bigrat_to_expr;
+    let mut result = Expr::int(0);
+    for (q, j, ncoef) in terms {
+        if q.len() != 3 || j != 1 { return None; } // real pole / repeated → bail
+        let (b, c) = (q[1].clone(), q[0].clone());
+        if &(&b * &b) - &(&four * &c) >= BigRational::zero() { return None; } // real roots
+        let alpha = -(&b / &two);
+        let omega2 = &c - &(&(&b * &b) / &four);
+        let bb = ncoef.get(1).cloned().unwrap_or_else(BigRational::zero);
+        let cc = ncoef[0].clone();
+        let bac = &(&bb * &alpha) + &cc;                 // Bα + C
+        let omega = Expr::call("sqrt", vec![br(&omega2)]); // ω
+        let aw = simplify(&Expr::mul(a_pos.clone(), omega.clone())); // a·ω
+        let aa = simplify(&Expr::mul(a_pos.clone(), br(&alpha)));    // a·α
+        let damp = Expr::call("exp", vec![simplify(&Expr::neg(aw))]); // e^(−aω)
+        // bracket: cos case (Bα+C)cos(aα) − Bω sin(aα); sin case (Bα+C)sin(aα) + Bω cos(aα)
+        let bw = simplify(&Expr::mul(br(&bb), omega.clone()));       // B·ω
+        let bracket = if is_sin {
+            Expr::add(Expr::mul(br(&bac), Expr::call("sin", vec![aa.clone()])),
+                      Expr::mul(bw, Expr::call("cos", vec![aa])))
+        } else {
+            Expr::sub(Expr::mul(br(&bac), Expr::call("cos", vec![aa.clone()])),
+                      Expr::mul(bw, Expr::call("sin", vec![aa])))
+        };
+        // term = (π/ω)·e^(−aω)·bracket
+        let term = Expr::mul(Expr::div(pi.clone(), omega),
+            Expr::mul(damp, bracket));
+        result = simplify(&Expr::add(result, term));
+    }
+    if sin_sign == -1 { result = simplify(&Expr::neg(result)); }
+    Some(meval_fresh(&result))
+}
+
+/// Split f = trig(a·var)·(rational in var) into (is_sin, a, rational). The trig
+/// argument must be a·var (no constant offset).
+fn split_trig_rational(f: &Expr, var: &Expr) -> Option<(bool, Expr, Expr)> {
+    let Expr::List { op: Operator::MTimes, args, .. } = f else { return None };
+    let mut a = None;
+    let mut is_sin = false;
+    let mut rest: Vec<Expr> = Vec::new();
+    for arg in args {
+        if a.is_none() {
+            if let Expr::List { op: Operator::Named(id), args: fa, .. } = arg {
+                let name = resolve(*id);
+                if (name == "cos" || name == "sin") && fa.len() == 1 {
+                    if let Some(coef) = linear_in(&fa[0], var) {
+                        a = Some(coef); is_sin = name == "sin"; continue;
+                    }
+                }
+            }
+        }
+        rest.push(arg.clone());
+    }
+    let a = a?;
+    if rest.is_empty() { return None; }
+    let rational = if rest.len() == 1 { rest.pop().unwrap() }
+        else { Expr::List { op: Operator::MTimes, simplified: false, args: rest } };
+    Some((is_sin, a, rational))
+}
+
+/// Coefficient a in `a·var` (or 1 for `var`), var-free; else None.
+fn linear_in(e: &Expr, var: &Expr) -> Option<Expr> {
+    if e == var { return Some(Expr::int(1)); }
+    if let Expr::List { op: Operator::MTimes, args, .. } = e {
+        if args.len() == 2 {
+            if args[0] == *var && !contains_var(&args[1], var) { return Some(args[1].clone()); }
+            if args[1] == *var && !contains_var(&args[0], var) { return Some(args[0].clone()); }
+        }
+    }
+    None
+}
+
 fn binomial_bigint(n: u32, k: u32) -> num::BigInt {
     use num::BigInt;
     let k = k.min(n - k);
@@ -1087,7 +1259,12 @@ pub(crate) fn try_known_definite_integral(f: &Expr, var: &Expr, a: &Expr, b: &Ex
     // the upper half-plane. Reuses the partial-fraction engine.
     if is_minf(a) && is_inf(b) {
         if let Some(r) = rational_real_line_integral(f, var) { return Some(r); }
+        // ∫ cos(ax)·P/Q and ∫ sin(ax)·P/Q (Jordan's lemma).
+        if let Some(r) = fourier_rational_integral(f, var) { return Some(r); }
     }
+
+    // ∫_0^{2π} R(cos θ, sin θ) dθ via the unit-circle contour |z|=1.
+    if let Some(r) = unit_circle_integral(f, var, a, b) { return Some(r); }
 
     // ∫_{-∞}^{∞} exp(-x²) dx = √π (Gaussian integral)
     if is_minf(a) && is_inf(b) {
