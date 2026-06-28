@@ -121,3 +121,27 @@ fn run(s: &str) -> String { eval_str(s) }
     let n = r.chars().filter(|c| !c.is_whitespace()).collect::<String>();
     assert!(n.contains("cos(log(x))") && n.contains("sin(log(x))"), "got: {}", r);
 }
+
+// desolve via the Laplace method, V13 3g.
+#[test] fn desolve_first_order_symbolic_ic() {
+    assert_eq!(run("desolve('diff(y,t)=y, y(t));"), "y(t) = exp(t)*y(0)");
+}
+#[test] fn desolve_second_order_symbolic_ic() {
+    // general solution y(0)cos t + y'(0) sin t
+    let r = run("desolve('diff(y,t,2)+y=0, y(t));");
+    let n = r.chars().filter(|c| !c.is_whitespace()).collect::<String>();
+    assert!(n.contains("cos(t)*y(0)") && n.contains("sin(t)"), "got: {}", r);
+}
+#[test] fn desolve_sinh_cosh() {
+    // y''-y=0 → cosh/sinh (real poles, not complex cos)
+    let r = run("desolve('diff(y,t,2)-y=0, y(t));");
+    assert!(!r.contains("sqrt(-1)") && r.contains("exp(t)") && r.contains("exp(-t)"), "got: {}", r);
+}
+#[test] fn desolve_with_atvalue() {
+    let mut env = maxima_eval::Environment::new();
+    maxima_eval::eval_str_with_env("atvalue(y(t), t=0, 2);", &mut env);
+    maxima_eval::eval_str_with_env("atvalue('diff(y,t), t=0, 3);", &mut env);
+    let r = maxima_eval::eval_str_with_env("desolve('diff(y,t,2)+y=0, y(t));", &mut env);
+    let n = r.chars().filter(|c| !c.is_whitespace()).collect::<String>();
+    assert!(n.contains("2*cos(t)") && n.contains("3*sin(t)") && !n.contains("y(0)"), "got: {}", r);
+}
