@@ -61,10 +61,19 @@ eigen · 3c special-function numeric eval · 3d numeric solvers/quadrature/ODE.
   (confirmed: a rushed reuse of the numeric Gosper can't produce the symbolic
   certificate). A new Q(n)[k] polynomial layer is the right next step.
 
-## Bundle 4 — Analysis
+## Bundle 4 — Analysis 🚧
 
 1d inverse Laplace (residues) · 2e contour/residue definite integrals ·
 3e Fourier transforms · 3f Frobenius/Euler ODE · 3g `desolve`/ODE systems.
+
+- **1d** ✅ inverse Laplace of a general rational F(s)=N/D via exact partial
+  fractions over Q (`laplace.rs`): D factored into linear and irreducible-
+  quadratic factors, PFD numerators by an exact ℚ linear solve, each term
+  inverted by transform pairs — `A/(s−a)^j → A·t^(j−1)·e^(at)/(j−1)!` (any
+  multiplicity) and `(Bs+C)/((s+p)²+ω²) → e^(−pt)[B cos ωt + ((C−Bp)/ω) sin ωt]`.
+  `ilt(1/(s²+1))=sin t`, `ilt(1/(s²−1))=sinh t`, repeated poles, damped
+  oscillations; verified by `laplace(ilt(F))=F` round-trip. Repeated complex
+  poles (quadratic mult ≥2) → noun. (Also a foundation for 3g `desolve`.)
 
 ## Progress notes
 

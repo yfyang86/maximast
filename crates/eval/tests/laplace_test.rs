@@ -39,3 +39,33 @@ fn run(s: &str) -> String { eval_str(s) }
     let back = run(&format!("ilt({}, s, t);", lt));
     assert_eq!(back, "exp(3*t)");
 }
+
+// General rational inverse Laplace via partial fractions over Q (V13 1d).
+#[test] fn ilt_pfd_distinct_real() {
+    // 6/((s+1)(s+2)(s+3)) → 3e^-t − 6e^-2t + 3e^-3t (each residue exact)
+    let r = run("ilt(6/((s+1)*(s+2)*(s+3)), s, t);");
+    assert!(!r.contains("ilt"), "should invert, got: {}", r);
+    assert!(r.contains("exp(-t)") && r.contains("exp(-2*t)") && r.contains("exp(-3*t)"), "got: {}", r);
+}
+#[test] fn ilt_sinh() {
+    // 1/(s^2-1) = sinh(t) = (e^t - e^-t)/2
+    assert_eq!(run("ilt(1/(s^2-1), s, t);"), "(1/2)*exp(t)-(1/2)*exp(-t)");
+}
+#[test] fn ilt_repeated_pole() {
+    // 1/((s-1)^2 (s+2)): repeated real pole → t·e^t term present
+    let r = run("ilt(1/((s-1)^2*(s+2)), s, t);");
+    assert!(!r.contains("ilt") && r.contains("t*exp(t)"), "got: {}", r);
+}
+#[test] fn ilt_damped_oscillation() {
+    // s/(s^2+2s+5): complex poles −1±2i → e^-t(cos2t − sin2t/2)
+    let r = run("ilt(s/(s^2+2*s+5), s, t);");
+    assert!(!r.contains("ilt") && r.contains("exp(-t)") && r.contains("cos(2*t)") && r.contains("sin(2*t)"), "got: {}", r);
+}
+#[test] fn ilt_one_minus_cos() {
+    assert_eq!(run("ilt(1/(s*(s^2+1)), s, t);"), "1-cos(t)");
+}
+#[test] fn ilt_roundtrip_general() {
+    // laplace(ilt(F)) reconstructs F for a few rationals
+    assert_eq!(run("laplace(ilt(1/(s^2+1), s, t), t, s);"), "1/(1+s^2)");
+    assert_eq!(run("laplace(ilt(1/(s^2*(s+1)), s, t), t, s);"), "1/s^2-1/s+1/(1+s)");
+}

@@ -105,6 +105,19 @@ bc2(ode2('diff(y,x,2)+y=0,y,x), x=0,y=0, x=%pi/2,y=1);   → sin(x)
 Every non-homogeneous particular solution is verified numerically before it
 is returned; otherwise `ode2` falls back to the noun form.
 
+### Laplace transforms
+```
+laplace(sin(t), t, s);           → 1/(1+s^2)
+ilt(1/(s^2+1), s, t);            → sin(t)
+ilt(1/(s^2-1), s, t);            → (1/2)*exp(t)-(1/2)*exp(-t)   (sinh)
+ilt(s/(s^2+2*s+5), s, t);        → exp(-t)*(cos(2*t)-sin(2*t)/2) (damped)
+ilt(6/((s+1)*(s+2)*(s+3)), s, t); → 3*exp(-t)-6*exp(-2*t)+3*exp(-3*t)
+```
+Inverse Laplace handles a general rational `F(s)=N/D`: `D` is factored over ℚ,
+the partial-fraction numerators are solved exactly, and each term is inverted by
+its transform pair (real poles → `t^j·e^(at)`, irreducible quadratics → damped
+`sin`/`cos`). Verified by the `laplace(ilt(F))=F` round-trip.
+
 ### Algebra
 ```
 expand((a+b)*(a-b));          → a^2 - b^2
