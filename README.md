@@ -91,6 +91,8 @@ integrate(x^(2*n)*exp(-x^2), x, 0, inf);→ (2n)!*sqrt(%pi)/(2*4^n*n!)  (paramet
 integrate(exp(-2*x^2)*cos(3*x), x, 0, inf); → Gaussian-cosine
 integrate(1/(x^2+2*x+5), x, minf, inf); → %pi/2   (residues, upper half-plane)
 integrate(1/(x^2+1)^3, x, minf, inf);   → 3*%pi/8 (repeated pole, reduction)
+integrate(cos(x)/(x^2+1), x, minf, inf); → %pi*exp(-1)  (Jordan's lemma)
+integrate(1/(2+cos(x)), x, 0, 2*%pi);   → 2*%pi/sqrt(3) (unit-circle contour)
 limit(exp(-x), x, inf);                 → 0
 taylor(sin(x), x, 0, 5);               → x - x^3/6 + x^5/120
 ```

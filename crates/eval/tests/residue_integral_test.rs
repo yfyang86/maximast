@@ -26,3 +26,24 @@ fn run(s: &str) -> String { eval_str(s) }
     // 1/(x²−1) has real poles ⇒ divergent ⇒ noun (never a wrong finite value)
     assert!(run("integrate(1/(x^2-1), x, minf, inf);").contains("integrate"));
 }
+
+// Fourier/Jordan integrals: ∫ trig(ax)·P/Q over the real line.
+#[test] fn fourier_cosine() {
+    assert_eq!(run("integrate(cos(x)/(x^2+1), x, minf, inf);"), "%pi*exp(-1)");
+    assert_eq!(run("integrate(cos(2*x)/(x^2+1), x, minf, inf);"), "%pi*exp(-2)");
+    assert_eq!(run("integrate(cos(x)/(x^2+4), x, minf, inf);"), "(1/2)*%pi*exp(-2)");
+}
+#[test] fn fourier_sine() {
+    assert_eq!(run("integrate(sin(x)/(x^2+1), x, minf, inf);"), "0"); // odd
+    assert_eq!(run("integrate(x*sin(x)/(x^2+1), x, minf, inf);"), "%pi*exp(-1)");
+}
+
+// Unit-circle integrals: ∫_0^{2π} c/(a+b·trig θ) dθ = c·2π/√(a²−b²).
+#[test] fn unit_circle_cosine() {
+    assert_eq!(run("integrate(1/(2+cos(x)), x, 0, 2*%pi);"), "2*%pi/sqrt(3)");
+    assert_eq!(run("integrate(1/(5+4*cos(x)), x, 0, 2*%pi);"), "(2/3)*%pi");
+    assert_eq!(run("integrate(3/(2+cos(x)), x, 0, 2*%pi);"), "6*%pi/sqrt(3)");
+}
+#[test] fn unit_circle_sine() {
+    assert_eq!(run("integrate(1/(2+sin(x)), x, 0, 2*%pi);"), "2*%pi/sqrt(3)");
+}
