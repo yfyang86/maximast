@@ -84,6 +84,15 @@ eigen · 3c special-function numeric eval · 3d numeric solvers/quadrature/ODE.
   algebraic equation for Y(s), invert with `ilt`. Y splits by linearity so each
   `ilt` piece has rational coefficients. Initial values from `atvalue` (new),
   else symbolic `y(0)`/`at('diff(y,t),t=0)`. ODE systems still future.
+- **2e** ✅ (residue definite integrals) — `∫_{−∞}^{∞} P/Q dx` via the
+  upper-half-plane contour, realised as exact partial fractions over Q: each
+  simple/repeated irreducible quadratic `(Bx+C)/((x−α)²+ω²)^m` integrates to
+  `(Bα+C)·π·C(2m−2,m−1)/4^(m−1)/ω^(2m−1)`. `∫1/(x²+2x+5)=π/2`,
+  `∫1/(x²+1)³=3π/8` (also fixed a wrong `∫1/(x²+1)²=π/4`→`π/2`). A real pole
+  (linear factor) → noun (divergent). Shares the PFD engine with `ilt`.
+  **Remaining (→ 2c algebraic numbers):** Q irreducible-over-Q of degree ≥4
+  (`x⁴+1`) needs ℝ-factorisation with irrational coefficients; Fourier/Jordan
+  (`∫cos(ax)P/Q`) and unit-circle `∫₀^{2π}R(cos,sin)` still future.
 
 ## Progress notes
 

@@ -89,6 +89,8 @@ integrate(x^5/sqrt(x^3+1), x);          → elementary R·√(x³+1)  (hyperelli
 integrate(x^n*exp(-x), x, 0, inf);      → factorial(n)
 integrate(x^(2*n)*exp(-x^2), x, 0, inf);→ (2n)!*sqrt(%pi)/(2*4^n*n!)  (parametric, Almkvist–Zeilberger)
 integrate(exp(-2*x^2)*cos(3*x), x, 0, inf); → Gaussian-cosine
+integrate(1/(x^2+2*x+5), x, minf, inf); → %pi/2   (residues, upper half-plane)
+integrate(1/(x^2+1)^3, x, minf, inf);   → 3*%pi/8 (repeated pole, reduction)
 limit(exp(-x), x, inf);                 → 0
 taylor(sin(x), x, 0, 5);               → x - x^3/6 + x^5/120
 ```

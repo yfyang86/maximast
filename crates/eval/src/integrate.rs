@@ -1025,9 +1025,69 @@ pub(crate) fn normalize_abs_arg(expr: &Expr) -> Expr {
 }
 
 /// Known definite integral formulas.
+/// ∫_{-∞}^{∞} P(x)/Q(x) dx for a strictly-proper rational with Q having only
+/// simple irreducible-quadratic factors (no real poles). Partial fractions give
+/// Σ (Bx+C)/((x−α)²+ω²), and ∫_{-∞}^{∞}(Bx+C)/((x−α)²+ω²) dx = π(Bα+C)/ω. A real
+/// pole (linear factor) or a repeated quadratic → None (divergent / not handled).
+fn rational_real_line_integral(f: &Expr, var: &Expr) -> Option<Expr> {
+    use num::{BigRational, BigInt, Zero};
+    let Expr::Symbol(var_id) = var else { return None };
+    let terms = crate::laplace::partial_fraction_terms(f, *var_id)?;
+    let four = BigRational::from(BigInt::from(4));
+    let two = BigRational::from(BigInt::from(2));
+    let pi = Expr::sym("%pi");
+    let mut result = Expr::int(0);
+    for (q, j, ncoef) in terms {
+        if q.len() != 3 { return None; }              // linear factor ⇒ real pole ⇒ diverges
+        let (b, c) = (q[1].clone(), q[0].clone());
+        let disc = &(&b * &b) - &(&four * &c);        // b² − 4c
+        if disc >= BigRational::zero() { return None; } // real roots ⇒ divergent
+        let alpha = -(&b / &two);                       // −b/2
+        let omega2 = &c - &(&(&b * &b) / &four);        // c − b²/4 = ω² (>0)
+        let bb = ncoef.get(1).cloned().unwrap_or_else(BigRational::zero); // B
+        let cc = ncoef[0].clone();                                         // C
+        let numer = &(&bb * &alpha) + &cc;              // Bα + C
+        if numer.is_zero() { continue; }
+        // ∫(Bx+C)/((x−α)²+ω²)^m dx = (Bα+C)·π·C(2m−2,m−1)/4^(m−1) / ω^(2m−1).
+        let m = j as u32;
+        let binom = binomial_bigint(2 * m - 2, m - 1);          // C(2m−2, m−1)
+        let pow4 = BigInt::from(4).pow(m - 1);                   // 4^(m−1)
+        let cm = BigRational::new(binom, pow4);                 // reduction constant
+        let rational_factor = &numer * &cm;                     // (Bα+C)·C(m)
+        let omega2_pow = num::pow(omega2.clone(), (m - 1) as usize); // (ω²)^(m−1)
+        // term = π·rational_factor / ((ω²)^(m−1)·√ω²)
+        let term = Expr::div(
+            Expr::mul(pi.clone(), crate::helpers::bigrat_to_expr(&rational_factor)),
+            Expr::mul(crate::helpers::bigrat_to_expr(&omega2_pow),
+                      Expr::call("sqrt", vec![crate::helpers::bigrat_to_expr(&omega2)])));
+        result = simplify(&Expr::add(result, term));
+    }
+    Some(meval_fresh(&result))
+}
+
+/// Reduce via a throwaway environment (folds √ and rational arithmetic the
+/// structural simplifier leaves alone).
+fn meval_fresh(e: &Expr) -> Expr {
+    meval(e, &mut crate::env::Environment::new())
+}
+
+fn binomial_bigint(n: u32, k: u32) -> num::BigInt {
+    use num::BigInt;
+    let k = k.min(n - k);
+    let mut r = BigInt::from(1);
+    for i in 0..k { r = r * BigInt::from(n - i) / BigInt::from(i + 1); }
+    r
+}
+
 pub(crate) fn try_known_definite_integral(f: &Expr, var: &Expr, a: &Expr, b: &Expr) -> Option<Expr> {
     let is_inf = |e: &Expr| matches!(e, Expr::Symbol(id) if { let n = resolve(*id); n == "inf" || n == "infinity" });
     let is_minf = |e: &Expr| matches!(e, Expr::Symbol(id) if resolve(*id) == "minf");
+
+    // ∫_{-∞}^{∞} P(x)/Q(x) dx by residues (Q with no real poles): contour over
+    // the upper half-plane. Reuses the partial-fraction engine.
+    if is_minf(a) && is_inf(b) {
+        if let Some(r) = rational_real_line_integral(f, var) { return Some(r); }
+    }
 
     // ∫_{-∞}^{∞} exp(-x²) dx = √π (Gaussian integral)
     if is_minf(a) && is_inf(b) {
