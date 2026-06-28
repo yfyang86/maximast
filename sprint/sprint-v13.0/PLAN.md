@@ -83,7 +83,16 @@ eigen · 3c special-function numeric eval · 3d numeric solvers/quadrature/ODE.
   method: transform (`L{y'}=sY−y(0)`, `L{y''}=s²Y−s·y(0)−y'(0)`), solve the
   algebraic equation for Y(s), invert with `ilt`. Y splits by linearity so each
   `ilt` piece has rational coefficients. Initial values from `atvalue` (new),
-  else symbolic `y(0)`/`at('diff(y,t),t=0)`. ODE systems still future.
+  else symbolic `y(0)`/`at('diff(y,t),t=0)`.
+  **3g+ systems** ✅: `desolve([eq1,eq2],[x(t),y(t)])` for 2×2 first-order linear
+  constant-coefficient systems `x'=ax+by+g₁, y'=cx+dy+g₂`. Laplace turns it into
+  the 2×2 algebraic system `(s−a)X−bY=x₀+G₁, −cX+(s−d)Y=y₀+G₂`; Cramer over
+  `Δ=s²−(a+d)s+(ad−bc)` gives X,Y, inverted by `ilt`. So real distinct, repeated
+  (`t·exp`), and complex (`cos·sin`) eigenvalues all fall out, plus decoupling and
+  forcing: `x'=y,y'=x→cosh/sinh`; `x'=−y,y'=x→cos/sin`; `x'=x,y'=x+y→t·eᵗ`. x₀,y₀
+  kept OUTSIDE `ilt` (a function-call coeff inside `ilt` recurses — a pre-existing
+  bug, also guarded ilt(0)). Output in terms of x(0),y(0) or `atvalue`. Still
+  future: N×N (N≥3), and a proper fix for the latent `ilt` recursion.
 - **2e** ✅ (residue definite integrals) — `∫_{−∞}^{∞} P/Q dx` via the
   upper-half-plane contour, realised as exact partial fractions over Q: each
   simple/repeated irreducible quadratic `(Bx+C)/((x−α)²+ω²)^m` integrates to

@@ -37,7 +37,9 @@ pub(crate) fn eval_ode(name: &str, args: &[Expr], env: &mut crate::env::Environm
         }
         "desolve" => {
             if args.len() == 2 {
-                if let Some(r) = desolve(&args[0], &args[1], env) { return Some(r); }
+                if matches!(&args[0], Expr::List { op: Operator::MList, .. }) {
+                    if let Some(r) = desolve_system(&args[0], &args[1], env) { return Some(r); }
+                } else if let Some(r) = desolve(&args[0], &args[1], env) { return Some(r); }
             }
             Some(Expr::call("desolve", args.to_vec()))
         }
@@ -114,6 +116,108 @@ fn desolve(eq: &Expr, dep: &Expr, env: &mut crate::env::Environment) -> Option<E
     // Reject if inversion failed anywhere (a leftover ilt noun).
     if is_laplace_noun(&y_t) { return None; }
     Some(Expr::List { op: Operator::MEqual, simplified: false, args: vec![dep.clone(), y_t] })
+}
+
+/// Solve a 2×2 first-order linear constant-coefficient system
+///   x' = a·x + b·y + g₁(t),   y' = c·x + d·y + g₂(t)
+/// by Laplace. With Δ(s) = s² − (a+d)s + (ad−bc) and Pᵢ = xᵢ(0) + L{gᵢ}:
+///   X = [P₁(s−d) + b·P₂]/Δ,   Y = [(s−a)P₂ + c·P₁]/Δ,
+/// each inverted by `ilt` (so every eigenvalue case — real, repeated, complex —
+/// comes back as exp/t·exp/cos·sin automatically). Output [x(t)=…, y(t)=…] in
+/// terms of x(0),y(0) (from atvalue, else symbolic). a,b,c,d must be constant.
+fn desolve_system(eqs: &Expr, deps: &Expr, env: &mut crate::env::Environment) -> Option<Expr> {
+    let Expr::List { op: Operator::MList, args: eq_list, .. } = eqs else { return None };
+    let Expr::List { op: Operator::MList, args: dep_list, .. } = deps else { return None };
+    if eq_list.len() != 2 || dep_list.len() != 2 { return None; }
+
+    // Dependent functions x(t), y(t): names sharing one independent variable t.
+    let mut names = Vec::new();
+    let mut t: Option<Expr> = None;
+    for d in dep_list {
+        let Expr::List { op: Operator::Named(id), args: da, .. } = d else { return None };
+        if da.len() != 1 { return None; }
+        match &t { None => t = Some(da[0].clone()), Some(tt) => if *tt != da[0] { return None; } }
+        names.push(resolve(*id));
+    }
+    let t = t.unwrap();
+    let fns: Vec<Expr> = names.iter().map(|n| Expr::call(n, vec![t.clone()])).collect();
+    let deriv = |i: usize| Expr::call("diff", vec![fns[i].clone(), t.clone()]);
+
+    // Parse each equation into xᵢ' = Σ aᵢⱼ·xⱼ + gᵢ.
+    let mut coeff = [[Expr::int(0), Expr::int(0)], [Expr::int(0), Expr::int(0)]];
+    let mut forcing = [Expr::int(0), Expr::int(0)];
+    for i in 0..2 {
+        let (lhs, rhs) = match &eq_list[i] {
+            Expr::List { op: Operator::MEqual, args, .. } if args.len() == 2 => (args[0].clone(), args[1].clone()),
+            other => (other.clone(), Expr::int(0)),
+        };
+        let f = simplify(&Expr::sub(lhs, rhs)); // f = 0, with f = dcoef·xᵢ' + residual
+        let dcoef = coeff_of(&f, &deriv(i));
+        if dcoef == Expr::int(0) { return None; }            // equation i must carry xᵢ'
+        let residual = simplify(&subst(&Expr::int(0), &deriv(i), &f));
+        for j in 0..2 {                                       // reject other derivatives
+            if contains_var(&residual, &deriv(j)) { return None; }
+        }
+        let rhs_i = simplify(&Expr::div(Expr::neg(residual), dcoef)); // xᵢ' = −residual/dcoef
+        for j in 0..2 {
+            coeff[i][j] = coeff_of(&rhs_i, &fns[j]);
+            if contains_var(&coeff[i][j], &t) { return None; } // constant coefficients only
+        }
+        let mut g = rhs_i;
+        for j in 0..2 { g = subst(&Expr::int(0), &fns[j], &g); }
+        forcing[i] = simplify(&g);
+    }
+    let (a, b) = (coeff[0][0].clone(), coeff[0][1].clone());
+    let (c, d) = (coeff[1][0].clone(), coeff[1][1].clone());
+
+    let s = Expr::sym(&format!("{}_s", names[0]));
+    // Δ = s² − (a+d)s + (ad − bc)
+    let tr = simplify(&Expr::add(a.clone(), d.clone()));
+    let det = simplify(&Expr::sub(Expr::mul(a.clone(), d.clone()), Expr::mul(b.clone(), c.clone())));
+    let delta = simplify(&Expr::add(
+        Expr::sub(Expr::pow(s.clone(), Expr::int(2)), Expr::mul(tr, s.clone())), det));
+
+    // Initial values x(0),y(0) and forcing transforms Gᵢ = L{gᵢ}.
+    let x0 = atvalue_or(&names[0], 0, &t, env).unwrap_or_else(|| Expr::call(&names[0], vec![Expr::int(0)]));
+    let y0 = atvalue_or(&names[1], 0, &t, env).unwrap_or_else(|| Expr::call(&names[1], vec![Expr::int(0)]));
+    let mut gtr = Vec::new();
+    for i in 0..2 {
+        if forcing[i] == Expr::int(0) { gtr.push(Expr::int(0)); continue; }
+        let gs = meval(&Expr::call("laplace", vec![forcing[i].clone(), t.clone(), s.clone()]), env);
+        if is_laplace_noun(&gs) { return None; }
+        gtr.push(gs);
+    }
+
+    // X = [(x₀+G₁)(s−d) + b(y₀+G₂)]/Δ, Y = [(s−a)(y₀+G₂) + c(x₀+G₁)]/Δ. Keep the
+    // symbolic x₀,y₀ OUTSIDE `ilt` (a function-call coefficient inside ilt would
+    // recurse); only the rational forcing pieces go through it.
+    let iltq = |num: Expr, env: &mut crate::env::Environment| -> Expr {
+        let num = simplify(&num);
+        if num == Expr::int(0) { return Expr::int(0); } // ilt(0) recurses; short-circuit
+        meval(&Expr::call("ilt", vec![simplify(&Expr::div(num, delta.clone())), s.clone(), t.clone()]), env)
+    };
+    let sd = Expr::sub(s.clone(), d.clone());          // s − d
+    let sa = Expr::sub(s.clone(), a.clone());          // s − a
+    // x(t) = x₀·iltq(s−d) + y₀·iltq(b) + iltq(G₁(s−d) + b·G₂)
+    let mut xt = Expr::add(
+        Expr::mul(x0.clone(), iltq(sd.clone(), env)),
+        Expr::mul(y0.clone(), iltq(b.clone(), env)));
+    let xforce = simplify(&Expr::add(Expr::mul(gtr[0].clone(), sd), Expr::mul(b.clone(), gtr[1].clone())));
+    if xforce != Expr::int(0) { xt = Expr::add(xt, iltq(xforce, env)); }
+    // y(t) = x₀·iltq(c) + y₀·iltq(s−a) + iltq((s−a)G₂ + c·G₁)
+    let mut yt = Expr::add(
+        Expr::mul(x0.clone(), iltq(c.clone(), env)),
+        Expr::mul(y0.clone(), iltq(sa.clone(), env)));
+    let yforce = simplify(&Expr::add(Expr::mul(sa, gtr[1].clone()), Expr::mul(c.clone(), gtr[0].clone())));
+    if yforce != Expr::int(0) { yt = Expr::add(yt, iltq(yforce, env)); }
+    let xt = simplify(&xt);
+    let yt = simplify(&yt);
+    if is_laplace_noun(&xt) || is_laplace_noun(&yt) { return None; }
+
+    Some(Expr::List { op: Operator::MList, simplified: false, args: vec![
+        Expr::List { op: Operator::MEqual, simplified: false, args: vec![fns[0].clone(), xt] },
+        Expr::List { op: Operator::MEqual, simplified: false, args: vec![fns[1].clone(), yt] },
+    ]})
 }
 
 fn is_laplace_noun(e: &Expr) -> bool {

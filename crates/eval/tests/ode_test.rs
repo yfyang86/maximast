@@ -145,3 +145,42 @@ fn run(s: &str) -> String { eval_str(s) }
     let n = r.chars().filter(|c| !c.is_whitespace()).collect::<String>();
     assert!(n.contains("2*cos(t)") && n.contains("3*sin(t)") && !n.contains("y(0)"), "got: {}", r);
 }
+
+// desolve for 2×2 first-order linear constant-coefficient systems (V13 3g+),
+// via Laplace on the system. Output in terms of x(0),y(0).
+#[test] fn desolve_system_cosh_sinh() {
+    // x'=y, y'=x → x=cosh·x0+sinh·y0, y=sinh·x0+cosh·y0 (eigenvalues ±1)
+    let r = run("desolve([diff(x(t),t)=y(t), diff(y(t),t)=x(t)], [x(t),y(t)]);");
+    let n = r.chars().filter(|c| !c.is_whitespace()).collect::<String>();
+    assert!(n.contains("exp(t)") && n.contains("exp(-t)") && n.contains("x(0)") && n.contains("y(0)"), "got: {}", r);
+    assert!(n.starts_with("[x(t)=") && n.contains(",y(t)="), "shape: {}", r);
+}
+#[test] fn desolve_system_rotation() {
+    // x'=-y, y'=x → complex eigenvalues ±i → cos/sin
+    let r = run("desolve([diff(x(t),t)=-y(t), diff(y(t),t)=x(t)], [x(t),y(t)]);");
+    let n = r.chars().filter(|c| !c.is_whitespace()).collect::<String>();
+    assert_eq!(n, "[x(t)=cos(t)*x(0)-sin(t)*y(0),y(t)=cos(t)*y(0)+sin(t)*x(0)]");
+}
+#[test] fn desolve_system_repeated_eigenvalue() {
+    // x'=x, y'=x+y → repeated λ=1 → the t·exp(t) term appears
+    let r = run("desolve([diff(x(t),t)=x(t), diff(y(t),t)=x(t)+y(t)], [x(t),y(t)]);");
+    let n = r.chars().filter(|c| !c.is_whitespace()).collect::<String>();
+    assert!(n.contains("t*exp(t)*x(0)"), "expected repeated-root term, got: {}", r);
+}
+#[test] fn desolve_system_with_atvalue() {
+    let mut env = maxima_eval::Environment::new();
+    maxima_eval::eval_str_with_env("atvalue(x(t), t=0, 1);", &mut env);
+    maxima_eval::eval_str_with_env("atvalue(y(t), t=0, 0);", &mut env);
+    let r = maxima_eval::eval_str_with_env(
+        "desolve([diff(x(t),t)=y(t), diff(y(t),t)=x(t)], [x(t),y(t)]);", &mut env);
+    let n = r.chars().filter(|c| !c.is_whitespace()).collect::<String>();
+    // x(0)=1,y(0)=0 → x=cosh(t), y=sinh(t); no symbolic x(0)/y(0) left.
+    assert!(!n.contains("x(0)") && !n.contains("y(0)"), "ICs not applied: {}", r);
+    assert!(n.contains("exp(t)") && n.contains("exp(-t)"), "got: {}", r);
+}
+#[test] fn desolve_system_forcing() {
+    // x'=-x+1, y'=y → x has steady state 1: x = 1 + exp(-t)(x0-1)
+    let r = run("desolve([diff(x(t),t)=-x(t)+1, diff(y(t),t)=y(t)], [x(t),y(t)]);");
+    let n = r.chars().filter(|c| !c.is_whitespace()).collect::<String>();
+    assert!(n.contains("1+exp(-t)*x(0)-exp(-t)"), "forcing not handled: {}", r);
+}
