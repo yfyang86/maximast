@@ -1065,6 +1065,44 @@ fn rational_real_line_integral(f: &Expr, var: &Expr) -> Option<Expr> {
     Some(meval_fresh(&result))
 }
 
+/// ∫_{-∞}^{∞} N(x)/(x⁴+px²+q) dx for a biquadratic denominator irreducible
+/// over ℚ (the algebraic-number case x⁴+1 → π/√2). Real-factoring over ℝ as
+/// (x²+sx+√q)(x²−sx+√q) and summing the two simple-quadratic residues collapses
+/// to a closed form needing only the surds √q and √(2√q+p):
+///   ∫ (c₂x²+c₀)/(x⁴+px²+q) dx = π/√(2√q+p)·(c₂ + c₀/√q)   (odd terms → 0).
+/// Requires q>0 and no real roots (q>0 ∧ (p>0 ∨ p²<4q)); numerator degree ≤ 3.
+fn biquadratic_real_line_integral(f: &Expr, var: &Expr) -> Option<Expr> {
+    use num::{BigRational, Zero};
+    use num::ToPrimitive;
+    let Expr::Symbol(var_id) = var else { return None };
+    let (num, den) = crate::laplace::split_rational_dense(f, *var_id)?;
+    if crate::laplace::dense_degree(&den) != 4 { return None; }
+    // biquadratic: no odd-degree terms.
+    if !den[3].is_zero() || !den[1].is_zero() { return None; }
+    if crate::laplace::dense_degree(&num) > 3 { return None; }  // must be proper
+    let a4 = den[4].clone();
+    let p = &den[2] / &a4;
+    let q = &den[0] / &a4;
+    let zero = BigRational::zero();
+    let c0 = num.get(0).cloned().unwrap_or_else(|| zero.clone());
+    let c2 = num.get(2).cloned().unwrap_or_else(|| zero.clone());
+    // Convergence / no-real-root guards (numeric).
+    let (pf, qf) = (p.to_f64()?, q.to_f64()?);
+    if !(qf > 0.0) { return None; }
+    if !(pf > 0.0 || pf * pf < 4.0 * qf) { return None; } // real roots ⇒ divergent
+    if !(2.0 * qf.sqrt() + pf > 0.0) { return None; }
+    let br = crate::helpers::bigrat_to_expr;
+    let sqrtq = Expr::call("sqrt", vec![br(&q)]);                       // √q
+    let denom = Expr::call("sqrt", vec![                                // √(2√q+p)
+        simplify(&Expr::add(Expr::mul(Expr::int(2), sqrtq.clone()), br(&p)))]);
+    // π·(c₂ + c₀/√q) / √(2√q+p) / a₄
+    let bracket = simplify(&Expr::add(br(&c2), Expr::div(br(&c0), sqrtq)));
+    let result = Expr::div(
+        Expr::div(Expr::mul(Expr::sym("%pi"), bracket), denom),
+        br(&a4));
+    Some(meval_fresh(&result))
+}
+
 /// Reduce via a throwaway environment (folds √ and rational arithmetic the
 /// structural simplifier leaves alone).
 fn meval_fresh(e: &Expr) -> Expr {
@@ -1259,6 +1297,8 @@ pub(crate) fn try_known_definite_integral(f: &Expr, var: &Expr, a: &Expr, b: &Ex
     // the upper half-plane. Reuses the partial-fraction engine.
     if is_minf(a) && is_inf(b) {
         if let Some(r) = rational_real_line_integral(f, var) { return Some(r); }
+        // Biquadratic irreducible over ℚ (x⁴+px²+q): real-factor + residues.
+        if let Some(r) = biquadratic_real_line_integral(f, var) { return Some(r); }
         // ∫ cos(ax)·P/Q and ∫ sin(ax)·P/Q (Jordan's lemma).
         if let Some(r) = fourier_rational_integral(f, var) { return Some(r); }
     }
