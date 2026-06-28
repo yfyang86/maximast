@@ -129,6 +129,15 @@ the partial-fraction numerators are solved exactly, and each term is inverted by
 its transform pair (real poles → `t^j·e^(at)`, irreducible quadratics → damped
 `sin`/`cos`). Verified by the `laplace(ilt(F))=F` round-trip.
 
+### Fourier transforms
+```
+fourier_transform(exp(-x^2), x, w);   → exp(-w^2/4)*sqrt(%pi)   (Gaussian)
+fourier_transform(exp(-abs(x)), x, w); → 2/(1+w^2)              (two-sided exp)
+fourier_transform(1/(x^2+1), x, w);   → %pi*exp(-abs(w))        (Lorentzian)
+```
+`fourier_transform(f, x, w) = ∫_{-∞}^{∞} f(x)·e^(-iωx) dx` via the canonical
+transform pairs, with linearity and constant factoring.
+
 ### Algebra
 ```
 expand((a+b)*(a-b));          → a^2 - b^2

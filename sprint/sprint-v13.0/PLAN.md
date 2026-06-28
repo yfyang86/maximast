@@ -96,6 +96,11 @@ eigen · 3c special-function numeric eval · 3d numeric solvers/quadrature/ODE.
   (and the sin analogue). **Remaining (→ 2c algebraic numbers):** Q
   irreducible-over-Q of degree ≥4 (`x⁴+1`) needs ℝ-factorisation with irrational
   coefficients; repeated/general unit-circle integrands.
+- **3e** ✅ (Fourier transforms) — `fourier_transform(f,x,w)=∫f(x)e^(−iωx)dx`
+  via the canonical pairs: Gaussian `exp(−ax²)→√(π/a)e^(−ω²/4a)`, two-sided
+  exponential `exp(−a|x|)→2a/(a²+ω²)`, Lorentzian `1/(x²+a²)→(π/a)e^(−a|ω|)`,
+  with linearity and constant factoring (cross-checks the 2e Fourier integrals
+  at ω=1). General rational FT via 2e residues still future.
 
 ## Progress notes
 
