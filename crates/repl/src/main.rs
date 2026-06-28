@@ -9,7 +9,7 @@ use rustyline::hint::Hinter;
 use rustyline::validate::Validator;
 use rustyline::{Context, Editor, Helper};
 
-const VERSION: &str = "12.4.0";
+const VERSION: &str = "12.5.0";
 
 const RESET: &str = "\x1b[0m";
 const BOLD: &str = "\x1b[1m";

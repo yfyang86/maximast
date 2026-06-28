@@ -15,7 +15,7 @@ cargo run -- -b walkthrough/03_calculus.mac    # run walkthrough
 
 ```
 ╔══════════════════════════════════════════════════╗
-║  Maxima Kernel (Rust)  v12.4.0                   ║
+║  Maxima Kernel (Rust)  v12.5.0                   ║
 ║  A Computer Algebra System                       ║
 ╚══════════════════════════════════════════════════╝
 
@@ -101,9 +101,24 @@ ode2('diff(y,x,2)+y=x^2, y, x);              → undetermined coeffs: +x^2-2
 ode2('diff(y,x,2)+y=sin(x), y, x);           → variation of parameters (resonance)
 ic2(ode2('diff(y,x,2)+y=0,y,x), x=0,y=1,'diff(y,x)=0);   → cos(x)
 bc2(ode2('diff(y,x,2)+y=0,y,x), x=0,y=0, x=%pi/2,y=1);   → sin(x)
+ode2('x^2*'diff(y,x,2)+x*'diff(y,x)-y=0, y, x);          → Euler: %k1*x+%k2/x
+ode2('x^2*'diff(y,x,2)+x*'diff(y,x)+y=0, y, x);          → %k1*cos(log(x))+%k2*sin(log(x))
 ```
 Every non-homogeneous particular solution is verified numerically before it
 is returned; otherwise `ode2` falls back to the noun form.
+
+### Laplace transforms
+```
+laplace(sin(t), t, s);           → 1/(1+s^2)
+ilt(1/(s^2+1), s, t);            → sin(t)
+ilt(1/(s^2-1), s, t);            → (1/2)*exp(t)-(1/2)*exp(-t)   (sinh)
+ilt(s/(s^2+2*s+5), s, t);        → exp(-t)*(cos(2*t)-sin(2*t)/2) (damped)
+ilt(6/((s+1)*(s+2)*(s+3)), s, t); → 3*exp(-t)-6*exp(-2*t)+3*exp(-3*t)
+```
+Inverse Laplace handles a general rational `F(s)=N/D`: `D` is factored over ℚ,
+the partial-fraction numerators are solved exactly, and each term is inverted by
+its transform pair (real poles → `t^j·e^(at)`, irreducible quadratics → damped
+`sin`/`cos`). Verified by the `laplace(ilt(F))=F` round-trip.
 
 ### Algebra
 ```
