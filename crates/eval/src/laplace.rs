@@ -286,6 +286,11 @@ fn ddeg(v: &[BigRational]) -> i64 {
     (0..v.len()).rev().find(|&i| !v[i].is_zero()).map(|i| i as i64).unwrap_or(-1)
 }
 
+/// Expose `split_rational` / `ddeg` for the residue-integral code in integrate.rs.
+pub(crate) fn split_rational_dense(f: &Expr, s_id: maxima_core::SymbolId)
+    -> Option<(Vec<BigRational>, Vec<BigRational>)> { split_rational(f, s_id) }
+pub(crate) fn dense_degree(v: &[BigRational]) -> i64 { ddeg(v) }
+
 fn dpow(p: &[BigRational], n: u32) -> Vec<BigRational> {
     let mut r = vec![BigRational::from(num::BigInt::from(1))];
     for _ in 0..n { r = dmul(&r, p); }
