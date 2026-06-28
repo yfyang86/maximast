@@ -103,7 +103,12 @@ ic2(ode2('diff(y,x,2)+y=0,y,x), x=0,y=1,'diff(y,x)=0);   → cos(x)
 bc2(ode2('diff(y,x,2)+y=0,y,x), x=0,y=0, x=%pi/2,y=1);   → sin(x)
 ode2('x^2*'diff(y,x,2)+x*'diff(y,x)-y=0, y, x);          → Euler: %k1*x+%k2/x
 ode2('x^2*'diff(y,x,2)+x*'diff(y,x)+y=0, y, x);          → %k1*cos(log(x))+%k2*sin(log(x))
+desolve('diff(y,t,2)+y=0, y(t));                         → cos(t)*y(0)+sin(t)*at('diff(y,t),t=0)
+atvalue(y(t),t=0,2)$ atvalue('diff(y,t),t=0,3)$ desolve('diff(y,t,2)+y=0, y(t)); → 2*cos(t)+3*sin(t)
 ```
+`desolve` solves linear constant-coefficient ODEs by the Laplace-transform
+method (transform → solve for Y(s) → `ilt`); initial values come from `atvalue`,
+otherwise stay symbolic as `y(0)`, `at('diff(y,t),t=0)`.
 Every non-homogeneous particular solution is verified numerically before it
 is returned; otherwise `ode2` falls back to the noun form.
 

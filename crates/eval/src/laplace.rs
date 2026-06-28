@@ -544,11 +544,15 @@ fn extract_ratio(expr: &Expr, _s: &Expr) -> Option<(Expr, Expr)> {
 }
 
 fn extract_s2_plus_w2(den: &Expr, s: &Expr) -> Option<Expr> {
+    // Only s²+w² with a non-negative w² is an oscillation; s²−w² (negative
+    // constant) is sinh/cosh and is left to the general rational inverter.
+    let nonneg = |w: &Expr| !matches!(w,
+        Expr::Integer(n) if *n < 0) && !matches!(w, Expr::Rational { num, den } if (*num < 0) != (*den < 0));
     if let Expr::List { op: Operator::MPlus, args, .. } = den {
         if args.len() == 2 {
             let s2 = Expr::pow(s.clone(), Expr::int(2));
-            if args[0] == s2 && !contains_var(&args[1], s) { return Some(args[1].clone()); }
-            if args[1] == s2 && !contains_var(&args[0], s) { return Some(args[0].clone()); }
+            if args[0] == s2 && !contains_var(&args[1], s) && nonneg(&args[1]) { return Some(args[1].clone()); }
+            if args[1] == s2 && !contains_var(&args[0], s) && nonneg(&args[0]) { return Some(args[0].clone()); }
         }
     }
     None

@@ -79,6 +79,11 @@ eigen · 3c special-function numeric eval · 3d numeric solvers/quadrature/ODE.
   distinct real roots → `x^m₁,x^m₂`; repeated → `(k1+k2 ln x)x^m`; complex p±qi
   → `x^p(k1 cos(q ln x)+k2 sin(q ln x))`. Each solution is substituted back and
   required to vanish (correct-or-noun). Frobenius series fallback still future.
+- **3g** ✅ (`desolve`) — linear constant-coefficient ODEs by the Laplace
+  method: transform (`L{y'}=sY−y(0)`, `L{y''}=s²Y−s·y(0)−y'(0)`), solve the
+  algebraic equation for Y(s), invert with `ilt`. Y splits by linearity so each
+  `ilt` piece has rational coefficients. Initial values from `atvalue` (new),
+  else symbolic `y(0)`/`at('diff(y,t),t=0)`. ODE systems still future.
 
 ## Progress notes
 

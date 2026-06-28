@@ -29,8 +29,120 @@ pub(crate) fn eval_ode(name: &str, args: &[Expr], env: &mut crate::env::Environm
             }
             None
         }
+        "atvalue" => {
+            // atvalue(y(t), t=t0, v) / atvalue('diff(y,t), t=t0, v): store the
+            // initial value under a key keyed on (function, derivative order, t0).
+            if args.len() == 3 { store_atvalue(&args[0], &args[1], &args[2], env); }
+            Some(args.get(2).cloned().unwrap_or(Expr::int(0)))
+        }
+        "desolve" => {
+            if args.len() == 2 {
+                if let Some(r) = desolve(&args[0], &args[1], env) { return Some(r); }
+            }
+            Some(Expr::call("desolve", args.to_vec()))
+        }
         _ => None,
     }
+}
+
+/// Solve a linear constant-coefficient ODE in y(t) by the Laplace method.
+/// L{a y'' + b y' + c y = g} ⟹ (a s²+b s+c) Y = G(s) + (a s+b)·y(0) + a·y'(0),
+/// so Y splits by linearity into pieces with rational coefficients, each
+/// inverted by `ilt`. Initial values come from `atvalue`, else stay symbolic
+/// (y(0), at('diff(y,t),t=0)). a,b,c must be constant.
+fn desolve(eq: &Expr, dep: &Expr, env: &mut crate::env::Environment) -> Option<Expr> {
+    // dep = y(t): pull the function name and independent variable.
+    let Expr::List { op: Operator::Named(yid), args: da, .. } = dep else { return None };
+    if da.len() != 1 { return None; }
+    let yname = resolve(*yid);
+    let t = da[0].clone();
+    let y = Expr::sym(&yname);
+
+    let (lhs, rhs) = match eq {
+        Expr::List { op: Operator::MEqual, args, .. } if args.len() == 2 => (args[0].clone(), args[1].clone()),
+        _ => (eq.clone(), Expr::int(0)),
+    };
+    let f = simplify(&Expr::sub(lhs, rhs));
+    let dy = Expr::call("diff", vec![y.clone(), t.clone()]);
+    let d2y = Expr::call("diff", vec![y.clone(), t.clone(), Expr::int(2)]);
+
+    // Coefficients a (of y''), b (of y'), c (of y), forcing g(t).
+    let a = coeff_of(&f, &d2y);
+    let b = coeff_of(&f, &dy);
+    let residual = simplify(&subst(&Expr::int(0), &d2y, &subst(&Expr::int(0), &dy, &f)));
+    let c = coeff_of(&residual, &y);
+    let g = simplify(&Expr::neg(simplify(&subst(&Expr::int(0), &y, &residual))));
+    if contains_var(&a, &t) || contains_var(&b, &t) || contains_var(&c, &t) { return None; }
+    if a == Expr::int(0) && b == Expr::int(0) { return None; }
+
+    let s = Expr::sym(&format!("{yname}_s")); // dummy transform variable
+    let den = simplify(&Expr::add(Expr::add(
+        Expr::mul(a.clone(), Expr::pow(s.clone(), Expr::int(2))),
+        Expr::mul(b.clone(), s.clone())), c.clone()));
+
+    // Initial values: atvalue or symbolic placeholders.
+    let y0 = atvalue_or(&yname, 0, &t, env).unwrap_or_else(|| Expr::call(&yname, vec![Expr::int(0)]));
+    let y1 = atvalue_or(&yname, 1, &t, env).unwrap_or_else(||
+        Expr::call("at", vec![dy.clone(), Expr::List { op: Operator::MEqual, simplified: false,
+            args: vec![t.clone(), Expr::int(0)] }]));
+
+    // ilt of a rational-in-s piece, multiplied by a symbolic constant.
+    let ilt = |num: Expr, env: &mut crate::env::Environment| -> Expr {
+        meval(&Expr::call("ilt",
+            vec![simplify(&Expr::div(num, den.clone())), s.clone(), t.clone()]), env)
+    };
+
+    let mut y_t = Expr::int(0);
+    // Forcing: ilt(G(s)/D) where G = L{g}.
+    if g != Expr::int(0) {
+        let gs = meval(&Expr::call("laplace", vec![g.clone(), t.clone(), s.clone()]), env);
+        if contains_var(&gs, &Expr::sym("laplace")) || is_laplace_noun(&gs) { return None; }
+        y_t = simplify(&Expr::add(y_t, ilt(gs, env)));
+    }
+    // y(0) coefficient (a·s + b):
+    let coef0 = simplify(&Expr::add(Expr::mul(a.clone(), s.clone()), b.clone()));
+    y_t = simplify(&Expr::add(y_t, Expr::mul(y0, ilt(coef0, env))));
+    // y'(0) coefficient (a):
+    if a != Expr::int(0) {
+        y_t = simplify(&Expr::add(y_t, Expr::mul(y1, ilt(a.clone(), env))));
+    }
+
+    // (No final meval: it would evaluate the y'(0) placeholder at('diff(y,t),
+    // t=0) since diff of the bare symbol y is 0. The ilt pieces are already
+    // reduced.)
+    let y_t = simplify(&y_t);
+    // Reject if inversion failed anywhere (a leftover ilt noun).
+    if is_laplace_noun(&y_t) { return None; }
+    Some(Expr::List { op: Operator::MEqual, simplified: false, args: vec![dep.clone(), y_t] })
+}
+
+fn is_laplace_noun(e: &Expr) -> bool {
+    match e {
+        Expr::List { op: Operator::Named(id), .. } if matches!(resolve(*id).as_str(), "ilt" | "laplace") => true,
+        Expr::List { args, .. } => args.iter().any(is_laplace_noun),
+        _ => false,
+    }
+}
+
+/// Key for an atvalue store entry: <fn>'<order>@0.
+fn atvalue_key(yname: &str, order: u32) -> maxima_core::SymbolId {
+    maxima_core::intern(&format!("%atvalue:{yname}:{order}"))
+}
+
+fn store_atvalue(lhs: &Expr, _at: &Expr, v: &Expr, env: &mut crate::env::Environment) {
+    // lhs is y(t) (order 0) or 'diff(y,t[,1]) (order 1).
+    let (yname, order) = match lhs {
+        Expr::List { op: Operator::Named(id), args, .. } if resolve(*id) == "diff" && !args.is_empty() => {
+            if let Expr::Symbol(yid) = &args[0] { (resolve(*yid), 1) } else { return }
+        }
+        Expr::List { op: Operator::Named(id), .. } => (resolve(*id), 0),
+        _ => return,
+    };
+    env.set(atvalue_key(&yname, order), v.clone());
+}
+
+fn atvalue_or(yname: &str, order: u32, _t: &Expr, env: &crate::env::Environment) -> Option<Expr> {
+    env.get(atvalue_key(yname, order)).cloned()
 }
 
 fn ode2(eqn: &Expr, y_expr: &Expr, x_expr: &Expr, env: &mut crate::env::Environment) -> Expr {
