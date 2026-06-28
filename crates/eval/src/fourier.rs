@@ -36,8 +36,55 @@ fn transform(f: &Expr, x: &Expr, w: &Expr) -> Expr {
             if !is_noun(&ft) { return simplify(&Expr::mul(c, ft)); }
         }
     }
-    table(f, x, w).unwrap_or_else(||
-        Expr::call("fourier_transform", vec![f.clone(), x.clone(), w.clone()]))
+    table(f, x, w)
+        .or_else(|| rational_transform(f, x, w))
+        .unwrap_or_else(||
+            Expr::call("fourier_transform", vec![f.clone(), x.clone(), w.clone()]))
+}
+
+/// Rational P/Q (strictly proper, Q with simple irreducible quadratic factors):
+/// F(ω) = C(ω) − i·S(ω) where C,S are the Fourier cos/sin integrals. Combining
+/// the per-quadratic closed forms (pole α±iω_q, numerator Bx+C) collapses to
+///   F(ω) = Σ (π/ω_q)·e^(−ω·ω_q)·[(Bα+C) − i·B·ω_q]·e^(−iωα)   (ω>0).
+/// Verified: F{1/(x²+1)}=π·e^(−ω), F{x/(x²+1)}=−iπ·e^(−ω). Assumes ω>0.
+fn rational_transform(f: &Expr, x: &Expr, w: &Expr) -> Option<Expr> {
+    use num::{BigRational, BigInt, Zero};
+    let Expr::Symbol(var_id) = x else { return None };
+    let terms = crate::laplace::partial_fraction_terms(f, *var_id)?;
+    let four = BigRational::from(BigInt::from(4));
+    let two = BigRational::from(BigInt::from(2));
+    let pi = Expr::sym("%pi");
+    let i = Expr::sym("%i");
+    let br = crate::helpers::bigrat_to_expr;
+    let mut result = Expr::int(0);
+    for (q, j, ncoef) in terms {
+        if q.len() != 3 || j != 1 { return None; }            // real/repeated pole → noun
+        let (b, c) = (q[1].clone(), q[0].clone());
+        if &(&b * &b) - &(&four * &c) >= BigRational::zero() { return None; } // real roots
+        let alpha = -(&b / &two);
+        let omega2 = &c - &(&(&b * &b) / &four);
+        let bb = ncoef.get(1).cloned().unwrap_or_else(BigRational::zero);
+        let cc = ncoef[0].clone();
+        let bac = &(&bb * &alpha) + &cc;                       // Bα + C
+        let omega = Expr::call("sqrt", vec![br(&omega2)]);     // ω_q
+        // amplitude (Bα+C) − i·B·ω_q
+        let amp = Expr::sub(br(&bac),
+            Expr::mul(i.clone(), Expr::mul(br(&bb), omega.clone())));
+        // phase e^(−iωα)
+        let phase = Expr::call("exp", vec![simplify(&Expr::neg(
+            Expr::mul(i.clone(), Expr::mul(w.clone(), br(&alpha)))))]);
+        // damping e^(−ω·ω_q)
+        let damp = Expr::call("exp", vec![simplify(&Expr::neg(
+            Expr::mul(w.clone(), omega.clone())))]);
+        let term = Expr::mul(Expr::div(pi.clone(), omega),
+            Expr::mul(damp, Expr::mul(amp, phase)));
+        result = simplify(&Expr::add(result, term));
+    }
+    Some(meval_fresh(&result))
+}
+
+fn meval_fresh(e: &Expr) -> Expr {
+    crate::eval::meval(e, &mut crate::env::Environment::new())
 }
 
 fn table(f: &Expr, x: &Expr, w: &Expr) -> Option<Expr> {
