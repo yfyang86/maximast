@@ -74,6 +74,11 @@ eigen · 3c special-function numeric eval · 3d numeric solvers/quadrature/ODE.
   `ilt(1/(s²+1))=sin t`, `ilt(1/(s²−1))=sinh t`, repeated poles, damped
   oscillations; verified by `laplace(ilt(F))=F` round-trip. Repeated complex
   poles (quadratic mult ≥2) → noun. (Also a foundation for 3g `desolve`.)
+- **3f** ✅ (Euler–Cauchy) — `ode2` now solves variable-coefficient
+  `A·x²y'' + B·x·y' + C·y = 0` via the indicial equation `A·m²+(B−A)m+C=0`:
+  distinct real roots → `x^m₁,x^m₂`; repeated → `(k1+k2 ln x)x^m`; complex p±qi
+  → `x^p(k1 cos(q ln x)+k2 sin(q ln x))`. Each solution is substituted back and
+  required to vanish (correct-or-noun). Frobenius series fallback still future.
 
 ## Progress notes
 
