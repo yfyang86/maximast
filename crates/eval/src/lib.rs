@@ -36,6 +36,7 @@ pub mod gosper;
 pub mod hypersum;
 pub mod gammafn;
 pub mod genfunc;
+pub mod fourier;
 pub mod recurrence;
 
 pub use env::{Environment, NativeFn, NativeFuncDef};
