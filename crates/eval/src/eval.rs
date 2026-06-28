@@ -1179,17 +1179,21 @@ fn eval_funcall(name: maxima_core::SymbolId, args: &[Expr], env: &mut Environmen
             if evaled_args.len() >= 2 {
                 let f = &evaled_args[0];
                 let var = &evaled_args[1];
+                // For definite integrals, try closed-form formulas before computing
+                // the antiderivative — the latter can be expensive or hit overflow
+                // (e.g. the LRT log path on x⁴+9) on inputs a known formula covers.
+                if evaled_args.len() == 4 {
+                    if let Some(def_result) =
+                        try_known_definite_integral(f, var, &evaled_args[2], &evaled_args[3]) {
+                        return def_result;
+                    }
+                }
                 let result = table_integrate(f, var);
                 if evaled_args.len() == 4 {
                     let a = &evaled_args[2];
                     let b = &evaled_args[3];
                     let is_inf = |e: &Expr| matches!(e, Expr::Symbol(id) if { let n = resolve(*id); n == "inf" || n == "infinity" });
                     let is_minf = |e: &Expr| matches!(e, Expr::Symbol(id) if resolve(*id) == "minf");
-
-                    // Try known definite integral formulas first
-                    if let Some(def_result) = try_known_definite_integral(f, var, a, b) {
-                        return def_result;
-                    }
 
                     // Cauchy principal value: for odd functions over symmetric intervals
                     // ∫_{-a}^{a} f(x) dx = 0 if f is odd and has a pole at 0
@@ -7974,8 +7978,9 @@ mod tests {
     #[test]
     fn eval_improper_integral_no_inf_leak() {
         // Unevaluable improper integrals → noun, never an `inf`-containing result.
-        for s in ["integrate(1/(1+x^4), x, minf, inf);",
-                  "integrate(x^2/(x^4+1), x, 0, inf);",
+        // (The full-line biquadratic ∫1/(1+x⁴) now resolves — see below — but the
+        // half-line [0,∞) forms are still nouns and must not leak a limit.)
+        for s in ["integrate(x^2/(x^4+1), x, 0, inf);",
                   "integrate(1/(1+x^3), x, 0, inf);"] {
             let r = run(s);
             // The noun legitimately carries inf/minf as bounds; the *leak* put an
@@ -7985,6 +7990,7 @@ mod tests {
         }
         // The ones that genuinely resolve must still work.
         assert_eq!(run("integrate(1/(x^2+1), x, minf, inf);"), "%pi");
+        assert_eq!(run("integrate(1/(1+x^4), x, minf, inf);"), "%pi/sqrt(2)");
         assert_eq!(run("integrate(exp(-x), x, 0, inf);"), "1");
     }
     #[test]

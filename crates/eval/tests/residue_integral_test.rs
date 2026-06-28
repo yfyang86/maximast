@@ -47,3 +47,24 @@ fn run(s: &str) -> String { eval_str(s) }
 #[test] fn unit_circle_sine() {
     assert_eq!(run("integrate(1/(2+sin(x)), x, 0, 2*%pi);"), "2*%pi/sqrt(3)");
 }
+
+// Biquadratic denominators irreducible over ℚ (x⁴+px²+q): the algebraic-number
+// case ∫1/(x⁴+1)=π/√2, via ℝ-factorisation + residues. Closed form needs only
+// the surds √q and √(2√q+p) — no general algebraic-number arithmetic.
+#[test] fn biquadratic_unit() {
+    assert_eq!(run("integrate(1/(x^4+1), x, minf, inf);"), "%pi/sqrt(2)");
+    assert_eq!(run("integrate(x^2/(x^4+1), x, minf, inf);"), "%pi/sqrt(2)");
+}
+#[test] fn biquadratic_perfect_square_q() {
+    // q=9,16 fold √q→3,4 — previously overflowed the LRT log path; the closed
+    // form sidesteps it.
+    assert_eq!(run("integrate(1/(x^4+9), x, minf, inf);"), "(1/3)*%pi/sqrt(6)");
+    assert_eq!(run("integrate(1/(x^4+16), x, minf, inf);"), "(1/4)*%pi/(2*sqrt(2))");
+}
+#[test] fn biquadratic_nonsquare_q() {
+    assert_eq!(run("integrate(1/(x^4+5), x, minf, inf);"), "%pi/(sqrt(5)*sqrt(2*sqrt(5)))");
+    assert_eq!(run("integrate(1/(x^4+2), x, minf, inf);"), "%pi/(sqrt(2)*sqrt(2*sqrt(2)))");
+}
+#[test] fn biquadratic_leading_coeff() {
+    assert_eq!(run("integrate(1/(2*x^4+2), x, minf, inf);"), "(1/2)*%pi/sqrt(2)");
+}

@@ -96,6 +96,16 @@ eigen · 3c special-function numeric eval · 3d numeric solvers/quadrature/ODE.
   (and the sin analogue). **Remaining (→ 2c algebraic numbers):** Q
   irreducible-over-Q of degree ≥4 (`x⁴+1`) needs ℝ-factorisation with irrational
   coefficients; repeated/general unit-circle integrands.
+  **2c first increment** ✅ (the algebraic-number unlock, targeted): biquadratic
+  real-line integrals `∫_{−∞}^{∞} N(x)/(x⁴+px²+q) dx` irreducible over ℚ. ℝ-factoring
+  as `(x²+sx+√q)(x²−sx+√q)` and summing the two simple-quadratic residues collapses
+  to `π/√(2√q+p)·(c₂+c₀/√q)` (odd numerator terms → 0) — needs only the surds √q,
+  √(2√q+p), not a general ℚ(α) layer: `∫1/(x⁴+1)=π/√2`, `∫1/(x⁴+9)=π/(3√6)`,
+  `∫x²/(x⁴+1)=π/√2`. Required reordering the definite-integral dispatch to try
+  closed forms **before** the antiderivative (the LRT log path overflows i64 on
+  x⁴+9 — a pre-existing latent panic in `poly::Coeff`, now bypassed for this family;
+  full BigInt `Coeff` still future). **Still future:** general quartics with odd
+  terms (x⁴+x+1), degree ≥6, and the full algebraic-number arithmetic subsystem.
 - **3e** ✅ (Fourier transforms) — `fourier_transform(f,x,w)=∫f(x)e^(−iωx)dx`
   via the canonical pairs: Gaussian `exp(−ax²)→√(π/a)e^(−ω²/4a)`, two-sided
   exponential `exp(−a|x|)→2a/(a²+ω²)`, Lorentzian `1/(x²+a²)→(π/a)e^(−a|ω|)`,
