@@ -111,10 +111,17 @@ ode2('x^2*'diff(y,x,2)+x*'diff(y,x)-y=0, y, x);          → Euler: %k1*x+%k2/x
 ode2('x^2*'diff(y,x,2)+x*'diff(y,x)+y=0, y, x);          → %k1*cos(log(x))+%k2*sin(log(x))
 desolve('diff(y,t,2)+y=0, y(t));                         → cos(t)*y(0)+sin(t)*at('diff(y,t),t=0)
 atvalue(y(t),t=0,2)$ atvalue('diff(y,t),t=0,3)$ desolve('diff(y,t,2)+y=0, y(t)); → 2*cos(t)+3*sin(t)
+desolve([diff(x(t),t)=y(t), diff(y(t),t)=x(t)], [x(t),y(t)]);
+  → [x(t)=cosh-ish in x(0),y(0), y(t)=…]          (2×2 linear system)
+desolve([diff(x(t),t)=-y(t), diff(y(t),t)=x(t)], [x(t),y(t)]);
+  → [x(t)=cos(t)*x(0)-sin(t)*y(0), y(t)=cos(t)*y(0)+sin(t)*x(0)]
 ```
 `desolve` solves linear constant-coefficient ODEs by the Laplace-transform
 method (transform → solve for Y(s) → `ilt`); initial values come from `atvalue`,
-otherwise stay symbolic as `y(0)`, `at('diff(y,t),t=0)`.
+otherwise stay symbolic as `y(0)`, `at('diff(y,t),t=0)`. It also solves **2×2
+first-order linear systems** `desolve([eq1,eq2],[x(t),y(t)])` by transforming
+the system and inverting via Cramer's rule — real, repeated, and complex
+eigenvalues all come back as `exp`/`t·exp`/`cos·sin`, with optional forcing.
 Every non-homogeneous particular solution is verified numerically before it
 is returned; otherwise `ode2` falls back to the noun form.
 
