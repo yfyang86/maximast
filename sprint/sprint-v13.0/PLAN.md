@@ -100,7 +100,11 @@ eigen · 3c special-function numeric eval · 3d numeric solvers/quadrature/ODE.
   via the canonical pairs: Gaussian `exp(−ax²)→√(π/a)e^(−ω²/4a)`, two-sided
   exponential `exp(−a|x|)→2a/(a²+ω²)`, Lorentzian `1/(x²+a²)→(π/a)e^(−a|ω|)`,
   with linearity and constant factoring (cross-checks the 2e Fourier integrals
-  at ω=1). General rational FT via 2e residues still future.
+  at ω=1). **Rational FT** ✅: strictly-proper `P/Q` (simple irreducible
+  quadratic factors) via residues — `F=C(ω)−i·S(ω)` collapses per quadratic to
+  `(π/ω_q)e^(−ω·ω_q)[(Bα+C)−i·B·ω_q]e^(−iωα)` (assumes ω>0):
+  `F{x/(x²+1)}=−iπe^(−w)`, `F{1/((x²+1)(x²+4))}=π/3·e^(−w)−π/6·e^(−2w)`; real
+  poles → noun. Improper P/Q (δ-derivatives) still future.
 
 ## Progress notes
 

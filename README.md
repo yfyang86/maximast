@@ -136,7 +136,14 @@ fourier_transform(exp(-abs(x)), x, w); → 2/(1+w^2)              (two-sided exp
 fourier_transform(1/(x^2+1), x, w);   → %pi*exp(-abs(w))        (Lorentzian)
 ```
 `fourier_transform(f, x, w) = ∫_{-∞}^{∞} f(x)·e^(-iωx) dx` via the canonical
-transform pairs, with linearity and constant factoring.
+transform pairs, with linearity and constant factoring. Strictly-proper
+rational `P/Q` (denominator with simple irreducible quadratic factors) is
+handled by residues — `F = C(ω) − i·S(ω)` reusing the Fourier-integral machinery
+(assumes ω>0):
+```
+fourier_transform(x/(x^2+1), x, w);     → -%i*%pi*exp(-w)
+fourier_transform(1/((x^2+1)*(x^2+4)), x, w); → (1/3)*%pi*exp(-w) - (1/6)*%pi*exp(-2*w)
+```
 
 ### Algebra
 ```
