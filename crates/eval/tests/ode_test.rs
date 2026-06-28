@@ -101,3 +101,23 @@ fn run(s: &str) -> String { eval_str(s) }
     let n = r.chars().filter(|c| !c.is_whitespace()).collect::<String>();
     assert!(n.contains("x^2") && n.contains("cos(x)") && !n.contains("%k"), "got: {}", r);
 }
+
+// Euler–Cauchy (variable-coefficient) equations, V13 3f.
+#[test] fn euler_distinct_real_roots() {
+    // x^2 y'' + x y' - y = 0 → m^2 - 1 = 0 → y = k1 x + k2/x
+    let r = run("ode2('x^2*'diff(y,x,2)+x*'diff(y,x)-y=0, y, x);");
+    let n = r.chars().filter(|c| !c.is_whitespace()).collect::<String>();
+    assert!(n.contains("%k1*x") && n.contains("%k2/x"), "got: {}", r);
+}
+#[test] fn euler_repeated_root() {
+    // x^2 y'' - 3x y' + 4y = 0 → (m-2)^2 → y = x^2 (k1 + k2 ln x)
+    let r = run("ode2('x^2*'diff(y,x,2)-3*x*'diff(y,x)+4*y=0, y, x);");
+    let n = r.chars().filter(|c| !c.is_whitespace()).collect::<String>();
+    assert!(n.contains("x^2") && n.contains("log(x)"), "got: {}", r);
+}
+#[test] fn euler_complex_roots() {
+    // x^2 y'' + x y' + y = 0 → m^2 + 1 = 0 → y = k1 cos(ln x) + k2 sin(ln x)
+    let r = run("ode2('x^2*'diff(y,x,2)+x*'diff(y,x)+y=0, y, x);");
+    let n = r.chars().filter(|c| !c.is_whitespace()).collect::<String>();
+    assert!(n.contains("cos(log(x))") && n.contains("sin(log(x))"), "got: {}", r);
+}

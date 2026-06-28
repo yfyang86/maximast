@@ -150,6 +150,18 @@ fn solve_second_order(f: &Expr, y: &Expr, x: &Expr, dy: &Expr, d2y: &Expr, env: 
 
     // Check constant coefficients (a, b, c don't depend on x)
     if contains_var(&a, x) || contains_var(&b, x) || contains_var(&c, x) {
+        // Euler–Cauchy: A·x²·y'' + B·x·y' + C·y = 0 (A,B,C constant). Detect by
+        // dividing out the x-powers; if homogeneous, solve via x^m.
+        if forcing == Expr::int(0) {
+            let big_a = meval(&Expr::div(a.clone(), Expr::pow(x.clone(), Expr::int(2))), env);
+            let big_b = meval(&Expr::div(b.clone(), x.clone()), env);
+            if !contains_var(&big_a, x) && !contains_var(&big_b, x) && !contains_var(&c, x)
+                && big_a != Expr::int(0) {
+                if let Some(sol) = solve_euler_cauchy(&big_a, &big_b, &c, y, x, env) {
+                    return clean_solution(&sol, env);
+                }
+            }
+        }
         return Expr::call("ode2", vec![Expr::add(f.clone(), Expr::int(0)), y.clone(), x.clone()]);
     }
 
@@ -186,6 +198,55 @@ fn solve_second_order(f: &Expr, y: &Expr, x: &Expr, dy: &Expr, d2y: &Expr, env: 
     }
 
     Expr::call("ode2", vec![Expr::add(f.clone(), Expr::int(0)), y.clone(), x.clone()])
+}
+
+/// Solve the homogeneous Euler–Cauchy equation A·x²y'' + B·x·y' + C·y = 0 via
+/// the indicial equation A·m² + (B−A)·m + C = 0. Real distinct roots → x^m₁,
+/// x^m₂; repeated root → (k1 + k2·ln x)·x^m; complex p±qi → x^p·(k1·cos(q ln x)
+/// + k2·sin(q ln x)). Coefficients must be numeric (to classify the
+/// discriminant); the closed form itself stays exact.
+fn solve_euler_cauchy(big_a: &Expr, big_b: &Expr, c: &Expr, y: &Expr, x: &Expr,
+                      env: &mut crate::env::Environment) -> Option<Expr> {
+    let bma = simplify(&Expr::sub(big_b.clone(), big_a.clone()));    // B − A
+    let disc = meval(&Expr::sub(
+        Expr::pow(bma.clone(), Expr::int(2)),
+        Expr::mul(Expr::int(4), Expr::mul(big_a.clone(), c.clone()))), env); // Δ
+    let two_a = meval(&Expr::mul(Expr::int(2), big_a.clone()), env);
+    let df = to_f64(&disc)?;
+    let (k1, k2) = (Expr::sym("%k1"), Expr::sym("%k2"));
+    let lnx = Expr::call("log", vec![x.clone()]);
+
+    let rhs = if df.abs() < 1e-12 {
+        // repeated root m = −(B−A)/(2A)
+        let m = meval(&Expr::div(Expr::neg(bma), two_a), env);
+        Expr::mul(Expr::add(k1, Expr::mul(k2, lnx)), Expr::pow(x.clone(), m))
+    } else if df > 0.0 {
+        let sq = meval(&Expr::call("sqrt", vec![disc]), env);
+        let m1 = meval(&Expr::div(Expr::add(Expr::neg(bma.clone()), sq.clone()), two_a.clone()), env);
+        let m2 = meval(&Expr::div(Expr::sub(Expr::neg(bma), sq), two_a), env);
+        Expr::add(Expr::mul(k1, Expr::pow(x.clone(), m1)),
+                  Expr::mul(k2, Expr::pow(x.clone(), m2)))
+    } else {
+        // complex p ± q·i: p = −(B−A)/(2A), q = √(−Δ)/(2A)
+        let p = meval(&Expr::div(Expr::neg(bma), two_a.clone()), env);
+        let q = meval(&Expr::div(
+            Expr::call("sqrt", vec![meval(&Expr::neg(disc), env)]), two_a), env);
+        let qlnx = Expr::mul(q, lnx);
+        Expr::mul(Expr::pow(x.clone(), p),
+            Expr::add(Expr::mul(k1, Expr::call("cos", vec![qlnx.clone()])),
+                      Expr::mul(k2, Expr::call("sin", vec![qlnx]))))
+    };
+    let rhs = meval(&rhs, env);
+    // Verify: substitute y=rhs into A·x²y'' + B·x·y' + C·y and require it to
+    // vanish identically (correct-or-noun).
+    let yp = diff_once(&rhs, x);
+    let ypp = diff_once(&yp, x);
+    let residual = expand(&meval(&Expr::add(Expr::add(
+        Expr::mul(big_a.clone(), Expr::mul(Expr::pow(x.clone(), Expr::int(2)), ypp)),
+        Expr::mul(big_b.clone(), Expr::mul(x.clone(), yp))),
+        Expr::mul(c.clone(), rhs.clone())), env));
+    if residual != Expr::int(0) { return None; }
+    Some(Expr::List { op: Operator::MEqual, simplified: false, args: vec![y.clone(), rhs] })
 }
 
 /// meval the RHS of a `y = ...` solution so leftover symbolic-builder

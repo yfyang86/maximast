@@ -50,13 +50,35 @@ eigen · 3c special-function numeric eval · 3d numeric solvers/quadrature/ODE.
   base with |base|<1 (`sum(k·(1/2)^k)=2`); every closed form numerically
   verified at a convergent point, divergent series → noun. (`genfunc.rs`.)
 - **2a** order-≥2 Zeilberger proven certificate — `find_recurrence` already
-  emits the recurrence (Franel/Apéry); a verified Gosper certificate over Q(n)
-  is the remaining rigor step. TODO.
+  emits the recurrence (Franel/Apéry, exact + held-out-verified). Certificate
+  engine foundation **landed**: the symbolic Gosper now handles binomials
+  (reduced to factorials in the shift ratio), so binomial terms telescope and
+  carry WZ certificates (`Σ binomial(k,m)=binomial(n+1,m+1)`;
+  `gosper_certificate(binomial(k,2))=(k-2)/3`). **Remaining (→ Bundle 4):** the
+  symbolic *parametrized* Gosper over Q(n) — the existing Gosper/Petkovsek
+  linear algebra is over Q, and the Zeilberger combination `Σ c_j(n)·F(n+j,k)`
+  needs both a similar-hypergeometric-sum front-end and Q(n) coefficients
+  (confirmed: a rushed reuse of the numeric Gosper can't produce the symbolic
+  certificate). A new Q(n)[k] polynomial layer is the right next step.
 
-## Bundle 4 — Analysis
+## Bundle 4 — Analysis 🚧
 
 1d inverse Laplace (residues) · 2e contour/residue definite integrals ·
 3e Fourier transforms · 3f Frobenius/Euler ODE · 3g `desolve`/ODE systems.
+
+- **1d** ✅ inverse Laplace of a general rational F(s)=N/D via exact partial
+  fractions over Q (`laplace.rs`): D factored into linear and irreducible-
+  quadratic factors, PFD numerators by an exact ℚ linear solve, each term
+  inverted by transform pairs — `A/(s−a)^j → A·t^(j−1)·e^(at)/(j−1)!` (any
+  multiplicity) and `(Bs+C)/((s+p)²+ω²) → e^(−pt)[B cos ωt + ((C−Bp)/ω) sin ωt]`.
+  `ilt(1/(s²+1))=sin t`, `ilt(1/(s²−1))=sinh t`, repeated poles, damped
+  oscillations; verified by `laplace(ilt(F))=F` round-trip. Repeated complex
+  poles (quadratic mult ≥2) → noun. (Also a foundation for 3g `desolve`.)
+- **3f** ✅ (Euler–Cauchy) — `ode2` now solves variable-coefficient
+  `A·x²y'' + B·x·y' + C·y = 0` via the indicial equation `A·m²+(B−A)m+C=0`:
+  distinct real roots → `x^m₁,x^m₂`; repeated → `(k1+k2 ln x)x^m`; complex p±qi
+  → `x^p(k1 cos(q ln x)+k2 sin(q ln x))`. Each solution is substituted back and
+  required to vanish (correct-or-noun). Frobenius series fallback still future.
 
 ## Progress notes
 
