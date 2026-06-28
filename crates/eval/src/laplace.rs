@@ -181,19 +181,33 @@ fn inverse_laplace(f: &Expr, s: &Expr, t: &Expr) -> Expr {
 /// term is inverted: A/(s−a)^j → A·t^(j−1)·e^(at)/(j−1)!, and (Bs+C)/((s+p)²+ω²)
 /// → e^(−pt)[B·cos ωt + ((C−Bp)/ω)·sin ωt]. Repeated complex poles → None.
 fn ilt_rational(f: &Expr, s: &Expr, t: &Expr) -> Option<Expr> {
-    use num::{BigRational, BigInt, Zero};
     let Expr::Symbol(s_id) = s else { return None };
-    let (num, den) = split_rational(f, *s_id)?;
+    let terms = partial_fraction_terms(f, *s_id)?;
+    let mut result = Expr::int(0);
+    for (q, j, ncoef) in terms {
+        result = simplify(&Expr::add(result, invert_term(&q, j, &ncoef, t)?));
+    }
+    Some(simplify(&result))
+}
+
+/// Partial-fraction decomposition of a strictly-proper rational f(var)=N/D over
+/// Q. D is factored into linear and irreducible-quadratic factors (degree ≤ 2;
+/// higher → None), and the numerators are recovered by an exact Q linear solve.
+/// Returns one entry per nonzero term: (monic factor q as dense coeffs, power j,
+/// numerator coeffs of degree < deg q). Shared by inverse Laplace and the
+/// real-line residue integral.
+pub(crate) fn partial_fraction_terms(f: &Expr, var_id: maxima_core::SymbolId)
+    -> Option<Vec<(Vec<BigRational>, u32, Vec<BigRational>)>>
+{
+    use num::{BigInt, Zero};
+    let (num, den) = split_rational(f, var_id)?;
     let (dn, dd) = (ddeg(&num), ddeg(&den));
     if dn < 0 || dd < 1 || dn >= dd { return None; } // need a strictly proper fraction
 
-    // Monic denominator (scale numerator to match).
     let lead = den[dd as usize].clone();
     let num: Vec<BigRational> = num.iter().map(|c| c / &lead).collect();
 
-    // Factor D over Q; require every factor degree ≤ 2 (linear or irreducible
-    // quadratic). Each is monicised.
-    let den_poly = dense_to_poly(&den, *s_id)?;
+    let den_poly = dense_to_poly(&den, var_id)?;
     let factors = maxima_poly::factor_poly(&den_poly);
     let mut facs: Vec<(Vec<BigRational>, u32)> = Vec::new(); // (monic dense q, mult)
     for (q, m) in &factors {
@@ -207,58 +221,48 @@ fn ilt_rational(f: &Expr, s: &Expr, t: &Expr) -> Option<Expr> {
     }
     if facs.is_empty() { return None; }
 
-    // Monic D = ∏ q_i^{m_i}.
-    let mut dmon = vec![BigRational::from(BigInt::from(1))];
+    let mut dmon = vec![BigRational::from(BigInt::from(1))]; // monic D = ∏ q_i^{m_i}
     for (q, m) in &facs { for _ in 0..*m { dmon = dmul(&dmon, q); } }
 
-    // PFD unknowns: for each factor i, power j=1..=m_i, coeff e=0..deg(q_i)−1.
-    // Column (i,j,e) = s^e · (D / q_i^j); RHS = num.
+    // Unknowns: factor i, power j=1..=m_i, coeff e=0..deg(q_i)−1; column = var^e·(D/q_i^j).
     struct Term { fi: usize, j: u32, e: u32 }
-    let mut terms: Vec<Term> = Vec::new();
+    let mut tms: Vec<Term> = Vec::new();
     let mut cols: Vec<Vec<BigRational>> = Vec::new();
     for (fi, (q, m)) in facs.iter().enumerate() {
         let dq = (q.len() - 1) as u32;
         for j in 1..=*m {
-            // cofactor = D / q^j
             let mut cof = dmon.clone();
             for _ in 0..j { cof = ddiv_exact(&cof, q)?; }
             for e in 0..dq {
                 let mut col = vec![BigRational::zero(); e as usize];
-                col.extend(cof.iter().cloned()); // s^e · cofactor
+                col.extend(cof.iter().cloned());
                 cols.push(col);
-                terms.push(Term { fi, j, e });
+                tms.push(Term { fi, j, e });
             }
         }
     }
-    let n_unknowns = cols.len();
-    if n_unknowns != dd as usize { return None; } // PFD slot count must match
+    if cols.len() != dd as usize { return None; }
 
-    // Build the dd×n system: row = power 0..dd-1, solve cols·x = num.
     let rows = dd as usize;
-    let mut mat: Vec<Vec<BigRational>> = (0..rows).map(|r| {
-        cols.iter().map(|c| c.get(r).cloned().unwrap_or_else(BigRational::zero)).collect()
-    }).collect();
+    let mut mat: Vec<Vec<BigRational>> = (0..rows).map(|r|
+        cols.iter().map(|c| c.get(r).cloned().unwrap_or_else(BigRational::zero)).collect()).collect();
     let mut rhs: Vec<BigRational> = (0..rows)
         .map(|r| num.get(r).cloned().unwrap_or_else(BigRational::zero)).collect();
-    let sol = solve_linear(&mut mat, &mut rhs, n_unknowns)?;
+    let sol = solve_linear(&mut mat, &mut rhs, cols.len())?;
 
-    // Invert each term, grouping the unknowns by (factor, power) into a
-    // numerator polynomial (constant for linear, B·s+C for quadratic).
-    let mut result = Expr::int(0);
+    let mut out = Vec::new();
     for (fi, (q, m)) in facs.iter().enumerate() {
         let dq = q.len() - 1;
         for j in 1..=*m {
-            // numerator coeffs for this (fi,j): index by e
             let mut ncoef = vec![BigRational::zero(); dq];
-            for (idx, tm) in terms.iter().enumerate() {
+            for (idx, tm) in tms.iter().enumerate() {
                 if tm.fi == fi && tm.j == j { ncoef[tm.e as usize] = sol[idx].clone(); }
             }
             if ncoef.iter().all(|c| c.is_zero()) { continue; }
-            let piece = invert_term(q, j, &ncoef, t)?;
-            result = simplify(&Expr::add(result, piece));
+            out.push((q.clone(), j, ncoef));
         }
     }
-    Some(simplify(&result))
+    Some(out)
 }
 
 // ---- dense BigRational polynomials (index = power) for the PFD machinery ----
@@ -544,11 +548,15 @@ fn extract_ratio(expr: &Expr, _s: &Expr) -> Option<(Expr, Expr)> {
 }
 
 fn extract_s2_plus_w2(den: &Expr, s: &Expr) -> Option<Expr> {
+    // Only s²+w² with a non-negative w² is an oscillation; s²−w² (negative
+    // constant) is sinh/cosh and is left to the general rational inverter.
+    let nonneg = |w: &Expr| !matches!(w,
+        Expr::Integer(n) if *n < 0) && !matches!(w, Expr::Rational { num, den } if (*num < 0) != (*den < 0));
     if let Expr::List { op: Operator::MPlus, args, .. } = den {
         if args.len() == 2 {
             let s2 = Expr::pow(s.clone(), Expr::int(2));
-            if args[0] == s2 && !contains_var(&args[1], s) { return Some(args[1].clone()); }
-            if args[1] == s2 && !contains_var(&args[0], s) { return Some(args[0].clone()); }
+            if args[0] == s2 && !contains_var(&args[1], s) && nonneg(&args[1]) { return Some(args[1].clone()); }
+            if args[1] == s2 && !contains_var(&args[0], s) && nonneg(&args[0]) { return Some(args[0].clone()); }
         }
     }
     None
