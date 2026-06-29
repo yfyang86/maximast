@@ -1,0 +1,54 @@
+/* ============================================================ */
+/*  43 — Contour integrals & Fourier transforms      (V12/V13)  */
+/*  Definite integrals evaluated by complex-analysis methods:   */
+/*  residues over the real line, Jordan's lemma, the unit       */
+/*  circle, biquadratic (algebraic) denominators, and the       */
+/*  Fourier transform.                                          */
+/*                                                              */
+/*  Run: maxima-repl -b walkthrough/43_contour_integrals.mac    */
+/* ============================================================ */
+
+/* --- Rational P/Q over the real line (upper-half-plane residues) --- */
+/* Each simple/repeated irreducible quadratic contributes a residue. */
+integrate(1/(x^2+1), x, minf, inf);          /* %pi */
+integrate(1/(x^2+2*x+5), x, minf, inf);      /* %pi/2 */
+integrate(1/(x^2+1)^2, x, minf, inf);        /* %pi/2  (double pole) */
+integrate(1/(x^2+1)^3, x, minf, inf);        /* 3*%pi/8 (triple pole) */
+
+/* --- Fourier / Jordan integrals: trig(a*x)*P/Q over the real line --- */
+/* int (Bx+C)cos(ax)/((x-a)^2+w^2) = (pi/w)e^(-aw)[...] (close in UHP). */
+integrate(cos(x)/(x^2+1), x, minf, inf);     /* %pi*exp(-1) */
+integrate(cos(2*x)/(x^2+1), x, minf, inf);   /* %pi*exp(-2) */
+integrate(x*sin(x)/(x^2+1), x, minf, inf);   /* %pi*exp(-1) */
+integrate(sin(x)/(x^2+1), x, minf, inf);     /* 0  (odd integrand) */
+
+/* --- Unit-circle integrals: int_0^{2pi} c/(a+b*trig) dtheta --- */
+/* z = e^{i theta} turns these into residues inside |z|=1; result */
+/* c*2*pi/sqrt(a^2-b^2) (requires a^2 > b^2). */
+integrate(1/(2+cos(x)), x, 0, 2*%pi);        /* 2*%pi/sqrt(3) */
+integrate(1/(5+4*cos(x)), x, 0, 2*%pi);      /* 2*%pi/3 */
+integrate(1/(2+sin(x)), x, 0, 2*%pi);        /* 2*%pi/sqrt(3) */
+
+/* --- Biquadratic denominators irreducible over Q (the algebraic case) --- */
+/* x^4+p x^2+q factors over R as (x^2+s x+sqrt q)(x^2-s x+sqrt q); the */
+/* residue sum collapses to pi/sqrt(2 sqrt q + p) * (c2 + c0/sqrt q). */
+integrate(1/(x^4+1), x, minf, inf);          /* %pi/sqrt(2) */
+integrate(x^2/(x^4+1), x, minf, inf);        /* %pi/sqrt(2) */
+integrate(1/(x^4+9), x, minf, inf);          /* %pi/(3*sqrt(6)) */
+integrate(1/(x^4+5), x, minf, inf);          /* %pi/(sqrt(5)*sqrt(2*sqrt(5))) */
+
+/* --- Fourier transform: F(w) = int f(x) e^(-i w x) dx --- */
+/* Canonical pairs (Gaussian, two-sided exponential, Lorentzian). */
+fourier_transform(exp(-x^2), x, w);          /* exp(-w^2/4)*sqrt(%pi) */
+fourier_transform(exp(-abs(x)), x, w);       /* 2/(1+w^2) */
+fourier_transform(1/(x^2+1), x, w);          /* %pi*exp(-abs(w)) */
+
+/* Rational F.T. via residues (assumes w>0): F = C(w) - i S(w). */
+fourier_transform(x/(x^2+1), x, w);          /* -%i*%pi*exp(-w) */
+fourier_transform(1/((x^2+1)*(x^2+4)), x, w);/* (1/3)*%pi*exp(-w) - (1/6)*%pi*exp(-2*w) */
+
+/* --- Consistency check across methods --- */
+/* The Fourier transform F{1/(x^2+1)} = pi e^{-|w|} (Lorentzian, above) */
+/* must equal the Fourier cos-integral at w=1, since the real part of */
+/* e^{-i w x} is cos(w x). Evaluate the integral at w=1: */
+integrate(cos(x)/(x^2+1), x, minf, inf);     /* %pi*exp(-1) = pi e^{-|w|} at w=1 */
