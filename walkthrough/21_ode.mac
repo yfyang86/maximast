@@ -3,8 +3,9 @@
  * Run: maxima-repl -b walkthrough/21_ode.mac
  *
  * Covers: ode2 for first and second order ODEs, non-homogeneous forcing
- *         (undetermined coefficients + variation of parameters), and
- *         initial/boundary conditions (ic1, ic2, bc2). [V6.0 S6]
+ *         (undetermined coefficients + variation of parameters),
+ *         initial/boundary conditions (ic1, ic2, bc2), and the
+ *         Laplace-based desolve including 2x2 linear systems. [V6.0 S6, V13]
  */
 
 /* --- First-order: separable --- */
@@ -68,3 +69,48 @@ ic2(ode2('diff(y,x,2) + y = 0, y, x), x=0, y=0, 'diff(y,x)=1);
 /* --- Boundary conditions --- */
 /* bc2: y(0)=0, y(pi/2)=1 → sin(x) */
 bc2(ode2('diff(y,x,2) + y = 0, y, x), x=0, y=0, x=%pi/2, y=1);
+
+/* ============================================================ */
+/*  desolve — the Laplace-transform method                      */
+/*  Transform the ODE, solve the algebraic equation for Y(s),   */
+/*  invert with ilt. Initial values come from atvalue, else     */
+/*  stay symbolic as y(0), y'(0).                               */
+/* ============================================================ */
+
+/* --- Scalar ODEs in functional notation y(t) --- */
+/* y' = y → y(t) = exp(t)*y(0) */
+desolve('diff(y,t) = y, y(t));
+
+/* y'' + y = 0 → cos(t)*y(0) + sin(t)*y'(0) (symbolic initial values) */
+desolve('diff(y,t,2) + y = 0, y(t));
+
+/* ============================================================ */
+/*  desolve — 2x2 first-order linear systems                    */
+/*  desolve([eq1, eq2], [x(t), y(t)]). Laplace turns the system */
+/*  into a 2x2 algebraic system; Cramer over                    */
+/*  Delta = s^2 - (a+d)s + (ad-bc) gives X,Y, inverted by ilt.  */
+/*  Real, repeated, and complex eigenvalues all fall out.       */
+/*  Output is in terms of x(0), y(0).                           */
+/* ============================================================ */
+
+/* x'=y, y'=x → eigenvalues +/-1 → cosh/sinh combinations */
+desolve([diff(x(t),t) = y(t), diff(y(t),t) = x(t)], [x(t), y(t)]);
+
+/* x'=-y, y'=x → complex eigenvalues +/- i → rotation */
+/* x(t) = cos(t)x(0) - sin(t)y(0),  y(t) = cos(t)y(0) + sin(t)x(0) */
+desolve([diff(x(t),t) = -y(t), diff(y(t),t) = x(t)], [x(t), y(t)]);
+
+/* x'=2x+y, y'=x+2y → eigenvalues 1 and 3 */
+desolve([diff(x(t),t) = 2*x(t)+y(t), diff(y(t),t) = x(t)+2*y(t)], [x(t), y(t)]);
+
+/* x'=x, y'=x+y → repeated eigenvalue 1 → the t*exp(t) term appears */
+desolve([diff(x(t),t) = x(t), diff(y(t),t) = x(t)+y(t)], [x(t), y(t)]);
+
+/* Non-homogeneous forcing: x'=-x+1, y'=y → x has steady state 1 */
+desolve([diff(x(t),t) = -x(t)+1, diff(y(t),t) = y(t)], [x(t), y(t)]);
+
+/* --- Initial conditions via atvalue (set last: atvalue persists) --- */
+/* y(0)=2, y'(0)=3 → 2cos(t)+3sin(t) */
+atvalue(y(t), t=0, 2)$
+atvalue('diff(y,t), t=0, 3)$
+desolve('diff(y,t,2) + y = 0, y(t));
