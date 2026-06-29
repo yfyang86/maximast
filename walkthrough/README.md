@@ -37,7 +37,7 @@ maxima-repl -b walkthrough/03_calculus.mac
 | 18 | `18_strings.mac` | slength, split, substring, ssearch, parse_string |
 | 19 | `19_number_theory.mac` | ifactors, totient, fibonacci, CRT, Jacobi |
 | 20 | `20_laplace.mac` | Laplace transforms and inverse (ilt) |
-| 21 | `21_ode.mac` | ODE solver (ode2): 1st/2nd order, undetermined coeffs, variation of parameters, ic1/ic2/bc2 |
+| 21 | `21_ode.mac` | ODE solver (ode2): 1st/2nd order, undetermined coeffs, variation of parameters, ic1/ic2/bc2; desolve (Laplace) and 2×2 linear systems |
 | 22 | `22_complex.mac` | Complex numbers: %i, realpart, conjugate, rectform |
 | 23 | `23_trig_special.mac` | Exact trig values: sin(%pi/6), cos(%pi/4), ... |
 | 24 | `24_matrix_arithmetic.mac` | Matrix +/-, scalar*, dot product |
@@ -59,6 +59,7 @@ maxima-repl -b walkthrough/03_calculus.mac
 | 40 | `40_sudoku_visualize.mac` | Sudoku visualization: 9x9 board rendering, validation, and candidate digits |
 | 41 | `41_sudoku_solver.mac` | Sudoku solver: recursive backtracking, solution counting, and a 4x4 demo |
 | 42 | `42_special_integrals.mac` | Named nonelementary integrals (erf, li, Ei, Si, Ci) and the Lazard–Rioboo–Trager logarithmic part |
+| 43 | `43_contour_integrals.mac` | Definite integrals by complex analysis: real-line residues, Jordan's lemma, unit-circle, biquadratic (x⁴+1), and Fourier transforms |
 
 ## Suggested Order
 
@@ -67,3 +68,5 @@ Start with **01-04** for core CAS features, then **05-07** for analysis,
 **12-13** for output and extensibility, **14-16** for applications,
 **17-19** for data structures, **20-21** for transforms and ODEs,
 **22-26** for advanced math, and **27-29** for the meta-system.
+For complex analysis, see **32** (residues) and **43** (contour integrals
+& Fourier transforms).
